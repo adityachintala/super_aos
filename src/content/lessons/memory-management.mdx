@@ -11,6 +11,8 @@ objectives:
   - Compare hierarchical, hashed and inverted page tables, and paging with segmentation
 ---
 
+import { BASE } from '../../lib/base';
+
 import Callout from '../../components/learn/Callout.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
@@ -410,7 +412,7 @@ The ideas worth carrying with you:
 - Page tables are shrunk by making them **hierarchical**, **hashed** or **inverted**.
 - **Segmentation** matches the programmer's view and gives natural protection and sharing, but brings external fragmentation back; **paging the segments** removes it.
 
-Next, [Virtual Memory](/learn/virtual-memory) asks a bold question: what if a process's pages did not all have to be in memory at the same time?
+Next, <a href={`${BASE}/learn/virtual-memory`}>Virtual Memory</a> asks a bold question: what if a process's pages did not all have to be in memory at the same time?
 
 ## Exam-style practice
 

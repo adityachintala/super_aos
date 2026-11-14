@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BASE } from '../../lib/base';
   import { onMount } from 'svelte';
   import { Badge } from '../starwind-svelte/badge';
   import { Button } from '../starwind-svelte/button';
@@ -29,18 +30,18 @@
       </p>
     </div>
     {#if resume}
-      <Button variant="primary" href={`/learn/${resume.id}`}>Continue: {resume.title}<Icon name="arrowRight" /></Button>
+      <Button variant="primary" href={`${BASE}/learn/${resume.id}`}>Continue: {resume.title}<Icon name="arrowRight" /></Button>
     {:else if firstAvailable}
-      <Button variant="primary" href={`/learn/${firstAvailable.id}`}>Start learning<Icon name="arrowRight" /></Button>
+      <Button variant="primary" href={`${BASE}/learn/${firstAvailable.id}`}>Start learning<Icon name="arrowRight" /></Button>
     {/if}
   </CardContent>
 </Card>
 
 <nav class="mt-4 grid gap-3 sm:grid-cols-3" aria-label="Practice">
   {#each [
-    { href: '/review', icon: 'bolt', title: 'Review', text: 'Flashcards, and the questions you have not yet got right.' },
-    { href: '/pyq', icon: 'history', title: 'Past quiz questions', text: 'What has been asked before, with model answers.' },
-    { href: '/exam', icon: 'pencil', title: 'Mock exam', text: 'A timed 40-mark written paper across every unit.' },
+    { href: `${BASE}/review`, icon: 'bolt', title: 'Review', text: 'Flashcards, and the questions you have not yet got right.' },
+    { href: `${BASE}/pyq`, icon: 'history', title: 'Past quiz questions', text: 'What has been asked before, with model answers.' },
+    { href: `${BASE}/exam`, icon: 'pencil', title: 'Mock exam', text: 'A timed 40-mark written paper across every unit.' },
   ] as const as p}
     <a href={p.href} class="group block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-outline/50">
       <Card size="sm" class="group-hover:ring-primary h-full transition-shadow group-hover:shadow-md">
@@ -69,7 +70,7 @@
       <p class="text-muted-foreground">{unit.tagline}</p>
       {#if unit.lessons.every((l) => available.includes(l.id))}
         {@const t = $progress.tests[`unit-${unit.id}`]}
-        <Button variant="outline" size="sm" href={`/unit/${unit.id}`}>
+        <Button variant="outline" size="sm" href={`${BASE}/unit/${unit.id}`}>
           <Icon name="target" />Unit test{#if t}<span class="text-muted-foreground tabular-nums">· best {Math.round(t.best * 100)}%</span>{/if}
         </Button>
       {/if}
@@ -81,7 +82,7 @@
         <li>
           <svelte:element
             this={open ? 'a' : 'div'}
-            href={open ? `/learn/${lesson.id}` : undefined}
+            href={open ? `${BASE}/learn/${lesson.id}` : undefined}
             class="group block h-full rounded-xl outline-none {open ? 'focus-visible:ring-outline/50 focus-visible:ring-3' : ''}"
           >
             <Card size="sm" class="h-full transition-shadow {open ? 'group-hover:ring-primary group-hover:shadow-md' : 'bg-transparent opacity-60'}">

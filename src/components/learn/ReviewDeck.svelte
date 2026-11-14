@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BASE } from '../../lib/base';
   import { onMount } from 'svelte';
   import { Badge } from '../starwind-svelte/badge';
   import { Button } from '../starwind-svelte/button';
@@ -119,7 +120,7 @@
           {:else}
             <Button variant="primary" size="sm" onclick={() => (flipped = true)}>Show the answer</Button>
           {/if}
-          <a class="text-muted-foreground ml-auto text-sm underline underline-offset-2" href={`/learn/${card.lessonId}`}>Open the lesson</a>
+          <a class="text-muted-foreground ml-auto text-sm underline underline-offset-2" href={`${BASE}/learn/${card.lessonId}`}>Open the lesson</a>
         </div>
       {:else}
         <p class="mt-5 text-lg font-medium" role="status">Session done: you knew {knew} of {seen}.</p>

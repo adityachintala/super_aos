@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BASE } from '../../lib/base';
   import { onDestroy, onMount } from 'svelte';
   import { Badge } from '../starwind-svelte/badge';
   import { Button } from '../starwind-svelte/button';
@@ -188,7 +189,7 @@
             <div class="flex flex-wrap items-center gap-2">
               <Badge tone="primary" appearance="soft" size="sm" eyebrow>Question {i + 1}</Badge>
               <Badge variant="outline" size="sm">{got[i]} / {q(i).marks} marks</Badge>
-              <a class="text-muted-foreground ml-auto text-xs underline underline-offset-2" href={`/learn/${item.lessonId}`}>{lessonTitle(item.lessonId)}</a>
+              <a class="text-muted-foreground ml-auto text-xs underline underline-offset-2" href={`${BASE}/learn/${item.lessonId}`}>{lessonTitle(item.lessonId)}</a>
             </div>
             <p class="mt-3 leading-relaxed font-medium">{@html item.q.prompt}</p>
 
@@ -242,7 +243,7 @@
       <ul class="mt-2 grid gap-2">
         {#each changes as c}
           <li class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm">
-            <a class="font-medium underline-offset-2 hover:underline" href={`/learn/${c.lessonId}`}>{lessonTitle(c.lessonId)}</a>
+            <a class="font-medium underline-offset-2 hover:underline" href={`${BASE}/learn/${c.lessonId}`}>{lessonTitle(c.lessonId)}</a>
             <span class="ml-auto flex items-center gap-2">
               {#if c.after !== c.before}
                 <MasteryBadge level={c.before} />
@@ -257,7 +258,7 @@
     <CardFooter class="flex flex-wrap gap-2">
       <Button variant="primary" size="sm" onclick={() => (stage = 'intro')}>Sit another paper</Button>
       <Button variant="outline" size="sm" onclick={() => (stage = 'mark')}>Look at my answers again</Button>
-      <Button variant="outline" size="sm" href="/review">Review weak spots</Button>
+      <Button variant="outline" size="sm" href={`${BASE}/review`}>Review weak spots</Button>
     </CardFooter>
   </Card>
 {/if}

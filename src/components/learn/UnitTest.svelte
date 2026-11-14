@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BASE } from '../../lib/base';
   import { onMount } from 'svelte';
   import { Badge } from '../starwind-svelte/badge';
   import { Button } from '../starwind-svelte/button';
@@ -108,7 +109,7 @@
         {#each changes as c}
           {@const t = perLesson[c.lessonId]}
           <li class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm">
-            <a class="font-medium underline-offset-2 hover:underline" href={`/learn/${c.lessonId}`}>{titleOf(c.lessonId)}</a>
+            <a class="font-medium underline-offset-2 hover:underline" href={`${BASE}/learn/${c.lessonId}`}>{titleOf(c.lessonId)}</a>
             <span class="text-muted-foreground tabular-nums">{Math.round((t.earned / t.total) * 100)}%</span>
             <span class="ml-auto flex items-center gap-2">
               {#if went(c) !== 'same'}
@@ -124,7 +125,7 @@
     </CardContent>
     <CardFooter class="flex flex-wrap gap-2">
       <Button variant="primary" size="sm" onclick={start}>Take another test</Button>
-      <Button variant="outline" size="sm" href="/">Course map</Button>
+      <Button variant="outline" size="sm" href={`${BASE}/`}>Course map</Button>
     </CardFooter>
   {/if}
 </Card>

@@ -1,4 +1,5 @@
 ---
+import { BASE } from '../../lib/base';
 import { getCollection, render } from 'astro:content';
 import Base from '@/layouts/Base.astro';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/starwind/breadcrumb';
@@ -34,7 +35,7 @@ const prereqs = entry.data.prerequisites.map((id) => ({ id, lesson: findLesson(i
     <main class="min-w-0 pt-8">
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem><BreadcrumbLink href="/">Course map</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem><BreadcrumbLink href={`${BASE}/`}>Course map</BreadcrumbLink></BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem><BreadcrumbPage>Unit {meta.unit.id}: {meta.unit.title}</BreadcrumbPage></BreadcrumbItem>
         </BreadcrumbList>
@@ -68,7 +69,7 @@ const prereqs = entry.data.prerequisites.map((id) => ({ id, lesson: findLesson(i
                       <>
                         {i > 0 && ', '}
                         {p.open ? (
-                          <a class="text-primary-accent underline underline-offset-2" href={`/learn/${p.id}`}>
+                          <a class="text-primary-accent underline underline-offset-2" href={`${BASE}/learn/${p.id}`}>
                             {p.lesson?.title ?? p.id}
                           </a>
                         ) : (
@@ -91,12 +92,12 @@ const prereqs = entry.data.prerequisites.map((id) => ({ id, lesson: findLesson(i
       <nav class="mt-12 flex flex-wrap justify-between gap-3" aria-label="Lesson navigation">
         {
           prev ? (
-            <Button variant="outline" href={`/learn/${prev.id}`}>
+            <Button variant="outline" href={`${BASE}/learn/${prev.id}`}>
               <Icon name="arrowLeft" />
               {prev.title}
             </Button>
           ) : (
-            <Button variant="outline" href="/">
+            <Button variant="outline" href={`${BASE}/`}>
               <Icon name="arrowLeft" />
               Course map
             </Button>
@@ -104,12 +105,12 @@ const prereqs = entry.data.prerequisites.map((id) => ({ id, lesson: findLesson(i
         }
         {
           next ? (
-            <Button variant="primary" href={`/learn/${next.id}`}>
+            <Button variant="primary" href={`${BASE}/learn/${next.id}`}>
               {next.title}
               <Icon name="arrowRight" />
             </Button>
           ) : (
-            <Button variant="primary" href="/">
+            <Button variant="primary" href={`${BASE}/`}>
               Back to course map
               <Icon name="arrowRight" />
             </Button>

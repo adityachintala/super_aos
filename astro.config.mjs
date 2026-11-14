@@ -7,6 +7,8 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
 export default defineConfig({
+  // Served at mglsj.eu.org/super_aos, so all asset and page URLs need this prefix.
+  base: '/super_aos/',
   integrations: [svelte(), mdx()],
   markdown: {
     // The unified processor is needed for the remark/rehype math plugins.
