@@ -1,0 +1,25 @@
+---
+import { doodles, type DoodleName } from '@/lib/doodles';
+
+interface Props {
+  name: DoodleName;
+  class?: string;
+  /** Leave empty for a decorative doodle. */
+  label?: string;
+}
+const { name, class: className, label } = Astro.props;
+---
+
+<svg
+  viewBox="0 0 100 100"
+  class:list={['sketch', className]}
+  fill="none"
+  stroke="currentColor"
+  stroke-width="3"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+  set:html={doodles[name]}
+/>

@@ -4,10 +4,12 @@ import { getCollection, render } from 'astro:content';
 import Base from '@/layouts/Base.astro';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/starwind/breadcrumb';
 import { Button } from '@/components/starwind/button';
-import { Card, CardContent } from '@/components/starwind/card';
 import { Prose } from '@/components/starwind/prose';
 import Icon from '@/components/Icon.astro';
 import LessonTracker from '@/components/learn/LessonTracker.svelte';
+import ReaderBar from '@/components/learn/ReaderBar.svelte';
+import ReaderNav from '@/components/learn/ReaderNav.svelte';
+import Doodle from '@/components/Doodle.astro';
 import { allLessons, findLesson } from '@/lib/course';
 
 export async function getStaticPaths() {
@@ -41,53 +43,95 @@ const prereqs = entry.data.prerequisites.map((id) => ({ id, lesson: findLesson(i
         </BreadcrumbList>
       </Breadcrumb>
 
-      <header class="mt-4 border-b pb-8">
-        <h1 class="text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">{entry.data.title}</h1>
-        <p class="text-muted-foreground mt-2 max-w-2xl text-lg">{entry.data.summary}</p>
-        <div class="text-muted-foreground mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          <span class="flex items-center gap-1.5"><Icon name="clock" />about {entry.data.minutes} min</span>
-          <LessonTracker client:load lessonId={entry.id} />
+      <header class="mt-4">
+        <div class="grid items-start gap-6 sm:grid-cols-[1fr_auto]">
+          <div>
+            <p class="text-note-ink inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold tracking-wider uppercase" style={`background:${meta.unit.note}`}>
+              Unit {meta.unit.id} · {meta.unit.title}
+            </p>
+            <h1 class="mt-3 text-4xl leading-[1.08] font-semibold tracking-tight text-balance sm:text-5xl">{entry.data.title}</h1>
+            <div class="text-muted-foreground mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+              <span class="flex items-center gap-1.5"><Icon name="clock" />about {entry.data.minutes} min, in short bites</span>
+              <LessonTracker client:load lessonId={entry.id} />
+            </div>
+          </div>
+          <Doodle name={meta.doodle} class="hidden size-32 sm:block" />
         </div>
 
-        {
-          entry.data.objectives.length > 0 && (
-            <Card size="sm" class="mt-6 text-base">
-              <CardContent>
-                <p class="text-muted-foreground text-xs font-medium tracking-wider uppercase">After this lesson you can</p>
-                <ul class="mt-3 grid gap-2">
-                  {entry.data.objectives.map((o) => (
-                    <li class="flex gap-2">
-                      <Icon name="check" class="text-primary-accent mt-1 size-4" />
-                      <span>{o}</span>
-                    </li>
+        <div class="stickynote mt-8 max-w-xl px-6 pt-7 pb-5" style="--note: var(--note-yellow); --tilt: -0.8deg">
+          <p class="hand text-2xl opacity-70">The big idea</p>
+          <p class="mt-1 text-xl leading-snug font-medium">{meta.hook}</p>
+        </div>
+
+        <details class="deep bg-card mt-8 rounded-2xl border">
+          <summary class="flex items-center gap-3 rounded-2xl px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-outline/50">
+            <Icon name="arrowRight" class="deep-chevron text-muted-foreground size-4 shrink-0 transition-transform" />
+            <span class="font-medium">What you will be able to do after this lesson</span>
+          </summary>
+          <div class="border-t px-4 py-4 sm:px-6">
+            <p class="text-muted-foreground">{entry.data.summary}</p>
+            <ul class="mt-3 grid gap-2">
+              {
+                entry.data.objectives.map((o) => (
+                  <li class="flex gap-2">
+                    <Icon name="check" class="text-primary-accent mt-1 size-4" />
+                    <span>{o}</span>
+                  </li>
+                ))
+              }
+            </ul>
+            {
+              prereqs.length > 0 && (
+                <p class="text-muted-foreground mt-4 text-sm">
+                  <span class="text-foreground font-medium">Helps to know first:</span>{' '}
+                  {prereqs.map((p, i) => (
+                    <>
+                      {i > 0 && ', '}
+                      {p.open ? (
+                        <a class="text-primary-accent underline underline-offset-2" href={`${BASE}/learn/${p.id}`}>
+                          {p.lesson?.title ?? p.id}
+                        </a>
+                      ) : (
+                        <span>{p.lesson?.title ?? p.id}</span>
+                      )}
+                    </>
                   ))}
-                </ul>
-                {prereqs.length > 0 && (
-                  <p class="text-muted-foreground mt-4 text-sm">
-                    <span class="text-foreground font-medium">Helps to know first:</span>{' '}
-                    {prereqs.map((p, i) => (
-                      <>
-                        {i > 0 && ', '}
-                        {p.open ? (
-                          <a class="text-primary-accent underline underline-offset-2" href={`${BASE}/learn/${p.id}`}>
-                            {p.lesson?.title ?? p.id}
-                          </a>
-                        ) : (
-                          <span>{p.lesson?.title ?? p.id}</span>
-                        )}
-                      </>
-                    ))}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )
-        }
+                </p>
+              )
+            }
+          </div>
+        </details>
       </header>
 
-      <Prose class="lesson mt-8 max-w-none text-lg">
+      <ReaderBar client:load lessonId={entry.id} />
+
+      <Prose class="lesson mt-6 max-w-none text-lg">
         <Content />
       </Prose>
+
+      {/* Shows the right section before the page's scripts load, so the whole lesson never flashes up. */}
+      <script is:inline data-lesson={entry.id}>
+        (function () {
+          try {
+            var id = document.currentScript.dataset.lesson;
+            var p = JSON.parse(localStorage.getItem('super-aos-reader') || '{}');
+            var el = document.querySelector('.lesson');
+            if (!el) return;
+            if (p.size === 'large') el.dataset.size = 'large';
+            if (p.mode === 'all') return;
+            var bites = el.querySelectorAll(':scope > .bite');
+            if (!bites.length) return;
+            var i = Math.min((p.at && p.at[id]) || 0, bites.length - 1);
+            var target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+            var bite = target && target.closest('.bite');
+            if (bite) i = [].indexOf.call(bites, bite);
+            bites[i].setAttribute('data-current', '');
+            el.classList.add('stepping');
+          } catch (e) {}
+        })();
+      </script>
+
+      <ReaderNav client:load />
 
       <nav class="mt-12 flex flex-wrap justify-between gap-3" aria-label="Lesson navigation">
         {
@@ -156,11 +200,14 @@ const prereqs = entry.data.prerequisites.map((id) => ({ id, lesson: findLesson(i
     document.querySelectorAll<HTMLAnchorElement>('.toc-link').forEach((a) => links.set(a.hash.slice(1), a));
     const targets = [...links.keys()].map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
     const mark = () => {
-      let current = targets[0];
-      for (const el of targets) if (el.getBoundingClientRect().top < 140) current = el;
+      // Only headings that are on screen count: in step mode the other sections are hidden.
+      const visible = targets.filter((el) => el.offsetParent !== null);
+      let current = visible[0];
+      for (const el of visible) if (el.getBoundingClientRect().top < 200) current = el;
       links.forEach((a, id) => (id === current?.id ? a.setAttribute('aria-current', 'true') : a.removeAttribute('aria-current')));
     };
     document.addEventListener('scroll', mark, { passive: true });
+    document.addEventListener('reader:change', mark);
     mark();
   </script>
 </Base>

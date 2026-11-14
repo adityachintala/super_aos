@@ -1,0 +1,37 @@
+---
+// A sticky note stuck on the lesson: a fun fact, a memory trick or a real-world sighting.
+import Doodle from '@/components/Doodle.astro';
+
+interface Props {
+  kind?: 'fact' | 'trick' | 'real';
+  title?: string;
+}
+const kinds = {
+  fact: { label: 'Did you know?', doodle: 'bulb', note: 'var(--note-yellow)', tilt: '-1.2deg' },
+  trick: { label: 'Memory trick', doodle: 'star', note: 'var(--note-rose)', tilt: '1deg' },
+  real: { label: 'Spotted in real life', doodle: 'eye', note: 'var(--note-teal)', tilt: '-0.6deg' },
+} as const;
+const { kind = 'fact', title } = Astro.props;
+const k = kinds[kind];
+---
+
+<aside class="stickynote not-sw-prose mx-auto my-10 max-w-xl px-6 pt-7 pb-6" style={`--note:${k.note};--tilt:${k.tilt}`} role="note">
+  <p class="flex items-center gap-2">
+    <Doodle name={k.doodle} class="size-9 shrink-0" />
+    <span class="hand text-3xl">{title ?? k.label}</span>
+  </p>
+  <div class="note-body mt-2 text-lg leading-relaxed"><slot /></div>
+</aside>
+
+<style is:global>
+  .note-body > :first-child {
+    margin-top: 0;
+  }
+  .note-body > * + * {
+    margin-top: 0.6rem;
+  }
+  .note-body :is(ul, ol) {
+    padding-left: 1.3rem;
+    list-style: disc;
+  }
+</style>

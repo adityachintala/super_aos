@@ -12,6 +12,8 @@
     "@astrojs/markdown-remark": "^7.3.8",
     "@astrojs/mdx": "^8.1.5",
     "@astrojs/svelte": "^9.1.5",
+    "@fontsource-variable/caveat": "^5.3.0",
+    "@fontsource-variable/figtree": "^5.3.0",
     "@starwind-ui/astro": "1.5.0",
     "@starwind-ui/svelte": "0.3.0",
     "@tabler/icons": "^3.37.1",

@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -107,6 +110,12 @@ The two goals, efficiency and convenience, are **sometimes contradictory**. Much
 
 <Question client:visible q={checks.goals} />
 
+<Note kind="trick">
+
+A car is the easiest way to remember what an operating system is. **Engine** = the machine part. **Steering wheel and pedals** = the operating part. You never touch the engine, and you still get where you are going.
+
+</Note>
+
 ## Why systems get complicated
 
 A modern operating system runs to tens of millions of lines of code, written by thousands of people. Windows has about 50 million lines. Understanding how something of that size is built at all requires a vocabulary for **complexity**.
@@ -137,6 +146,12 @@ A modern operating system runs to tens of millions of lines of code, written by 
 **Change.** When the environment changes, requirements change. The original design may lose its relevance, knowledge of how to maintain old equipment disappears, and unanticipated requirements appear. Changes to an existing system **propagate**: a bug fix introduces another bug. The bottom line is that **as systems age, they accumulate changes and become more complex.**
 
 **Maintaining high utilisation.** We want high performance, and when a resource is scarce we want its utilisation to be high. But **trying to increase the utilisation of a limited resource increases complexity**. A single-lane road needs no rules until you try to keep it full in both directions. Most of what follows in this course, from scheduling to virtual memory, is machinery invented to squeeze more out of scarce hardware.
+
+<Note kind="fact">
+
+The Linux kernel started in 1991 as roughly **10,000 lines** of code written by one student. Today it is more than **30 million lines**, with thousands of contributors. Nobody alive has read all of it.
+
+</Note>
 
 ## Coping with complexity
 
@@ -207,6 +222,12 @@ The result is a tree structure known as a **hierarchy**. A large company is orga
 | **Layering** | Builds each set of mechanisms only on the complete set below |
 | **Hierarchy** | Assembles parts into subsystems, and subsystems into larger ones |
 
+<Note kind="trick">
+
+The four tools, in order: **M**odularity, **A**bstraction, **L**ayering, **H**ierarchy. Try: "**M**y **A**unt **L**oves **H**oney."
+
+</Note>
+
 ## Why computer systems are different
 
 All complex systems, whether a space station, a national economy or a communications satellite, share certain problems:
@@ -235,6 +256,12 @@ It is also easy for a designer to **misuse** the tools of modularity, abstractio
 ### The rate of change is unprecedented
 
 The cost of computation and communication has dropped by roughly 30 percent a year for decades, and some components have improved faster still. No other technology has behaved like this. A bridge, an aeroplane or a dam built to today's knowledge will still be reasonable in thirty years. A complex computer system that takes several years to build may be **obsolete by the time it is delivered**, because the assumptions about what is cheap and what is expensive have changed underneath it.
+
+<Note kind="fact">
+
+**Brooks's law** (1975): adding people to a late software project makes it later. The reason is the formula you just used: n people have n(n − 1)/2 ways to talk to each other.
+
+</Note>
 
 ## Two more techniques
 
@@ -268,7 +295,15 @@ No single feature sinks a system. The system designer has to keep in mind the **
 The treatment of complexity in this lesson follows Saltzer and Kaashoek, *Principles of Computer System Design*. Its claims will be tested throughout the course: every operating system you study is an answer to the question of which modularity, which abstractions and which layers to choose.
 </Callout>
 
+<Note kind="fact">
+
+"Keep it simple" is older than computing. The phrase **KISS** is credited to Kelly Johnson, an aircraft designer who wanted jets that a mechanic could fix in the field with a handful of tools.
+
+</Note>
+
 ## What the course covers
+
+<Optional />
 
 The lessons are organised into five units.
 

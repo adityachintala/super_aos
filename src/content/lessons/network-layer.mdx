@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -80,6 +83,12 @@ There is a wrinkle. If H1 has established connection 1 to H2, and H3 also wants 
 | Congestion control | Difficult | Easy if enough resources can be allocated in advance for each VC |
 
 <Question client:visible q={checks.vc} />
+
+<Note kind="trick">
+
+A **datagram** network is the postal service: every letter carries the full address and may take a different route. A **virtual circuit** is a phone call: set up the line once, then everything follows the same path.
+
+</Note>
 
 ## Routing algorithms
 
@@ -199,6 +208,12 @@ In a network of 17 routers in five regions, a full table has 17 entries. A hiera
 
 Other forms of routing serve other delivery patterns. **Broadcast routing** delivers a packet to all destinations, and **multicast routing** to a well-defined group of them.
 
+<Note kind="fact">
+
+Dijkstra designed his shortest-path algorithm in 1956 in about **twenty minutes**, sitting at a café in Amsterdam, without pencil or paper. It is still inside the routers carrying this page to you.
+
+</Note>
+
 ## Congestion control
 
 When too many packets are present in a part of the network, causing packet delay and loss that degrade performance, the situation is called **congestion**. The network and transport layers **share the responsibility** for handling it. Congestion occurs within the network, so the network layer experiences it directly; but the most effective way to control it is to **reduce the load** that the transport layer places on the network.
@@ -245,6 +260,12 @@ Two feedback mechanisms:
 More intelligent shedding needs cooperation from senders: applications must **mark the importance** of their packets.
 
 **Random early detection (RED).** Dealing with congestion when it first starts is more effective than letting it gum up the works. Routers maintain a **running average of their queue lengths**. When the average queue length on some link exceeds a threshold, the link is said to be congested and a small fraction of the packets are **dropped at random**. Picking at random makes it more likely that the fastest senders will see a packet drop. The affected sender notices the loss when there is no acknowledgement, and slows down. Dropping early, before all the buffer space is exhausted, gives better performance than dropping only when the buffers are full.
+
+<Note kind="trick">
+
+Congestion is a traffic jam. Once the road is full, **adding more cars makes everyone slower**, not faster. That is why networks ask senders to slow down.
+
+</Note>
 
 ## Quality of service
 
@@ -350,6 +371,12 @@ The pieces now fit together. A user offers a flow, described by its traffic shap
 QoS questions tend to ask for the chain, not one link of it: **what the application needs** (bandwidth, delay, jitter, loss) → **shape the traffic** (leaky or token bucket) → **reserve resources and schedule** (fair queueing, WFQ) → **admit or refuse** (admission control). Mention that the alternative is over-provisioning, which costs money.
 </Callout>
 
+<Note kind="trick">
+
+A **leaky bucket** is a funnel: water comes out at one steady rate however fast you pour. A **token bucket** is pocket money: save up tokens while idle, then spend them in a burst.
+
+</Note>
+
 ## The network layer in the Internet
 
 The Internet is an interconnected collection of many networks, held together by one protocol: **IP**. Its design was shaped by a set of guiding principles worth knowing:
@@ -409,7 +436,7 @@ The advantage of hierarchy is that routers can forward packets based on **only t
 
 **NAT.** IPv4 addresses are scarce. With **network address translation**, an ISP assigns a home or business a **single external IP address**, and within the customer's network every computer gets a unique address from a private range. Just before a packet leaves the network, a **NAT box** converts the internal source address to the shared external one. To send replies back to the right machine, it uses the **TCP or UDP port**: it replaces the source port with an index into a translation table that records the original internal address and port. NAT is very common in homes and offices. It also **violates layering**, since a network-layer device is reading and rewriting transport-layer fields.
 
-### Control protocols
+<Deep title="Control protocols">
 
 IP works with the help of several companion protocols.
 
@@ -419,11 +446,15 @@ IP works with the help of several companion protocols.
 | **ARP** (Address Resolution Protocol) | Finds the Ethernet address that corresponds to a local IP address. A host broadcasts "who owns this IP address?" and the owner replies with its Ethernet address. The glue needed to send any IP packet on a LAN |
 | **DHCP** (Dynamic Host Configuration Protocol) | Assigns a local IP address to a host automatically. The host sends a request to a server, which grants a **lease** on an address |
 
-### MPLS
+</Deep>
+
+<Deep title="MPLS">
 
 **Multiprotocol label switching** sends packets along established paths. A label is added in front of each IP packet, and forwarding is based on that label rather than on the destination address. Using the label as an index into an internal table makes finding the output line a matter of a table lookup. ISPs use it to move traffic across their networks and to provide quality of service. It is the virtual-circuit idea, added just below the IP layer.
 
-### IPv6
+</Deep>
+
+<Deep title="IPv6">
 
 IPv4 is running out of addresses, even with CIDR and NAT. **IPv6** was designed to support **billions of hosts**, even with inefficient address allocation, and to simplify the protocol so that routers can process packets faster.
 
@@ -431,6 +462,14 @@ IPv4 is running out of addresses, even with CIDR and NAT. **IPv6** was designed 
 - They are written as **eight groups of four hexadecimal digits**, separated by colons: `8000:0000:0000:0000:0123:4567:89AB:CDEF`.
 - Two abbreviations are allowed. **Leading zeros** within a group can be omitted, so `0123` becomes `123`. And **one or more groups of 16 zero bits** can be replaced by a pair of colons. The address above becomes `8000::123:4567:89AB:CDEF`.
 - An IPv4 address can be written as a pair of colons followed by the old dotted decimal number: `::192.31.20.46`.
+
+</Deep>
+
+<Note kind="fact">
+
+IPv4 has about **4.3 billion** addresses, which seemed endless in 1981. The central pool ran dry in **2011**. IPv6 has about 340 undecillion: enough for every grain of sand on Earth, many times over.
+
+</Note>
 
 ## Summary
 

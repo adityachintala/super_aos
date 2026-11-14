@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -84,11 +87,19 @@ Processing can be done in parallel at several granularities, and hardware has cl
 
 A modern processor exploits all of the first four. The move from parallel to distributed processing is a move to coarser granularity.
 
-### Utility computing, the Internet of Things
+<Deep title="Utility computing, the Internet of Things">
 
 **Utility computing** is a business model in which customers receive computing resources from a paid service provider. All grid and cloud platforms can be regarded as utility service providers.
 
 The **Internet of Things (IoT)** is the networked interconnection of everyday objects, tools, devices and computers: a wireless network of sensors connecting the things in daily life. It demands universal addressability and has to be designed to track on the order of 100 trillion static or moving objects. A **cyber-physical system (CPS)** is the result of interaction between computational processes and the physical world, merging the "3C" technologies of **computation, communication and control** into a closed feedback loop. The IoT emphasises the networking connections among physical objects, the CPS the applications built on them.
+
+</Deep>
+
+<Note kind="fact">
+
+The word **cloud** comes from engineers' diagrams. For decades they drew a fluffy cloud to mean "the network out there, whose details we do not care about". Then the cloud became the product.
+
+</Note>
 
 ## Enabling technologies
 
@@ -150,6 +161,12 @@ From that definition:
 
 Traditionally a distributed system was owned and operated by one administrative domain, such as a research laboratory or a company, for its own on-premises needs. Those systems suffer from constant maintenance, poor utilisation and the rising cost of hardware and software upgrades. Cloud computing, as an **on-demand** paradigm, relieves users of these problems.
 
+<Note kind="trick">
+
+**Cluster**: one room, one owner. **Grid**: many owners sharing their machines. **Cloud**: somebody else's machines, rented by the hour.
+
+</Note>
+
 ## Cloud service models
 
 Clouds offer their resources at three levels. Switch between them to see which layers of the stack the customer still looks after.
@@ -176,6 +193,12 @@ Clouds offer their resources at three levels. Switch between them to see which l
 8. Service agreements, business models and pricing policies have to be worked out.
 
 The first six are benefits. The last two are a reminder that moving to the cloud raises questions that do not exist when everything is in your own building.
+
+<Note kind="trick">
+
+Pizza. **IaaS**: you rent the kitchen and cook it yourself. **PaaS**: the pizza is delivered and you lay the table. **SaaS**: you eat at the restaurant and do nothing at all.
+
+</Note>
 
 ## Software environments
 
@@ -206,12 +229,14 @@ In a distributed system, performance depends on many factors.
 - **System overhead** comes from OS boot time, compile time, I/O data rate and so on.
 - Other metrics include quality of service, **availability** and dependability, and security resilience against network attacks.
 
-### Dimensions of scalability
+<Deep title="Dimensions of scalability">
 
 - **Size scalability**: achieving higher performance or more functionality by increasing the machine size (more processors, cache, memory, storage, I/O channels).
 - **Software scalability**: upgrades to the OS or compilers, adding libraries, porting new applications, friendlier programming environments.
 - **Application scalability**: matching the *problem* size to the machine size. Problem size affects the data set or the workload.
 - **Technology scalability**: a system that can adapt to changes in building technologies, such as components and networking.
+
+</Deep>
 
 ### Amdahl's law
 
@@ -265,6 +290,12 @@ and the efficiency is *E′* = *S′* / *n* = α / *n* + (1 − α). For the sam
 Use **Amdahl's law** when the workload is fixed: it tells you the gain from adding processors to the *same* problem. Use **Gustafson's law** when the problem grows with the machine: it tells you how much *more* work a bigger machine can do in the same time. A good answer states the assumption before the formula.
 </Callout>
 
+<Note kind="fact">
+
+Amdahl's law is from 1967 and still stings. If just **5 percent** of a program must run serially, then even with infinite processors it can never run more than **20 times** faster.
+
+</Note>
+
 ## Availability, security and energy
 
 ### Fault tolerance and availability
@@ -281,11 +312,13 @@ Availability is affected by many factors. Any component that brings down the who
 
 <Question client:visible q={checks.avail} />
 
-### Network threats and data integrity
+<Deep title="Network threats and data integrity">
 
 Clusters, grids and clouds must be protected from attacks that cause a **loss of confidentiality** (information leaks), a **loss of data integrity** (user alteration, Trojan horses, service spoofing), or a **loss of availability** (denial-of-service attacks). Lack of authentication or authorization leads to illegitimate use of computing resources. Protecting a data centre needs integrated solutions rather than a single mechanism.
 
-### Energy efficiency
+</Deep>
+
+<Deep title="Energy efficiency">
 
 The traditional goals of parallel and distributed systems are high performance and high throughput with some reliability. Energy has joined them: energy consumption raises monetary, environmental and system-performance issues, and **cooling** is a further cost on top of the power used by the machines themselves.
 
@@ -307,6 +340,14 @@ E = C_{\text{eff}}\, f\, v^2\, t
 $$
 
 where *v* is the supply voltage, *f* the clock frequency, *t* the time and *C*<sub>eff</sub> the effective capacitance. Because energy depends on the *square* of the voltage, running a lightly loaded processor at lower voltage and frequency saves a great deal, at the cost of taking longer.
+
+</Deep>
+
+<Note kind="fact">
+
+"Five nines" means 99.999 percent availability. That allows a little over **5 minutes of downtime in a whole year**. Each extra nine is ten times harder to achieve.
+
+</Note>
 
 ## Summary
 

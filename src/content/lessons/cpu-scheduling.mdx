@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -66,6 +69,12 @@ The **dispatcher** is the module that gives control of the CPU to the process se
 
 The dispatcher should be as fast as possible, since it is invoked during every process switch. The time it takes to stop one process and start another running is the **dispatch latency**.
 
+<Note kind="real">
+
+Your operating system makes scheduling decisions astonishingly often. A Linux kernel is usually built to tick between **100 and 1000 times every second**, and can reschedule at each tick.
+
+</Note>
+
 ## Scheduling criteria
 
 Different algorithms favour different classes of processes. To compare them, several criteria are used.
@@ -108,6 +117,12 @@ FCFS also suffers from the **convoy effect**. Suppose there is one CPU-bound pro
 FCFS is **non-preemptive**, which makes it particularly troublesome for time-sharing systems, where each user must get a share of the CPU at regular intervals.
 
 <Question client:visible q={checks.fcfs} />
+
+<Note kind="trick">
+
+The **convoy effect** is being stuck behind a slow truck on a single-lane road. Everyone behind it, however fast, crawls at the truck's speed.
+
+</Note>
 
 ## Shortest-job-first
 
@@ -154,6 +169,12 @@ Since both α and (1 − α) are at most 1, each successive term has less weight
 
 <Question client:visible q={checks.exp} />
 
+<Note kind="trick">
+
+Shortest-job-first is the **express lane** at a supermarket: let the person with two items go before the person with a full trolley, and the average wait for everyone falls.
+
+</Note>
+
 ## Priority scheduling
 
 A **priority** (an integer) is associated with each process, and the CPU is allocated to the process with the highest priority. Equal-priority processes are scheduled FCFS. In this lesson, as in most texts, a **smaller number means a higher priority**.
@@ -171,6 +192,12 @@ Priority scheduling can be either **preemptive** or **non-preemptive**. A preemp
 **The solution: aging.** Gradually **increase the priority of processes that wait in the system for a long time**. If priorities range from 0 (low) to 127 (high), incrementing the priority of a waiting process by 1 every 15 minutes means that even a process with an initial priority of 0 would reach the highest priority in no more than 32 hours.
 
 <Question client:visible q={checks.aging} />
+
+<Note kind="fact">
+
+There is a rumour that when the IBM 7094 at MIT was shut down in 1973, the operators found a low-priority job that had been submitted in **1967** and had still not been run. That is starvation.
+
+</Note>
 
 ## Round robin
 
@@ -328,7 +355,15 @@ The simulator starts with the classic case: periods 50 and 80, bursts 25 and 35.
 
 **Proportional-share scheduling** allocates *T* shares among all applications. An application receives *N* shares, with *N* less than *T*, which ensures it will have *N*/*T* of the total processor time. It must work with an **admission-control** policy, admitting a client only if sufficient shares are available.
 
+<Note kind="fact">
+
+During the Apollo 11 landing in 1969, the guidance computer was overloaded and flashed "1202" alarms. Its **priority scheduler** dropped the low-priority jobs and kept the landing jobs running. The crew landed safely.
+
+</Note>
+
 ## How real systems schedule
+
+<Optional />
 
 **Solaris** uses priority-based thread scheduling with scheduling classes: time-sharing (the default), interactive, real-time, system, fair-share and fixed-priority. Within the time-sharing class it uses a multilevel feedback queue driven by a **dispatch table**: there is an **inverse relationship between priorities and time slices**, so the higher the priority, the smaller the time slice. A thread that uses its entire time quantum has its priority lowered; a thread returning from sleep (such as waiting for I/O) has its priority raised, which gives good response time to interactive processes.
 

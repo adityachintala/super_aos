@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -32,7 +35,7 @@ Three terms are used throughout:
 - The **virtual machine manager (VMM)**, also called the **hypervisor**, creates and runs virtual machines by providing an interface that is *identical* to the host (except in the case of paravirtualization, discussed later).
 - A **guest** is the process provided with a virtual copy of the host. Usually the guest is an operating system.
 
-### A short history
+<Deep title="A short history">
 
 Virtual machines first appeared commercially on **IBM mainframes in 1972**. They allowed multiple users to share a batch-oriented system, each with what looked like a private machine.
 
@@ -43,6 +46,14 @@ A formal definition of virtualization helped the idea move beyond IBM. A VMM mus
 3. **Safety.** The VMM is in complete control of system resources.
 
 By the late 1990s Intel CPUs had become fast enough for researchers to try virtualizing general-purpose PCs. **Xen** and **VMware** created technologies that are still in use, and virtualization has since spread to many operating systems, CPUs and VMMs.
+
+</Deep>
+
+<Note kind="fact">
+
+Virtual machines are much older than the cloud. IBM was running them on mainframes in the **1960s**, and sold them commercially from 1972, so that many users could each have what looked like a private computer.
+
+</Note>
 
 ## What virtualization buys
 
@@ -111,7 +122,7 @@ Paravirtualization does not fit the definition of virtualization, because the VM
 
 Paravirtualization allowed older x86 CPUs to be virtualized without binary translation. It is needed less as hardware support for virtual machines has grown: on modern CPUs Xen no longer requires guests to be modified, at which point it is no longer paravirtualization.
 
-### Programming-environment virtualization
+<Deep title="Programming-environment virtualization">
 
 Not really virtualization, but it uses similar techniques and provides similar features. A programming language is designed to run within a custom-built virtualized environment. Here "virtualization" means providing **APIs that define a set of features** made available to a language and its programs.
 
@@ -122,11 +133,15 @@ The **Java virtual machine (JVM)** is the standard example. Java, introduced by 
 - The JVM is compiled for each architecture, so the same program runs anywhere: "write once, run anywhere".
 - It includes **garbage collection** to reclaim memory no longer in use, and is made faster by a **just-in-time (JIT) compiler** that turns bytecode into native code and caches it.
 
-### Emulation
+</Deep>
+
+<Deep title="Emulation">
 
 Virtualization requires the underlying CPU to be the same as the one the guest was compiled for. **Emulation** is the older, different technique for when it is not: it allows an application or system written for one hardware environment to run on a very different one, such as a different type of CPU.
 
 Every guest instruction must be **translated** from the guest's instruction set to the native one. This is useful when a company replaces outdated servers with a new architecture but wants to keep running old applications. The challenge is performance: emulated code can run an **order of magnitude slower** than native code, although the newer machine is often so much faster that the slowdown is tolerable. Emulation is very popular in gaming, where old consoles are emulated on new hardware.
+
+</Deep>
 
 ### Application containment
 
@@ -140,6 +155,12 @@ Some goals of virtualization are to segregate applications, manage their perform
 - CPU and memory are divided between the zones, and each zone can even have its own scheduler.
 
 Containers are much lighter than virtual machines, since no guest kernel has to be booted or kept in memory. BSD Jails, IBM AIX WPARs and Linux containers follow the same idea.
+
+<Note kind="trick">
+
+A **type 1** hypervisor is the landlord: it owns the building and rents out flats. A **type 2** hypervisor is a tenant who sublets a room: it is itself a guest of the host operating system.
+
+</Note>
 
 ## The building blocks
 
@@ -236,6 +257,12 @@ Intel added the **VT-x** instructions in **2005**, and AMD the **AMD-V** instruc
 
 Hardware support for **nested page tables**, for DMA and for interrupts followed, removing most of the remaining overhead.
 
+<Note kind="fact">
+
+For years the x86 processor was said to be impossible to virtualise properly, because a handful of its sensitive instructions did not trap. **VMware** got round this in the late 1990s by rewriting those instructions on the fly: binary translation.
+
+</Note>
+
 ## Virtualization and the operating system
 
 Virtualization changes how the familiar components of an operating system have to work, because every guest has been configured as though it owned resources that it is in fact sharing.
@@ -279,7 +306,7 @@ All the same, I/O is complicated for a VMM. Standard operating systems have many
 - **bridge** a guest to the network, so that the guest has its own address and direct access; and/or
 - provide **network address translation (NAT)**: the guest has an address local to the machine it runs on, and the VMM translates it, hiding the guest's address.
 
-### Storage management
+<Deep title="Storage management">
 
 Both a boot disk and general data access have to be provided to every guest, and a host may have dozens of guests, so standard disk partitioning is not sufficient.
 
@@ -289,6 +316,8 @@ Both a boot disk and general data access have to be provided to every guest, and
 A disk image is convenient: **duplicate the file to create a new guest**, and **move the file to another system to move the guest**.
 
 Two conversions connect the physical and virtual worlds. **Physical-to-virtual (P-to-V)** takes the disk blocks of a physical system's disks and stores them in files in the VMM's format, turning a real machine into a guest. **Virtual-to-physical (V-to-P)** goes the other way, which is useful for debugging. The VMM also has to give guests access to network-attached storage and to other disks and partitions.
+
+</Deep>
 
 ### Live migration
 
@@ -312,7 +341,15 @@ The guest runs throughout the bulk of the copying. It is stopped only for the la
 
 Two practical points. Disk state is normally **not** migrated, because the guest's disk is on network storage reachable from both hosts; only the network connection to it has to be re-established. And networking survives because the guest's network identity moves with it: the network simply learns that the guest's address is now reachable through the new host.
 
+<Note kind="real">
+
+When Amazon launched its EC2 cloud in 2006, the virtual machines ran on **Xen**, the open-source hypervisor from the University of Cambridge that introduced paravirtualisation.
+
+</Note>
+
 ## Two examples
+
+<Optional />
 
 **VMware Workstation** is a popular commercial application that abstracts Intel x86 and compatible hardware into isolated virtual machines. It runs as an **application on a host operating system** such as Windows or Linux, which makes it a **Type 2** hypervisor. Several guests, such as Windows and Linux, can run concurrently as independent virtual machines, as far as resources allow. The virtualization layer abstracts the physical hardware into virtual machines, each with its own virtual CPU, memory, disk drives and network interfaces. A guest's disk can be a physical disk or, more usually, a file within the host's file system, so copying the file copies the whole guest.
 

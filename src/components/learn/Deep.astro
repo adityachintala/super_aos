@@ -1,0 +1,21 @@
+---
+// Extra detail, folded away so the main line of the lesson stays short.
+// Nothing is removed: open it when you want the full story.
+import Icon from '@/components/Icon.astro';
+
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+
+<details class="deep bg-muted/50 my-6 rounded-2xl border border-dashed">
+  <summary class="flex items-center gap-3 rounded-2xl px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-outline/50">
+    <Icon name="arrowRight" class="deep-chevron text-muted-foreground size-4 shrink-0 transition-transform" />
+    <span class="grid">
+      <span class="text-muted-foreground not-sw-prose text-xs font-semibold tracking-wider uppercase">More detail · open if you want it</span>
+      <span class="not-sw-prose text-base font-semibold">{title}</span>
+    </span>
+  </summary>
+  <div class="deep-body border-t border-dashed px-4 py-4 sm:px-6"><slot /></div>
+</details>

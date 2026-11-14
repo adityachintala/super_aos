@@ -1,5 +1,5 @@
 ---
-import { Alert, AlertDescription, AlertTitle } from '@/components/starwind/alert';
+// A pastel panel that pulls one idea out of the running text.
 import Icon from '@/components/Icon.astro';
 import type { IconName } from '@/lib/icons';
 
@@ -7,22 +7,22 @@ interface Props {
   type?: 'key' | 'exam' | 'pitfall' | 'analogy' | 'history';
   title?: string;
 }
-type Variant = 'default' | 'primary' | 'info' | 'warning';
-const kinds: Record<NonNullable<Props['type']>, { icon: IconName; label: string; variant: Variant }> = {
-  key: { icon: 'key', label: 'Key idea', variant: 'primary' },
-  exam: { icon: 'target', label: 'Often asked', variant: 'info' },
-  pitfall: { icon: 'alert', label: 'Common mistake', variant: 'warning' },
-  analogy: { icon: 'bulb', label: 'Think of it like this', variant: 'default' },
-  history: { icon: 'history', label: 'A bit of history', variant: 'default' },
+const kinds: Record<NonNullable<Props['type']>, { icon: IconName; label: string; note: string }> = {
+  key: { icon: 'key', label: 'Key idea', note: 'var(--note-yellow)' },
+  exam: { icon: 'target', label: 'Often asked', note: 'var(--note-lilac)' },
+  pitfall: { icon: 'alert', label: 'Common mistake', note: 'var(--note-coral)' },
+  analogy: { icon: 'bulb', label: 'Think of it like this', note: 'var(--note-teal)' },
+  history: { icon: 'history', label: 'A bit of history', note: 'var(--note-orange)' },
 };
 const { type = 'key', title } = Astro.props;
 const k = kinds[type];
 ---
 
-<Alert variant={k.variant} role="note" class="not-sw-prose my-6">
-  <AlertTitle class="text-base"><Icon name={k.icon} class="size-4.5" />{title ?? k.label}</AlertTitle>
-  <AlertDescription class="callout-body"><slot /></AlertDescription>
-</Alert>
+<aside class="panel not-sw-prose my-8 px-6 py-5" style={`--note:${k.note}`} role="note">
+  <p class="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase opacity-70"><Icon name={k.icon} class="size-4" />{k.label}</p>
+  {title && <p class="mt-1 text-xl leading-snug font-semibold">{title}</p>}
+  <div class="callout-body mt-2 text-[1.05rem] leading-relaxed"><slot /></div>
+</aside>
 
 <style is:global>
   .callout-body > :first-child {
@@ -39,8 +39,5 @@ const k = kinds[type];
   }
   .callout-body ul {
     list-style: disc;
-  }
-  .callout-body strong {
-    font-weight: 600;
   }
 </style>

@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -79,6 +82,12 @@ Notice how little of that is actually transferring data.
 
 <Question client:visible q={checks.latency} />
 
+<Note kind="fact">
+
+The first hard disk drive, the IBM **RAMAC** of 1956, stored about **5 megabytes** on fifty platters each 61 cm across. It weighed around a tonne and was delivered by forklift.
+
+</Note>
+
 ## Nonvolatile memory devices
 
 Flash-based storage that looks like a disk drive is a **solid-state disk (SSD)**. The same technology appears as USB drives, and as the main storage soldered onto the boards of phones and laptops. An SSD typically uses **NAND flash**: each chip is an array of blocks, and each block is an array of pages.
@@ -108,11 +117,19 @@ The device hides all this behind a controller that runs several algorithms:
 
 <Question client:visible q={checks.ssd} />
 
-### Volatile memory and tape
+<Deep title="Volatile memory and tape">
 
 **RAM drives** present a part of DRAM as a raw block device, usually formatted with a file system (Linux `/dev/ram`, or `/tmp` as a `tmpfs`). They are not really secondary storage, because the contents vanish with the power, but they give users very fast temporary storage under their own control, unlike the caches and buffers that the OS manages on their behalf.
 
 **Magnetic tape** holds a lot and lasts a long time, but access is sequential and slow, so today it is used mainly for backup and archives.
+
+</Deep>
+
+<Note kind="fact">
+
+A disk head does not touch the platter. It floats on a cushion of air a few **nanometres** thick while the surface rushes past underneath. If it ever touches, that is a **head crash**, and the data under it is gone.
+
+</Note>
 
 ## How devices are attached and addressed
 
@@ -200,9 +217,17 @@ To avoid starvation, Linux provides a **deadline** scheduler. It keeps separate 
 
 Today this work is mostly done inside the drives and controllers themselves, which know the real geometry. The OS hands over LBAs and the device sorts them.
 
-### Scheduling NVM devices
+<Deep title="Scheduling NVM devices">
 
 Disk-scheduling algorithms exist to reduce head movement. A flash device has no head. For that reason NVM devices generally use a simple **FCFS** policy, sometimes merging adjacent requests. One wrinkle remains: read times are uniform, but write times are not, because a write may trigger garbage collection.
+
+</Deep>
+
+<Note kind="trick">
+
+**SCAN** is a lift. It keeps going up, stopping at each floor someone asked for, then comes back down. It does not zigzag to whoever pressed the button most recently.
+
+</Note>
 
 ## Detecting and correcting errors
 
@@ -246,6 +271,8 @@ Swap space is the part of secondary storage used by virtual memory, for whole pr
 - Several swap spaces on separate devices spread the paging I/O load.
 
 ## Storage attachment
+
+<Optional />
 
 Computers reach storage in three ways.
 
@@ -368,7 +395,15 @@ Other useful features found alongside RAID:
 - A **snapshot** is a view of the file system as it was at a point in time, before a set of changes.
 - **Replication** automatically duplicates writes to a separate site, for redundancy and disaster recovery. It can be synchronous or asynchronous.
 
+<Note kind="fact">
+
+RAID was named in a 1988 paper from Berkeley. The **I** first stood for **Inexpensive**: lots of cheap PC disks instead of one costly mainframe disk. Marketing departments later changed it to "Independent".
+
+</Note>
+
 ## Object storage
+
+<Optional />
 
 File systems navigated by people through directories do not scale to the very largest data sets. **Object storage** starts from a different idea: a **storage pool** into which **objects** are placed.
 
@@ -379,6 +414,12 @@ File systems navigated by people through directories do not scale to the very la
 The typical sequence is: create an object in the pool and receive an **object ID**; access the object by that ID; delete it by that ID.
 
 Object-storage management software decides where objects are stored and manages their protection, typically by keeping **N copies on N different systems** in the cluster. Such systems are **horizontally scalable** (add more machines to grow) and hold unstructured, content-addressable data. The **Hadoop file system (HDFS)** and **Ceph** are two examples; HDFS has a lesson of its own later in this unit.
+
+<Note kind="trick">
+
+RAID **0** has **zero** protection. RAID **1** keeps **one** extra copy of everything. RAID **5** spreads parity so that losing **one** disk is survivable. RAID **6** survives **two**.
+
+</Note>
 
 ## Summary
 

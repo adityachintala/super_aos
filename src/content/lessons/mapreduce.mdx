@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -41,6 +44,12 @@ Before MapReduce, every team wrote that machinery again, and the simple computat
 - monitoring and status updates.
 
 Programmers with no experience of parallel and distributed systems can use the resources of a large cluster.
+
+<Note kind="fact">
+
+The names **map** and **reduce** come from Lisp and other functional programming languages, where they are everyday tools. Google's insight was that they are easy to run on thousands of machines.
+
+</Note>
 
 ## The programming model
 
@@ -113,7 +122,7 @@ Run it yourself. Change the text, the number of map and reduce tasks, and the jo
 
 <MapReduceFlow client:visible />
 
-### More things that fit the model
+<Deep title="More things that fit the model">
 
 Many real computations can be phrased this way.
 
@@ -126,6 +135,14 @@ Many real computations can be phrased this way.
 | **Distributed sort** | (key, record) | Emits all pairs unchanged, relying on the ordering guarantee |
 
 The **inverted index** is the heart of a search engine: for each word, the list of documents that contain it. Within Google, MapReduce was used for large-scale machine learning, clustering, statistical machine translation, graph computations and the production web-search index.
+
+</Deep>
+
+<Note kind="trick">
+
+Counting votes in an election. Each polling station counts its own ballots (**map**). The tallies are grouped by candidate (**shuffle**). Someone adds up each candidate's pile (**reduce**).
+
+</Note>
 
 ## How a job is executed
 
@@ -167,7 +184,7 @@ For each map task and each reduce task, the master stores its **state** (*idle*,
 
 In Hadoop's implementation the master is called the **JobTracker** and the daemon on each worker machine is a **TaskTracker**. A client submits a job, naming the code and the input files; the JobTracker breaks the input into chunks and assigns the work; the TaskTrackers run the tasks and exchange map output to build the input for the reduce phase.
 
-### Task granularity
+<Deep title="Task granularity">
 
 The map phase is divided into *M* pieces and the reduce phase into *R* pieces. Ideally **M and R are much larger than the number of worker machines**.
 
@@ -176,6 +193,8 @@ The map phase is divided into *M* pieces and the reduce phase into *R* pieces. I
 - Shuffling can be pipelined with map execution.
 
 There are practical bounds. The master must make **O(M + R)** scheduling decisions and keep **O(M × R)** state in memory. *R* is also often constrained by users, because each reduce task produces a separate output file. In practice *M* is chosen so that each task handles roughly 16 to 64 MB of input (which makes the locality optimisation below most effective), and *R* is a small multiple of the number of machines. A typical computation used **M = 200,000 and R = 5,000 on 2,000 worker machines**.
+
+</Deep>
 
 ## Fault tolerance
 
@@ -212,6 +231,12 @@ There is only **one master**, so its failure is unlikely. It would be easy to ma
 
 Re-running a task is only acceptable if it gives the same answer. When the user's map and reduce functions are **deterministic** functions of their inputs, the distributed implementation produces the same output as a non-faulting sequential execution of the whole program. This relies on **atomic commits** of task output: a reduce task writes to a private temporary file and renames it to the final name when it finishes, and an atomic rename guarantees that the final file contains the data of just one execution of that task.
 
+<Note kind="fact">
+
+In the original paper, Google's engineers deliberately **killed 200 of about 1,750 machines** in the middle of a job. It finished anyway, only about 5 percent slower.
+
+</Note>
+
 ## Refinements
 
 A handful of extensions make a large practical difference.
@@ -244,13 +269,15 @@ Tick "Use a combiner" in the simulator above and watch the number of pairs cross
 
 <Question client:visible q={checks.combiner} />
 
-### Other refinements
+<Deep title="Other refinements">
 
 - **Ordering guarantees.** Within a given partition, the intermediate pairs are processed in increasing key order. This makes it easy to produce a sorted output file per partition, which helps when the output needs efficient lookups by key.
 - **Skipping bad records.** Sometimes a bug in user code makes map or reduce crash deterministically on certain records. The best fix is to repair the bug, but that is not always possible, for instance when it is in a third-party library. Each worker installs a signal handler; on a crash it sends a "last gasp" UDP packet to the master containing the sequence number of the record being processed. When the master has seen **more than one failure on the same record**, it tells the next re-execution to **skip** it.
 - **Compression** of intermediate data.
 - **Local execution.** An alternative implementation runs the whole job sequentially on one machine, for debugging, profiling and small-scale testing.
 - **Counters.** A facility for counting occurrences of events, such as the number of words processed; values are propagated to the master with the ping responses and are useful for sanity-checking a job.
+
+</Deep>
 
 ## Did it work?
 
@@ -266,6 +293,12 @@ The most significant use was a complete rewrite of Google's **production indexin
 - **Easier to operate.** Machine failures, slow machines and networking hiccups are dealt with automatically, and performance can be improved simply by **adding more machines**.
 
 By August 2004 Google was running about 29,000 MapReduce jobs a month, averaging 157 worker machines and 1.2 worker deaths per job.
+
+<Note kind="fact">
+
+MapReduce was published in 2004 by Jeffrey Dean and Sanjay Ghemawat. Within four years Google reported more than **ten thousand** different MapReduce programs running inside the company.
+
+</Note>
 
 ## Summary
 

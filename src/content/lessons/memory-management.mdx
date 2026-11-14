@@ -14,6 +14,9 @@ objectives:
 import { BASE } from '../../lib/base';
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -76,7 +79,7 @@ The later the binding, the more flexible the system. Execution-time binding is w
 
 <Question client:visible q={checks.binding} />
 
-### Loading and linking only what you need
+<Deep title="Loading and linking only what you need">
 
 Two techniques avoid filling memory with code that may never run.
 
@@ -84,7 +87,9 @@ Two techniques avoid filling memory with code that may never run.
 
 **Dynamic linking.** With *static* linking, library routines are copied into every executable. With dynamic linking, linking itself is postponed until execution time. The executable contains a small **stub** for each library routine. When called, the stub locates the routine in memory (loading the library if necessary), replaces itself with the routine's address, and runs it. Every process shares one copy of the library, and a library can be updated without relinking the programs that use it. Because the library code is shared between processes that are otherwise protected from each other, dynamic linking **needs operating-system support**.
 
-### Overlays
+</Deep>
+
+<Deep title="Overlays">
 
 Before virtual memory, how did you run a program that was larger than the memory you were given? With **overlays**: keep in memory only the instructions and data needed at a given time, and overwrite them with the next part when it is needed.
 
@@ -96,6 +101,8 @@ A two-pass assembler shows the idea. Suppose pass 1 needs 70K, pass 2 needs 80K,
 When pass 1 finishes, a small overlay driver reads overlay B over the top of overlay A and jumps to pass 2. Both fit in 150K.
 
 Overlays need no operating-system support, but the programmer must design the overlay structure by hand and understand the program completely. Today they survive only on small systems that lack memory-management hardware.
+
+</Deep>
 
 ## Logical and physical addresses
 
@@ -118,6 +125,12 @@ Protection only works because user programs cannot change the registers. The ins
 
 <Question client:visible q={checks.privileged} />
 
+<Note kind="trick">
+
+A **logical address** is a flat number: "flat 12". The **base register** is the street address of the building. The hardware adds the two to find the real door. Move the building and only the base changes.
+
+</Note>
+
 ## Swapping
 
 Suppose the CPU scheduler picks a process, and the dispatcher finds it is not in memory, and there is no free memory either. The dispatcher **swaps out** some process that is in memory to a **backing store** (a fast disk big enough to hold the memory images of all processes) and **swaps in** the one it wants.
@@ -126,7 +139,7 @@ Suppose the CPU scheduler picks a process, and the dispatcher finds it is not in
 - Most of the swap time is **transfer time**, which is directly proportional to the amount of memory swapped. Swapping a large process is slow.
 - Where does a swapped-out process return to? With compile-time or load-time binding it must return to exactly the same location. With execution-time binding it can go anywhere.
 
-### The pending I/O problem
+<Deep title="The pending I/O problem">
 
 A process should be idle when it is swapped. Imagine process A asks a device to read data into a buffer in A's memory, and is then swapped out while it waits. The freed memory goes to process B. When the device finishes, it writes the data into what is now **B's memory**.
 
@@ -136,6 +149,8 @@ There are two ways out:
 2. **Do I/O only into operating-system buffers.** The OS buffer never moves. Data is copied between it and the process only when the process is swapped back in. This costs an extra copy.
 
 Full swapping of whole processes is too slow to be used routinely. UNIX kept it normally disabled, starting it only when many processes were running and memory use crossed a threshold, and stopping when the load fell. Modern systems swap individual pages instead, which is the subject of the next lesson.
+
+</Deep>
 
 ## Contiguous allocation
 
@@ -170,6 +185,12 @@ The simulator below starts with a well-known exercise. Step through it and predi
 Placement questions are a favourite. Two habits prevent most mistakes: **redraw the hole list after every placement** (the leftover of a split hole is a new hole that later requests can use), and state at the end which requests had to wait and which algorithm used memory most efficiently.
 </Callout>
 
+<Note kind="trick">
+
+Parking a car. **First fit**: take the first space big enough. **Best fit**: hunt for the tightest space that fits. **Worst fit**: take the biggest space, hoping the leftover is still useful.
+
+</Note>
+
 ## Fragmentation
 
 In the simulator, first fit ends with 959K free and still cannot place a 426K process. That is fragmentation, and it comes in two kinds.
@@ -191,6 +212,12 @@ Compaction has strings attached:
 - It is **expensive**, since large amounts of memory must be copied.
 
 The other cure is more radical. Stop insisting that a process be contiguous. That leads to **paging** and **segmentation**.
+
+<Note kind="trick">
+
+**External** fragmentation: plenty of free space in the car park, but in gaps too small for your car. **Internal** fragmentation: a small car alone in a bus bay. The space is taken, and mostly wasted.
+
+</Note>
 
 ## Paging
 
@@ -282,12 +309,20 @@ With $\varepsilon$ = 20 ns, $t$ = 100 ns and a 98% hit ratio: 0.98 × 120 + 0.02
 
 <Question client:visible q={checks.eat} />
 
-### Whose entries are these?
+<Deep title="Whose entries are these?">
 
 TLB entries belong to one process's page table. After a context switch they would give wrong translations for the next process. Two options:
 
 - **Flush the TLB** on every context switch. Simple, but the new process starts with a run of misses.
 - Store an **address-space identifier (ASID)** in each entry. An ASID uniquely identifies a process, so entries from several processes can live in the TLB together and only those matching the running process are used.
+
+</Deep>
+
+<Note kind="fact">
+
+A TLB is tiny, often a few dozen to a few thousand entries. Yet it answers **the great majority** of lookups, because programs keep returning to the same few pages.
+
+</Note>
 
 ## Making page tables small
 
@@ -390,6 +425,12 @@ The two schemes can be combined to get the logical structure of segments without
 **MULTICS** solved the problems of external fragmentation and long search times by **paging the segments**. A segment-table entry no longer holds the base address of the segment; it holds the base address of a **page table for that segment**. The offset within the segment is split into a page number and a page offset, and translated through that page table.
 
 **The Intel 386** also used segmentation with paging, with a two-level paging scheme underneath: the segment mechanism produces a linear address, which is then split into a page-directory index, a page-table index and an offset.
+
+<Note kind="fact">
+
+The famous crash message "**segmentation fault**" is a fossil. It comes from segmented memory, where touching memory outside your segment trapped to the operating system. The name survived long after paging took over.
+
+</Note>
 
 ## Summary
 

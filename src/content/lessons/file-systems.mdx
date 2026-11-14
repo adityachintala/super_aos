@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -38,6 +41,12 @@ A **file** is a linear array of bytes. Each file has a human-readable name, and 
 A **directory** also has an inode number, but its contents are specific: a list of (user-readable name, low-level name) pairs. Since an entry can refer to another directory, directories form a **tree** starting at the root, `/`.
 
 Along with its contents, every file has **metadata**: its size, owner, permissions, time stamps and so on. Keeping track of all of this is the file system's job.
+
+<Note kind="fact">
+
+In UNIX, **everything is a file**. The keyboard, the disk, even a source of random numbers can all be opened and read with the same calls you use for a text file.
+
+</Note>
 
 ## The overall organisation
 
@@ -106,6 +115,12 @@ One thing is conspicuously absent: the file's **name**. Names live in directorie
 
 <Question client:visible q={checks.inodeName} />
 
+<Note kind="fact">
+
+Nobody is certain what the "i" in **inode** stands for. Dennis Ritchie, who helped create UNIX, said his best guess was "index", and that the name simply stuck.
+
+</Note>
+
 ## Supporting big files
 
 The most important design decision in the inode is how it refers to the data blocks. The simplest approach is to put one or more **direct pointers** (disk addresses) in the inode, each pointing at one block of the file. But the inode has a fixed size. With, say, 12 direct pointers and 4 KB blocks, a file could be at most 48 KB.
@@ -134,7 +149,7 @@ So the design is optimised for the common case. A small file is reached directly
 
 <Question client:visible q={checks.imbalanced} />
 
-### Extents
+<Deep title="Extents">
 
 A different approach is to use **extents** instead of pointers. An extent is simply **a disk pointer plus a length** (in blocks). Instead of needing a pointer for every block of a file, a pointer and a length are enough to specify a whole run of contiguous blocks.
 
@@ -148,11 +163,15 @@ A single extent is limiting, since it may be hard to find one contiguous free ch
 
 Linux ext2 and ext3 use multi-level indexes. ext4, XFS and others use extents. If the idea feels familiar, it should: extents are to pointers roughly what segments are to pages in memory management.
 
-### Linked approaches
+</Deep>
+
+<Deep title="Linked approaches">
 
 Yet another design uses a **linked list**. The inode needs only one pointer, to the first block of the file; each block then says where the next one is. Storing the "next" pointers inside the data blocks themselves makes random access terribly slow, since reaching the last block means reading every block before it.
 
 To fix that, the links are taken out of the data blocks and kept together in an in-memory table indexed by block address, where each entry holds the address of the next block of the same file (or a marker for end-of-file or free). The file system can then follow the chain in memory and go straight to the wanted block. This is the **file allocation table**, the basis of the classic **FAT** file system.
+
+</Deep>
 
 ## Directory organisation
 
@@ -172,6 +191,12 @@ The important point is that file systems treat a directory as **a special type o
 
 A plain list is not the only option. Any data structure will do; XFS, for instance, stores directories as B-trees, which makes creating a file in a large directory much faster than scanning a list to check that the name is not already used.
 
+<Note kind="trick">
+
+A directory is a **phone book**: names on the left, numbers (inode numbers) on the right. The book does not contain the people. It only tells you where to find them.
+
+</Note>
+
 ## Free-space management
 
 The file system must know which inodes and data blocks are free, so that it can find space for a new file or directory. In our file system that is the job of the two **bitmaps**.
@@ -181,6 +206,12 @@ When a file is created, the file system searches the inode bitmap for a free ino
 Other schemes exist. Some early file systems used a **free list**: a single pointer in the superblock pointed to the first free block, which held a pointer to the next, and so on. Modern systems may use more elaborate structures such as B-trees.
 
 Allocation policy matters too. Some file systems, when a file is created, look for a *sequence* of free blocks (say eight) and reserve them for it. This **pre-allocation** makes it likely that a part of the file will be contiguous on disk, which improves performance.
+
+<Note kind="fact">
+
+Deleting a file usually does **not** erase it. The file system removes the name and marks the blocks as free. The data sits there until something overwrites it, which is why "undelete" tools can work.
+
+</Note>
 
 ## Access paths: reading and writing
 
@@ -275,7 +306,7 @@ Some applications, databases above all, will not accept that risk. To avoid unex
 
 When several users can reach the same file, two more questions arise: what do they see of each other's changes, and who is allowed to do what?
 
-### Consistency semantics
+<Deep title="Consistency semantics">
 
 **Consistency semantics** specify how multiple users are to access a shared file simultaneously, and in particular *when* modifications made by one user become observable by the others. A series of accesses between an `open()` and a `close()` is a **file session**.
 
@@ -299,11 +330,19 @@ A third model, **immutable shared files**, sidesteps the problem: once a file is
 
 <Question client:visible q={checks.semantics} />
 
+</Deep>
+
 ### Protection
 
 The owner of a file should control what can be done with it and by whom. UNIX stores, in the inode, three sets of **read, write and execute** permission bits: for the file's **owner**, for its **group**, and for **everyone else**. A more general mechanism is the **access-control list**, which names individual users and the access each is allowed.
 
 Protection ultimately rests on knowing who the user is, and that rests on passwords. UNIX does **not store passwords**. It stores the result of running each password through a **one-way hash function**, combined with a random *salt*. At login, the system hashes what the user types and compares the result with the stored value. The function is easy to compute and infeasible to invert, so even someone who can read the stored hashes, the administrator included, cannot recover the passwords from them. The administrator can *reset* a password, which is a different thing from knowing it.
+
+<Note kind="fact">
+
+File timestamps in UNIX count seconds since 1 January 1970. Stored in 32 bits, that counter overflows on **19 January 2038**. It is known as the Year 2038 problem.
+
+</Note>
 
 ## Summary
 

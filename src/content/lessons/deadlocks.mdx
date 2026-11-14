@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -44,6 +47,12 @@ If P0 gets A and then P1 gets B, each is waiting for a signal that only the othe
 <Callout type="analogy" title="The narrow bridge">
 A bridge carries traffic in only one direction at a time, and each section of the bridge can be viewed as a resource. If two cars enter from opposite ends, each holds a section and needs the one the other is on. The deadlock can be resolved only if one car **backs up**: its resource is preempted and it is rolled back. Several cars may have to back up. And if traffic from one side keeps being given way to, the other side **starves**. Every idea in this lesson is in that picture.
 </Callout>
+
+<Note kind="fact">
+
+A law said to have been passed in Kansas early in the 20th century read: "When two trains approach each other at a crossing, both shall come to a full stop and neither shall start up again until the other has gone." That is a deadlock, written into law.
+
+</Note>
 
 ## The system model
 
@@ -86,6 +95,12 @@ The conditions are **necessary**: take any one away and deadlock is impossible. 
 
 <Question client:visible q={checks.conditions} />
 
+<Note kind="trick">
+
+The four conditions: **M**utual exclusion, **H**old and wait, **N**o preemption, **C**ircular wait. Try: "**M**y **H**ungry **N**eighbour **C**ircles." Break any one and the deadlock cannot happen.
+
+</Note>
+
 ## Resource-allocation graphs
 
 Deadlocks can be described precisely with a directed graph called a **resource-allocation graph**. It has a set of vertices V and a set of edges E. V is partitioned into two types:
@@ -124,6 +139,12 @@ In the third graph the cycle is P1 → R1 → P3 → R2 → P1, but P4 can relea
 3. **Ignore the problem** and pretend that deadlocks never occur in the system.
 
 The third option is the one used by most operating systems, including UNIX. It sounds irresponsible, but it is a judgement about cost: prevention and avoidance tax every resource request, while in many systems deadlocks occur rarely. When performance degrades because of an undetected deadlock, recovery is manual. It is then up to the **application developer** to write programs that do not deadlock.
+
+<Note kind="fact">
+
+Ignoring deadlocks has a nickname: the **ostrich algorithm**. Stick your head in the sand and pretend there is no problem. It is what most desktop operating systems really do.
+
+</Note>
 
 ## Deadlock prevention
 
@@ -328,6 +349,12 @@ Things to notice:
 Write the Need matrix first. Then show each step as a line: the process chosen, the comparison Need ≤ Work, and the new Work. Finish with the safe sequence in angle brackets, or name the processes that cannot finish. For a request, show all three tests in order before running the safety algorithm on the **new** state.
 </Callout>
 
+<Note kind="fact">
+
+The Banker's algorithm was devised by **Edsger Dijkstra** in 1965 for the THE operating system. The same person gave us semaphores, the dining philosophers and the shortest-path algorithm.
+
+</Note>
+
 ## Deadlock detection
 
 If a system uses neither prevention nor avoidance, a deadlock may occur. The system must then provide:
@@ -450,6 +477,12 @@ Successively preempt some resources from processes and give them to other proces
 1. **Selecting a victim.** Which resources and which processes are to be preempted? The order should minimise cost, with factors such as the number of resources a deadlocked process is holding and the time it has consumed so far.
 2. **Rollback.** A process that has lost a resource cannot continue normally. It must be rolled back to some **safe state** and restarted from there. The simplest solution is a total rollback: abort and restart. It is more effective to roll back only as far as necessary to break the deadlock, but that requires the system to keep more information about the state of running processes.
 3. **Starvation.** If victim selection is based only on cost, the same process may always be picked. A process must be picked as victim only a small, finite number of times. The usual solution is to **include the number of rollbacks in the cost factor**.
+
+<Note kind="real">
+
+Database servers detect deadlocks all day long. When two transactions block each other, the database picks one as the **victim**, rolls it back, and the application simply tries again. You have probably caused one without knowing.
+
+</Note>
 
 ## Summary
 

@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -71,6 +74,12 @@ In a **single-threaded** process model, the representation of a process includes
 All the threads of a process reside in the same address space and have access to the same data. When one thread alters an item of data in memory, other threads see the result whenever they access that item.
 
 <Question client:visible q={checks.shared} />
+
+<Note kind="trick">
+
+A **process** is a house. **Threads** are the people living in it. They share the kitchen and the fridge (code, data, files), but each has their own to-do list and their own notebook (program counter, registers, stack).
+
+</Note>
 
 ## Why use threads?
 
@@ -164,6 +173,12 @@ The serial portion of an application has a **disproportionate effect** on the pe
 
 <Question client:visible q={checks.amdahl} />
 
+<Note kind="trick">
+
+Amdahl's law in one sentence: **the part that cannot be shared sets the speed limit**. Nine people cannot dig a hole nine times faster if only one shovel exists.
+
+</Note>
+
 ## Where threads are implemented
 
 Support for threads may be provided at the user level or by the kernel.
@@ -225,6 +240,12 @@ A popular variation is the **two-level model**, which still multiplexes many use
 A favourite question fixes the many-to-many model and varies the number of kernel threads against the number of processors. **Fewer** kernel threads than processors: some processors stay idle. **Equal**: all processors can be busy, but a kernel thread that blocks leaves its processor idle. **More**: a blocked kernel thread can be replaced by another that is ready, so utilisation rises. Try all three in the simulator.
 </Callout>
 
+<Note kind="fact">
+
+Early Java used the many-to-one model. Its threads were called **green threads**, after the "Green Team" at Sun that created the language.
+
+</Note>
+
 ## Threading issues
 
 Multithreaded programs raise design questions that single-threaded ones never had to answer.
@@ -283,13 +304,15 @@ The benefits:
 
 The number of threads in the pool can be set from the number of CPUs, the amount of physical memory and the expected number of concurrent requests, or adjusted dynamically.
 
-### Thread-specific data
+<Deep title="Thread-specific data">
 
 Threads belonging to a process share the data of the process, and this sharing is one of the benefits of multithreaded programming. In some circumstances, however, **each thread might need its own copy of certain data**. Such data is called **thread-specific data** (or thread-local storage).
 
 In a transaction-processing system, for example, each transaction might be serviced in a separate thread and assigned a unique identifier. To associate each thread with its unique identifier, we could use thread-specific data.
 
-### Scheduler activations
+</Deep>
+
+<Deep title="Scheduler activations">
 
 The many-to-many and two-level models require **communication between the kernel and the thread library**, so that the number of kernel threads can be adjusted dynamically to give the best performance.
 
@@ -312,7 +335,11 @@ One scheme for this communication is **scheduler activation**. The kernel provid
   ]}
 />
 
+</Deep>
+
 ## Threads in real systems
+
+<Optional />
 
 **Pthreads** is a POSIX standard (IEEE 1003.1c) API for thread creation and synchronisation. It is a **specification** of the behaviour of a thread library, not an implementation; how it is implemented is up to the developers of the library. It is common on UNIX-type operating systems.
 
@@ -330,6 +357,12 @@ One scheme for this communication is **scheduler activation**. The kernel provid
 **Linux** does not distinguish between processes and threads; it refers to both as **tasks**. Thread creation is done through the **`clone()`** system call, which allows a child task to **share the address space** of the parent task, along with other resources, depending on the flags passed.
 
 **Java** threads may be created by extending the `Thread` class or by implementing the `Runnable` interface. They are managed by the JVM, and are difficult to classify as user or kernel threads, since that depends on how the JVM is implemented on the host operating system.
+
+<Note kind="real">
+
+A word processor is a classic multithreaded program: one thread draws the screen, one responds to your typing, and one checks spelling in the background. That is why the red underline appears a moment after you stop.
+
+</Note>
 
 ## Summary
 

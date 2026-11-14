@@ -1,29 +1,48 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '@/layouts/Base.astro';
-import { Badge } from '@/components/starwind/badge';
-import Icon from '@/components/Icon.astro';
+import Doodle from '@/components/Doodle.astro';
 import CourseMap from '@/components/learn/CourseMap.svelte';
 
 const available = (await getCollection('lessons')).map((l) => l.id);
+
+// How a lesson works, as three sticky notes.
+const steps = [
+  { n: '1', title: 'Read one bite', text: 'A lesson is cut into short sections. You only ever see one.', note: 'var(--note-yellow)', tilt: '-3deg' },
+  { n: '2', title: 'Play with it', text: 'Drag the sliders. Break the simulator. See what happens.', note: 'var(--note-teal)', tilt: '2deg' },
+  { n: '3', title: 'Prove it', text: 'Quick questions tell you at once whether it stuck.', note: 'var(--note-rose)', tilt: '-1.5deg' },
+];
 ---
 
 <Base>
   <main class="mx-auto max-w-6xl px-4 pb-10">
-    <section class="py-12 sm:py-16">
-      <Badge tone="primary" appearance="soft" eyebrow>Advanced Operating Systems</Badge>
-      <h1 class="mt-4 max-w-3xl text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">
-        Learn how operating systems really work, by playing with them.
-      </h1>
-      <p class="text-muted-foreground mt-4 max-w-2xl text-lg">
-        Every lesson pairs clear explanations with simulators you can poke at, quick checks as you read, and a checkpoint at the end. Earn
-        mastery lesson by lesson, from a single CPU up to clusters of thousands of machines.
-      </p>
-      <ul class="mt-6 flex flex-wrap gap-2">
-        <li><Badge variant="outline"><Icon name="gamepad" class="size-3.5" />Interactive simulators</Badge></li>
-        <li><Badge variant="outline"><Icon name="flag" class="size-3.5" />Mastery checkpoints</Badge></li>
-        <li><Badge variant="outline"><Icon name="pencil" class="size-3.5" />Exam-style written practice</Badge></li>
-      </ul>
+    <section class="grid items-center gap-10 py-12 sm:py-16 lg:grid-cols-[1.1fr_1fr]">
+      <div>
+        <p class="bg-brand text-note-ink inline-block -rotate-2 rounded-full px-3 py-1 text-xs font-semibold tracking-wider uppercase">Advanced Operating Systems</p>
+        <h1 class="mt-5 text-5xl leading-[1.05] font-medium tracking-tight text-balance sm:text-6xl">
+          Operating systems, <span class="squiggle">one small bite</span> at a time.
+        </h1>
+        <p class="text-muted-foreground mt-6 max-w-xl text-lg">
+          Short sections. Things to click. Fun facts. No walls of text. Built for people who would rather poke at something than read about it.
+        </p>
+        <p class="hand text-muted-foreground mt-8 flex items-center gap-2 text-2xl">
+          start here <Doodle name="arrow" class="size-10 rotate-45" />
+        </p>
+      </div>
+
+      <ol class="grid gap-5 sm:grid-cols-3 lg:grid-cols-1 lg:pl-10" aria-label="How a lesson works">
+        {
+          steps.map((s) => (
+            <li class="stickynote px-5 pt-7 pb-5 lg:max-w-sm" style={`--note:${s.note};--tilt:${s.tilt}`}>
+              <p class="flex items-baseline gap-2">
+                <span class="hand text-4xl">{s.n}.</span>
+                <span class="text-xl font-semibold">{s.title}</span>
+              </p>
+              <p class="mt-1">{s.text}</p>
+            </li>
+          ))
+        }
+      </ol>
     </section>
 
     <CourseMap client:load available={available} />

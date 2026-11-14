@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -75,6 +78,12 @@ A word on names. The transport layer exchanges **segments**. Segments are carrie
 | CLOSE | Release the connection |
 
 A server calls SOCKET, BIND, LISTEN and ACCEPT, in that order. A client calls SOCKET and CONNECT.
+
+<Note kind="trick">
+
+The IP address gets a packet to the right **building** (the computer). The **port number** gets it to the right **flat** (the program). The transport layer is the person sorting the post in the lobby.
+
+</Note>
 
 ## Elements of transport protocols
 
@@ -204,11 +213,19 @@ A large window means a lot of **buffering**. The sender must hold every unacknow
 
 As connections open and close and traffic patterns change, sender and receiver need to adjust their buffer allocations dynamically. So **buffering is decoupled from acknowledgements**: the receiver tells the sender how much buffer space it has by advertising a **variable-sized window**. The sender may send up to the acknowledged byte plus that window, and must stop when the window reaches zero.
 
-### Multiplexing and crash recovery
+<Deep title="Multiplexing and crash recovery">
 
 **Multiplexing** means several conversations sharing connections, virtual circuits or physical links. If only one network address is available on a host, all transport connections on that machine have to use it, and arriving segments are sorted out by port: that is ordinary multiplexing. **Inverse multiplexing** is the reverse: one transport connection distributes its traffic over several network paths to get more bandwidth or reliability.
 
 **Crash recovery.** If a host crashes and reboots in the middle of a transfer, can the transport layer recover transparently? No. Sending an acknowledgement and writing the data to the application are two separate events that cannot be done at the same instant. A crash can occur between them, and for every order in which they are done there is a failure scenario in which the protocol recovers wrongly. Recovery from a crash at layer *N* can only be done by layer *N* + 1, and only if it keeps enough status information. The application has to help.
+
+</Deep>
+
+<Note kind="trick">
+
+The three-way handshake is a phone call: "Hello, can you hear me?" "Yes. Can you hear me?" "Yes." Only then does anyone start talking.
+
+</Note>
 
 ## Congestion control
 
@@ -262,11 +279,19 @@ A multiplicative cut takes more from the flow that has more, moving the two towa
 
 <AimdFairness client:visible />
 
-### Wireless issues
+<Deep title="Wireless issues">
 
 On wired networks and fibre, packet loss almost always means congestion. Wireless links, however, lose packets all the time because of **transmission errors**. A protocol that treats every loss as congestion will slow down every time a wireless link has a bad moment, and the connection will run far below what the network could carry.
 
 The strategy is to **mask** wireless losses from the transport layer: wireless links use their own link-layer **ARQ** (retransmission, on a timescale of milliseconds) so that by the time the transport layer would notice, the frame has already been resent.
+
+</Deep>
+
+<Note kind="fact">
+
+In October 1986 the Internet suffered a **congestion collapse**. A link between two sites a few hundred metres apart slowed from 32,000 bits per second to **40**. Van Jacobson's fix, including slow start, is still in TCP today.
+
+</Note>
 
 ## UDP
 
@@ -287,7 +312,7 @@ It is worth being explicit about what UDP does **not** do: **flow control, conge
 
 It is especially suited to client-server interactions where a short request gets a short reply, such as DNS. If either is lost the client can time out and try again; nothing needs setting up or tearing down.
 
-### Remote procedure call
+<Deep title="Remote procedure call">
 
 **RPC** connects applications over the network with the familiar abstraction of a **procedure call**. A program on machine 1 calls a procedure on machine 2; the caller is suspended, the procedure runs on machine 2, and the result comes back. No message passing is visible to the programmer.
 
@@ -303,13 +328,23 @@ It is especially suited to client-server interactions where a short request gets
 
 The **client stub** represents the server procedure in the client's address space, and the **server stub** hides the fact that the call did not come from a local caller. Packing the parameters into a message is called **marshalling**. UDP with retransmissions is a good, low-latency transport for RPC.
 
-### Real-time transport
+</Deep>
+
+<Deep title="Real-time transport">
 
 **RTP**, the Real-time Transport Protocol, supports sending real-time media such as audio and video. It normally runs in user space **over UDP** and is often implemented as part of the application. Its header describes the type of media and carries a **sequence number** and a **timestamp**, so the receiver can detect loss and synchronise several streams. A sister protocol, **RTCP**, handles feedback and management.
 
 RTP does **no retransmission**. For live media a late packet is as useless as a lost one; the application simply skips or interpolates.
 
 The main enemy is **jitter**, variation in delay. The receiver uses a **playout buffer**: packets are stored and playback starts a little later, so that packets arriving irregularly are still played out smoothly. **High jitter needs a larger playout buffer** to avoid playout misses. Note that propagation delay itself does not affect the buffer size; only the *variation* in delay does.
+
+</Deep>
+
+<Note kind="real">
+
+**UDP** is behind video calls, online games and DNS lookups. For these a late packet is worthless, so there is no point resending it. Better a tiny glitch than a frozen screen.
+
+</Note>
 
 ## TCP
 
@@ -531,6 +566,8 @@ Draw the trace one round-trip time at a time and write down the window and the t
 
 ## Delay-tolerant networking
 
+<Optional />
+
 Everything so far assumed that sender and receiver are **continuously connected** by some working path. That is not always true:
 
 - space networks, where satellites pass in and out of range of ground stations;
@@ -539,6 +576,12 @@ Everything so far assumed that sender and receiver are **continuously connected*
 A **delay-tolerant network (DTN)** accepts delays, as the postal system does, by **storing messages inside the network** until they can be delivered. The idea has uses even on ordinary networks: copying very large data sets between data centres, sending bulk traffic during off-peak times, and doing backups at night.
 
 In the DTN architecture, messages are called **bundles**. DTN nodes are equipped with **storage**, and bundles are held there while waiting for an intermittent link, called a **contact**, to become available. Bundles might wait **hours**, not the milliseconds a packet spends in a router, and there may be **no working end-to-end path at any time**.
+
+<Note kind="trick">
+
+AIMD is how you drive in fog: **speed up gently, brake hard**. Add one each round while all is well. Halve at the first sign of trouble.
+
+</Note>
 
 ## Summary
 

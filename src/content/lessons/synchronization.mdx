@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -93,6 +96,12 @@ A **race condition** is a situation where several processes access and manipulat
 
 <Question client:visible q={checks.race} />
 
+<Note kind="fact">
+
+Race conditions can be deadly. In the 1980s the **Therac-25** radiation therapy machine gave several patients massive overdoses. One cause was a race between the operator's fast typing and the machine's set-up routine.
+
+</Note>
+
 ## The critical-section problem
 
 Consider a system of *n* processes, all competing to use some shared data. Each process has a segment of code, called its **critical section**, in which the shared data is accessed.
@@ -119,6 +128,12 @@ We assume that each process executes at a non-zero speed, and make no assumption
 <Question client:visible q={checks.requirements} />
 
 There are two broad approaches to a solution: **software** approaches, where the responsibility lies with the processes themselves, and **hardware** approaches, which use special machine instructions.
+
+<Note kind="trick">
+
+The three requirements, as a toilet on a train. **Mutual exclusion**: one person at a time. **Progress**: if it is empty and someone is waiting, they get in. **Bounded waiting**: nobody can keep pushing ahead of you for ever.
+
+</Note>
 
 ## Software solutions for two processes
 
@@ -216,11 +231,19 @@ do {
 
 A process waits for each other process in turn: first until that process has finished choosing its number, and then while that process holds a smaller ticket.
 
-### A caution about modern hardware
+<Deep title="A caution about modern hardware">
 
 These software solutions are important for what they teach, but they are **not guaranteed to work on modern computer architectures**. To improve performance, processors and compilers may **reorder** read and write operations that have no dependencies. In Peterson's solution, if the two assignments `flag[i] = true` and `turn = j` are reordered, both processes can end up in their critical sections at the same time.
 
 Machine architectures therefore provide **memory barrier** (or memory fence) instructions. A memory barrier is a low-level instruction that forces any changes in memory to be propagated to all other processors, ensuring that loads and stores performed before the barrier are completed before any performed after it. Such instructions are used by kernel developers writing specialised code that ensures mutual exclusion.
+
+</Deep>
+
+<Note kind="fact">
+
+The **bakery algorithm** was published by Leslie Lamport in 1974. It is named after shops where each customer takes a numbered ticket and the lowest number is served next.
+
+</Note>
 
 ## Hardware solutions
 
@@ -455,6 +478,12 @@ Suppose P0 executes `wait(S)` and then P1 executes `wait(Q)`. When P0 executes `
 
 A related problem is **indefinite blocking**, or **starvation**: a process may never be removed from the semaphore queue in which it is suspended. It can occur if processes are removed from the list in last-in, first-out order.
 
+<Note kind="fact">
+
+Semaphores were invented by the Dutch computer scientist Edsger Dijkstra. That is why the operations were first called **P** and **V**, from Dutch words. A railway semaphore is a signal arm that tells a train whether the track ahead is free.
+
+</Note>
+
 ## Classical problems of synchronization
 
 Three problems are used to test nearly every newly proposed synchronisation scheme.
@@ -561,7 +590,7 @@ Several remedies exist:
 
 Any satisfactory solution must also guard against the possibility that one of the philosophers **starves** to death. A deadlock-free solution does not necessarily eliminate the possibility of starvation.
 
-### The barbershop problem
+<Deep title="The barbershop problem">
 
 A fuller example exercises semaphores for both mutual exclusion and coordination. A barbershop has three chairs, three barbers, a sofa that seats four, and standing room for additional customers. Fire codes limit the total number of customers in the shop to 20. A customer will not enter if the shop is at capacity. Once inside, the customer takes a seat on the sofa, or stands if the sofa is full. When a barber is free, the customer who has been on the sofa longest is served, and the customer who has been standing longest takes the freed place on the sofa. When a haircut is finished, any barber can accept payment, but there is only one cash register.
 
@@ -580,6 +609,14 @@ Each constraint becomes a semaphore:
 | `coord` | 3 | A barber does one job at a time: cutting hair or taking payment |
 
 The semaphores initialised to a positive number are **counting resources**; those initialised to 0 are **signals** by which one process tells another that an event has happened. Recognising which is which is most of the art of writing semaphore solutions.
+
+</Deep>
+
+<Note kind="fact">
+
+In 1997 NASA's **Mars Pathfinder** kept resetting itself on Mars. The cause was a synchronisation bug called priority inversion, involving a mutex. Engineers found it on a copy on Earth and fixed it by sending a patch across space.
+
+</Note>
 
 ## Monitors
 
@@ -667,7 +704,7 @@ monitor dp {
 
 Philosopher *i* can set `state[i] = eating` only if her two neighbours are not eating. `self[i]` lets her delay herself when she is hungry but unable to obtain the chopsticks she needs. Each philosopher calls `dp.pickup(i)`, eats, and calls `dp.putdown(i)`. This solution ensures that no two neighbours eat simultaneously and that **no deadlock** occurs. It is still possible, however, for a philosopher to **starve**.
 
-### Implementing a monitor with semaphores
+<Deep title="Implementing a monitor with semaphores">
 
 For each monitor, a semaphore `mutex`, initialised to 1, is provided. A process must execute `wait(mutex)` before entering the monitor and `signal(mutex)` after leaving it. Under the signal-and-wait scheme, a signalling process must wait until the resumed process leaves or waits, so an additional semaphore `next`, initialised to 0, is introduced on which signalling processes suspend themselves, with an integer `next_count` counting them. Each external procedure F is replaced by:
 
@@ -695,7 +732,11 @@ x_count--;
 
 Mutual exclusion within the monitor is preserved throughout.
 
+</Deep>
+
 ## Synchronization in real systems, and beyond
+
+<Optional />
 
 **Solaris** implements a variety of locks to support multitasking, multithreading and multiprocessing. It uses **adaptive mutexes** for efficiency when protecting data from short code segments: on a multiprocessor an adaptive mutex starts as a spinlock, and if the thread holding the lock is not currently running on a CPU, the waiting thread **sleeps** instead of spinning. It uses **condition variables** and **readers-writers locks** when longer sections of code need access to data, and **turnstiles** to order the list of threads waiting to acquire a lock.
 

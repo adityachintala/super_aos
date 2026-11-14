@@ -1,0 +1,440 @@
+/*
+ * Super AOS look: a whiteboard covered in notes.
+ * Tokens follow DESIGN.md (ink pill buttons, pastel sticky-note cards, big soft corners).
+ * Every colour used anywhere on the site is defined here.
+ */
+
+@theme inline {
+  --font-sans: "Figtree Variable", "Noto Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-hand: "Caveat Variable", "Segoe Print", "Bradley Hand", cursive;
+
+  --color-note-yellow: var(--note-yellow);
+  --color-note-coral: var(--note-coral);
+  --color-note-teal: var(--note-teal);
+  --color-note-rose: var(--note-rose);
+  --color-note-orange: var(--note-orange);
+  --color-note-lilac: var(--note-lilac);
+  --color-note-mint: var(--note-mint);
+  --color-note-ink: var(--note-ink);
+  --color-brand: var(--brand);
+  --color-marker: var(--marker);
+}
+
+:root {
+  /* DESIGN.md: canvas, surface, ink, hairlines */
+  --background: #f7f8fa;
+  --foreground: #1c1c1e;
+  --card: #ffffff;
+  --card-foreground: #1c1c1e;
+  --popover: #ffffff;
+  --popover-foreground: #1c1c1e;
+  --primary: #1c1c1e;
+  --primary-foreground: #ffffff;
+  --primary-accent: #3350e6;
+  --secondary: #eef0f3;
+  --secondary-foreground: #1c1c1e;
+  --secondary-accent: #1c1c1e;
+  --muted: #eef0f3;
+  --muted-foreground: #555a6a;
+  --accent: #eef0f3;
+  --accent-foreground: #1c1c1e;
+  --info: #c3faf5;
+  --info-foreground: #0d4f4e;
+  --success: #8fe3bd;
+  --success-foreground: #063d28;
+  --warning: #ffd02f;
+  --warning-foreground: #3b2f00;
+  --error: #c62828;
+  --error-foreground: #ffffff;
+  --border: #e0e2e8;
+  --input: #c7cad5;
+  --outline: #4262ff;
+  --radius: 1rem;
+
+  /* brand */
+  --brand: #ffd02f;
+  --marker: #ffe880;
+  --dot: #d3d6df;
+  --shadow-ink: 5 0 56;
+
+  /* sticky-note pastels: always carry ink text, in both themes */
+  --note-ink: #1c1c1e;
+  --note-yellow: #fff1a8;
+  --note-coral: #ffc6c6;
+  --note-teal: #c3faf5;
+  --note-rose: #fdd9ee;
+  --note-orange: #ffe0bf;
+  --note-lilac: #e2e0ff;
+  --note-mint: #cdf5df;
+
+  /* data colours for diagrams and simulators: all carry white text */
+  --chart-1: #4262ff;
+  --chart-2: var(--color-sky-700);
+  --chart-3: var(--color-emerald-700);
+  --chart-4: var(--color-amber-700);
+  --chart-5: var(--color-rose-700);
+  --chart-6: var(--color-violet-700);
+
+  --sidebar-background: #fafbfc;
+  --sidebar-foreground: #1c1c1e;
+  --sidebar-primary: #4262ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef0f3;
+  --sidebar-accent-foreground: #1c1c1e;
+  --sidebar-border: #e0e2e8;
+  --sidebar-outline: #4262ff;
+}
+
+/* Dark theme: the same notes, pinned to a blackboard. */
+.dark {
+  --background: #17171b;
+  --foreground: #f4f4f6;
+  --card: #222228;
+  --card-foreground: #f4f4f6;
+  --popover: #222228;
+  --popover-foreground: #f4f4f6;
+  --primary: #5b76fe;
+  --primary-foreground: #ffffff;
+  --primary-accent: #9fb0ff;
+  --secondary: #2c2c34;
+  --secondary-foreground: #f4f4f6;
+  --secondary-accent: #f4f4f6;
+  --muted: #2c2c34;
+  --muted-foreground: #a5a8b5;
+  --accent: #34343d;
+  --accent-foreground: #f4f4f6;
+  --info: #c3faf5;
+  --info-foreground: #0d4f4e;
+  --success: #8fe3bd;
+  --success-foreground: #063d28;
+  --warning: #ffd02f;
+  --warning-foreground: #3b2f00;
+  --error: #c62828;
+  --error-foreground: #ffffff;
+  --border: rgb(255 255 255 / 13%);
+  --input: rgb(255 255 255 / 22%);
+  --outline: #9fb0ff;
+
+  --marker: rgb(255 208 47 / 30%);
+  --dot: #33333c;
+  --shadow-ink: 0 0 0;
+
+  --sidebar-background: #222228;
+  --sidebar-foreground: #f4f4f6;
+  --sidebar-primary: #5b76fe;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2c2c34;
+  --sidebar-accent-foreground: #f4f4f6;
+  --sidebar-border: #2c2c34;
+  --sidebar-outline: #9fb0ff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-outline/50;
+  }
+  body {
+    @apply bg-background text-foreground scheme-light dark:scheme-dark font-sans;
+    /* the whiteboard's dot grid */
+    background-image: radial-gradient(circle, var(--dot) 1.1px, transparent 1.3px);
+    background-size: 22px 22px;
+  }
+  button {
+    @apply cursor-pointer;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+@utility hatch {
+  background: repeating-linear-gradient(45deg, var(--muted), var(--muted) 4px, var(--border) 4px, var(--border) 8px);
+}
+
+/* ---------- Starwind components, nudged towards DESIGN.md ---------- */
+
+/* every button and badge is a pill */
+[data-slot="button"],
+[data-sw-badge] {
+  border-radius: 9999px;
+}
+[data-slot="button"] {
+  font-weight: 500;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+[data-slot="button"]:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* cards are sheets of paper on the board */
+[data-sw-card] {
+  box-shadow:
+    rgb(var(--shadow-ink) / 4%) 0 1px 2px 0,
+    rgb(var(--shadow-ink) / 6%) 0 4px 12px 0;
+}
+
+/* ---------- board furniture ---------- */
+
+/* hand-lettered accents */
+.hand {
+  font-family: var(--font-hand);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+/* a sticky note: square-ish, slightly tilted, with a strip of tape */
+.stickynote {
+  position: relative;
+  background: var(--note, var(--note-yellow));
+  color: var(--note-ink);
+  border-radius: 3px 3px 18px 3px;
+  box-shadow:
+    rgb(var(--shadow-ink) / 8%) 0 2px 3px,
+    rgb(var(--shadow-ink) / 10%) 0 10px 18px -8px;
+  rotate: var(--tilt, -1deg);
+}
+.stickynote::before {
+  content: "";
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: 84px;
+  height: 22px;
+  translate: -50% 0;
+  rotate: -2deg;
+  background: rgb(255 255 255 / 55%);
+  border: 1px solid rgb(0 0 0 / 6%);
+  box-shadow: rgb(0 0 0 / 6%) 0 1px 2px;
+}
+.stickynote a {
+  color: inherit;
+  text-decoration: underline;
+}
+.stickynote code {
+  background: rgb(0 0 0 / 8%);
+  color: inherit;
+}
+
+/* a pastel feature panel (DESIGN.md card-feature-*) */
+.panel {
+  background: var(--note, var(--note-yellow));
+  color: var(--note-ink);
+  border-radius: 28px;
+}
+.panel code {
+  background: rgb(0 0 0 / 8%);
+  color: inherit;
+}
+
+/* wobbly ink, for doodles and decorative frames only (never on text) */
+.sketch {
+  filter: url(#rough);
+}
+
+/* a marker-pen underline */
+.squiggle {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='10' viewBox='0 0 120 10'%3E%3Cpath d='M2 6 Q 12 1 22 6 T 42 6 T 62 6 T 82 6 T 102 6 T 118 5' fill='none' stroke='%23ffd02f' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-position: left bottom;
+  background-size: 120px 10px;
+  padding-bottom: 12px;
+}
+
+/* ---------- lesson article ---------- */
+
+.lesson {
+  --prose-link-color: var(--primary-accent);
+}
+
+/* each ## section is one bite: a sheet of paper on the board */
+.lesson > .bite {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  margin-bottom: 2rem;
+  box-shadow:
+    rgb(var(--shadow-ink) / 4%) 0 1px 2px 0,
+    rgb(var(--shadow-ink) / 6%) 0 4px 12px 0;
+  scroll-margin-top: 9rem;
+}
+.lesson > .bite > h2 {
+  margin-top: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-weight: 600;
+}
+.lesson > .bite > h2::before {
+  content: attr(data-n);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-top: -0.1rem;
+  border-radius: 9999px;
+  background: var(--brand);
+  color: var(--note-ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  rotate: -6deg;
+  box-shadow: rgb(var(--shadow-ink) / 15%) 0 2px 0;
+}
+.lesson > .bite > :last-child {
+  margin-bottom: 0;
+}
+
+/* one bite at a time */
+.lesson.stepping > .bite:not([data-current]) {
+  display: none;
+}
+.lesson.stepping > .bite[data-current] {
+  animation: bite-in 0.28s ease-out;
+}
+@keyframes bite-in {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
+
+/* easier reading: short lines, air between paragraphs */
+.lesson :is(p, li) {
+  line-height: 1.75;
+}
+.lesson > .bite > :is(p, ul, ol, blockquote) {
+  max-width: 68ch;
+}
+.lesson > .bite > p + p {
+  margin-top: 1.15em;
+}
+.lesson li + li {
+  margin-top: 0.45em;
+}
+.lesson[data-size="large"] {
+  font-size: 1.3rem;
+}
+
+/* key terms look highlighted */
+.lesson :is(p, li, td, dd) > strong:not(.long) {
+  font-weight: 600;
+  background: linear-gradient(transparent 58%, var(--marker) 58%);
+  padding: 0 0.1em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+:is(.stickynote, .panel) strong {
+  background: none !important;
+  font-weight: 700;
+}
+
+.lesson h3 {
+  font-weight: 600;
+}
+.lesson h3::before {
+  content: "";
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: 0.45em;
+  border-radius: 3px;
+  background: var(--chart-1);
+  rotate: 12deg;
+}
+
+.lesson table {
+  display: block;
+  overflow-x: auto;
+}
+.lesson thead th {
+  background: var(--muted);
+}
+.lesson blockquote {
+  border: 0;
+  background: var(--note-lilac);
+  color: var(--note-ink);
+  border-radius: 20px;
+  padding: 1rem 1.25rem;
+  font-style: normal;
+  font-size: 1.1em;
+  font-weight: 500;
+}
+.lesson blockquote p {
+  margin: 0;
+}
+
+.dark .astro-code,
+.dark .astro-code span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+}
+.lesson pre {
+  border-radius: 16px;
+}
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+/* interactive pieces stand out as "your turn" */
+.viz {
+  border: 2px dashed var(--chart-1) !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+/* optional detail, folded away */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+details.deep > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details.deep > summary::-webkit-details-marker {
+  display: none;
+}
+details.deep[open] > summary .deep-chevron {
+  rotate: 90deg;
+}
+details.deep > .deep-body > :first-child {
+  margin-top: 0;
+}
+details.deep > .deep-body > :last-child {
+  margin-bottom: 0;
+}
+details.deep > .deep-body > h3:first-child {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .lesson.stepping > .bite[data-current] {
+    animation: none;
+  }
+  .stickynote {
+    rotate: 0deg;
+  }
+  [data-slot="button"] {
+    transition: none;
+  }
+}

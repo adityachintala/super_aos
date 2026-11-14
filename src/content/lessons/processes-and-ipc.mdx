@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -31,6 +34,12 @@ Picture a workshop with one expensive machine tool and several workers, each fol
 </Callout>
 
 An operating system executes a variety of programs: batch systems run *jobs*, time-shared systems run *user programs* or *tasks*. The terms job and process are used almost interchangeably.
+
+<Note kind="real">
+
+Open Task Manager on Windows, Activity Monitor on a Mac, or run `ps aux` on Linux. Even with "nothing" open you will see a hundred or more processes. A web browser usually runs **each tab as its own process**, so one crashed tab does not take the others down.
+
+</Note>
 
 ## The process concept
 
@@ -93,6 +102,12 @@ Each process is represented in the operating system by a **process control block
 
 The PCB is the repository for everything that varies from process to process. It is what makes it possible to **stop a process and later continue it correctly**.
 
+<Note kind="trick">
+
+A **program** is a recipe in a book. A **process** is someone actually cooking it: there is a place in the recipe, ingredients on the counter and pans in use. Two people can cook the same recipe at once: one program, two processes.
+
+</Note>
+
 ## Process scheduling
 
 The objective of **multiprogramming** is to have some process running at all times, to maximise CPU utilisation. The objective of **time sharing** is to switch the CPU among processes so frequently that users can interact with each program while it is running. A single-processor system can never have more than one running process; the rest must wait until the CPU is free and can be rescheduled.
@@ -154,6 +169,12 @@ When the CPU switches to another process, the system must **save the state of th
 
 Context-switch time is **pure overhead**, because the system does no useful work while switching. Its speed depends on the memory speed, the number of registers that must be copied and the existence of special instructions (some processors have several sets of registers, so a switch is just a change of pointer). The more complex the operating system and the PCB, the more work a context switch takes. This cost is one reason for the lighter-weight **threads** of the next lesson.
 
+<Note kind="fact">
+
+A context switch does **no useful work at all**. It is pure overhead, like the time you lose when you put one task down and try to remember where you were in another.
+
+</Note>
+
 ## Operations on processes
 
 ### Process creation
@@ -202,9 +223,11 @@ Because every process that reaches a `fork()` executes it, consecutive forks mul
 
 <Question client:visible q={checks.fork} />
 
-### The process tree at start-up
+<Deep title="The process tree at start-up">
 
 A UNIX system builds its whole population of processes this way. At boot, the bootstrap creates **process 0**, the swapper. It forks **process 1**, `init`, the ancestor of all user processes. For each terminal, `init` forks a process that execs `getty`, which waits for someone to log in and then execs `login`, which in turn execs the user's **shell**. The shell forks and execs a process for each command typed. `init` waits until all its children exit, and the system shuts down when `init` itself exits.
+
+</Deep>
 
 ### Process termination
 
@@ -215,6 +238,12 @@ A parent may also terminate the execution of its children with an **abort** syst
 - the child has **exceeded its usage** of the resources it was allocated;
 - the **task assigned to the child is no longer required**;
 - the **parent is exiting**, and the operating system does not allow a child to continue if its parent terminates. On such systems, when a process terminates, all its children must also be terminated. This is **cascading termination**.
+
+<Note kind="fact">
+
+On Linux every process descends from **process number 1**, which the kernel starts at boot. A process that has finished but whose parent has not yet collected its exit status is called a **zombie**. A process whose parent died first is an **orphan**.
+
+</Note>
 
 ## Cooperating processes
 
@@ -425,6 +454,12 @@ In implementing a pipe, four issues must be considered: is communication **unidi
 - **Named pipes** are more powerful. Communication can be **bidirectional**, **no parent-child relationship is required**, and once a named pipe is established several processes can use it. They continue to exist after the communicating processes have finished. In UNIX they are called FIFOs and appear as ordinary files in the file system.
 
 Compared with messages, a pipe carries an unstructured **stream of bytes** with no message boundaries, and the processes must agree on how to interpret it.
+
+<Note kind="fact">
+
+The pipe, written `|`, was the idea of Doug McIlroy. Ken Thompson added it to UNIX in **one night** in 1973, and by the next morning people were chaining programs together with it.
+
+</Note>
 
 ## Summary
 

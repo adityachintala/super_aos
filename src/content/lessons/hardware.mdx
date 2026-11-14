@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -39,6 +42,12 @@ When a computer is powered on or rebooted, memory holds nothing useful. The firs
 From then on the kernel is "the one program running at all times".
 
 <Question client:visible q={checks.bootstrap} />
+
+<Note kind="fact">
+
+"Booting" is short for **bootstrapping**, from the saying "pull yourself up by your own bootstraps". A computer needs a program to load programs, so it starts with a tiny one burned into a chip.
+
+</Note>
 
 ## How a computer is organised
 
@@ -138,6 +147,12 @@ Step through it below. Watch the PC run one ahead of the instruction being execu
 
 <Question client:visible q={checks.cycle} />
 
+<Note kind="trick">
+
+Reading a book: the **PC** is your bookmark (where to read next), and the **IR** is the sentence you are reading right now. The bookmark always sits one sentence ahead.
+
+</Note>
+
 ## Interrupts
 
 With only fetch and execute, a processor that starts an I/O operation has no choice but to wait for it, and devices are thousands of times slower than the processor. **Interrupts are provided to improve performance.** With interrupts, the processor can be engaged in executing other instructions while an I/O operation is in progress, and the device announces when it is done.
@@ -190,6 +205,12 @@ In the simulator above, press "Device raises an interrupt" at any moment and kee
 If there are no processes to execute, no I/O devices to service and no users to respond to, an operating system sits quietly, waiting for something to happen. Events are almost always signalled by an interrupt or a trap. For each type of interrupt, a separate segment of operating-system code determines what action is taken. Seen this way, an operating system is a collection of interrupt handlers.
 </Callout>
 
+<Note kind="trick">
+
+An **interrupt** is a doorbell. Without one you would have to walk to the door every minute to check whether anyone is there. That walking is called **polling**, and it wastes your whole day.
+
+</Note>
+
 ## I/O structure
 
 ### Three ways to transfer data
@@ -228,6 +249,12 @@ loop:  JUMP loop
 ```
 
 To keep track of many I/O requests at once, the operating system uses a **device-status table**. It contains an entry for each I/O device indicating its **type, address and state** (not functioning, idle or busy). If a device is busy, the entry also holds the queue of requests waiting for it. When an interrupt arrives, the operating system indexes into the table to find the device, updates its entry, and starts the next queued request.
+
+<Note kind="trick">
+
+**DMA** is hiring movers. You tell them what to move, where from, where to and how much. Then you get on with your work, and they ring the bell **once**, when the whole job is done.
+
+</Note>
 
 ## Operating-system structure
 
@@ -345,6 +372,8 @@ Putting it together, the general operation of a system is:
 
 ## What the operating system manages
 
+<Optional />
+
 With control secured, the operating system has four large responsibilities. Each is the subject of later units.
 
 **Process management.** A **process is a program in execution**: a unit of work within the system. A program is a **passive** entity; a process is an **active** one. A process needs resources, CPU, memory, I/O and files, to accomplish its task, and on termination its reusable resources must be reclaimed. A single-threaded process has one program counter specifying the next instruction to execute; a multithreaded process has one program counter per thread. Typically a system has many processes, some user and some operating-system, running concurrently on one or more CPUs. The operating system is responsible for:
@@ -413,6 +442,12 @@ How much this matters depends on the environment.
 - In a **multiprocessor** environment each CPU also has its own local cache, so a copy of A may exist simultaneously in several caches. The hardware must provide **cache coherency**: an update to the value of A in one cache is immediately reflected in all other caches where A resides, so that **all CPUs have the most recent value**.
 - In a **distributed** environment the situation is even more complex. **Several copies (replicas) of a datum can exist** on different computers, and the system must ensure that when one is updated, all the others are brought up to date as soon as possible.
 
+<Note kind="fact">
+
+Computing pioneer **Grace Hopper** used to hand out pieces of wire 30 cm long. That is how far light travels in **one nanosecond**. It is why fast memory has to sit physically close to the CPU.
+
+</Note>
+
 ## Computer-system architecture
 
 ### Multiprocessor systems
@@ -448,6 +483,8 @@ Clustering is usually used to provide a **high-availability** service: one that 
 Some clusters are built for **high-performance computing (HPC)**. Applications must be written specifically to take advantage of them, a technique known as **parallelisation**: dividing a program into separate components that run in parallel on the individual computers.
 
 ## Computing environments
+
+<Optional />
 
 - **Traditional computing.** The boundaries have blurred over time. An office once meant PCs on a network with terminals attached to mainframes or minicomputers providing batch and time sharing; now portals give networked and remote systems access to the same resources. Home networks were once a single system with a modem; now they are networked and firewalled.
 - **Distributed computing.** A collection of separate, possibly heterogeneous, systems networked together. The network is a communications path, a LAN, MAN or WAN. A **network operating system** provides features between systems across the network, and a communication scheme lets systems exchange messages, creating the **illusion of a single system**.

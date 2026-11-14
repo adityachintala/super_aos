@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -51,6 +54,12 @@ This one idea created the **general-purpose computer**. A small experimental mac
 
 A general-purpose machine immediately raises the question this whole course is about: if it can run any program, who decides **which** program runs, and how does that program get in and out?
 
+<Note kind="fact">
+
+The film *The Imitation Game* is about Alan Turing. The stored-program idea he and von Neumann described is the reason your phone can be a camera, a map and a game without being rewired.
+
+</Note>
+
 ## Early systems: serial processing
 
 From the 1940s into the 1950s, **the programmer interacted directly with the computer hardware**. Early computers were physically large machines run from a **console**: display lights, toggle switches, a card reader, a printer. The program was loaded into memory from the panel of switches, from paper tape or from punched cards. If an error occurred, it was indicated by the lights. There was **no operating system**.
@@ -81,6 +90,12 @@ The routines that performed I/O became especially important. A **device driver**
 While tapes were being mounted or the programmer was operating the console, **the CPU sat idle**.
 
 <Question client:visible q={checks.serial} />
+
+<Note kind="fact">
+
+The first recorded computer **bug** was a real one. In 1947, operators of the Harvard Mark II found a moth stuck in a relay, taped it into the logbook and wrote: "First actual case of bug being found."
+
+</Note>
 
 ## Simple batch systems
 
@@ -154,6 +169,12 @@ loop:  no operation
        JUMP loop
 ```
 
+<Note kind="fact">
+
+A punched card held **80 columns** of text. That is why terminal windows were 80 characters wide for decades, and why many style guides still ask for lines under 80 characters.
+
+</Note>
+
 ## Spooling
 
 The introduction of **disk** technology changed the picture. With disks came **SPOOLing**: **S**imultaneous **P**eripheral **O**perations **O**n-**L**ine.
@@ -211,6 +232,12 @@ A monitor ran whatever came next in the deck. **Multiprogramming is the first in
 | **CPU scheduling** | The system must choose among several jobs that are ready to run |
 | **Allocation of devices** | Several jobs may want the same device |
 
+<Note kind="trick">
+
+Multiprogramming is a cook with several pots on the stove. While one pot simmers (waits for I/O), the cook chops vegetables for another. The cook is the CPU, and is never standing idle.
+
+</Note>
+
 ## Time-sharing systems
 
 With multiprogramming, **utilisation was fine. Response time was the problem.** A programmer submitted a job and came back hours later to find a missing comma. There was no way to interact with a program while it ran.
@@ -233,6 +260,12 @@ It brought new requirements. Many users' programs, each waiting an arbitrary tim
 | Principal objective | Maximise processor use | Minimise response time |
 | Source of directives | Job control language, provided with the job | Commands entered at the terminal |
 | The CPU switches when | The running job waits for I/O | The running job waits, or its time slice ends |
+
+<Note kind="fact">
+
+The name **UNIX** is a joke. Its authors had worked on a huge, complicated time-sharing system called **Multics**. Their small, simple replacement was first called "Unics".
+
+</Note>
 
 ## Modern computers
 
@@ -284,6 +317,12 @@ Clustering and peer-to-peer technologies together led to **computational grids**
 - virtual machines
 - security and protection
 - real-time and multimedia support
+
+<Note kind="fact">
+
+The computer that guided Apollo 11 to the Moon had about **4 kilobytes** of RAM. A modern phone has around a million times more, and mostly uses it to show you videos.
+
+</Note>
 
 ## Summary
 

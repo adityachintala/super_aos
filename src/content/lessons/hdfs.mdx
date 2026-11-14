@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -39,11 +42,19 @@ A **distributed file system (DFS)** is a file system that manages storage across
 - a **name server**, holding the global directory: the metadata of files;
 - **data servers**, holding the file data itself, and often running the user programs that process it.
 
-### Where Hadoop came from
+<Deep title="Where Hadoop came from">
 
 In 2003 Google published a paper on the **Google File System** and in 2004 one on **MapReduce**. In 2005 Doug Cutting built open-source versions of both for the Nutch web-search project. In 2006 the work became **Hadoop** at Yahoo!, and in 2008 it became a top-level Apache project. The name is not an acronym: it was the name of a toy elephant belonging to Cutting's son.
 
 **HDFS** is the file-system component of Hadoop. Around it grew a family of tools: **HBase** (a table-oriented database), **Hive** (a data warehouse with an SQL-like language), **Pig** (a language for parallel data-processing programs), **Sqoop** (moving data between Hadoop and other stores) and **ZooKeeper** (configuration and coordination of the cluster).
+
+</Deep>
+
+<Note kind="fact">
+
+**Hadoop** is named after a yellow toy elephant that belonged to the young son of its creator, Doug Cutting. That is why the logo is an elephant.
+
+</Note>
 
 ## The design of HDFS
 
@@ -104,12 +115,20 @@ One thing is deliberately **not** in the checkpoint: the **locations of block re
 
 If either the checkpoint or the journal is missing or corrupt, namespace information is lost, partly or entirely. So HDFS can be configured to keep them in **multiple storage directories**. The recommended practice is to put those directories on different volumes, with one of them on a **remote NFS server**.
 
-### CheckpointNode and BackupNode
+<Deep title="CheckpointNode and BackupNode">
 
 A journal that grows without limit is a problem: a long journal means a slow restart, and a greater chance that part of it is damaged. A NameNode process can therefore be started in one of two helper roles instead of its primary one.
 
 - A **CheckpointNode** periodically combines the existing checkpoint and journal to create a **new checkpoint and an empty journal**. It runs on a different host from the NameNode, since it needs just as much memory. Once the new checkpoint is uploaded, the NameNode can truncate the tail of its journal.
 - A **BackupNode** can create periodic checkpoints too, and in addition it maintains an **in-memory, up-to-date image** of the namespace that is always synchronised with the state of the NameNode. Because it already has the image in memory, it can make a checkpoint without downloading anything.
+
+</Deep>
+
+<Note kind="fact">
+
+The NameNode keeps its whole map of the file system **in memory**. Each file, directory and block costs about 150 bytes, so a million one-block files need roughly 300 MB of RAM. That is why HDFS dislikes millions of tiny files.
+
+</Note>
 
 ## DataNodes
 
@@ -142,6 +161,12 @@ The NameNode **does not call DataNodes directly**. Instead it uses its **replies
 Heartbeats are therefore the control channel for the whole cluster, and their frequency is part of what keeps the NameNode scalable: it can process thousands of heartbeats per second without affecting other operations.
 
 <Question client:visible q={checks.heartbeat} />
+
+<Note kind="trick">
+
+A heartbeat is a "still alive!" message. DataNodes send one every **3 seconds**. After about **ten minutes** of silence, the NameNode gives up and makes new copies of that node's blocks elsewhere.
+
+</Note>
 
 ## The HDFS client
 
@@ -219,25 +244,39 @@ The NameNode endeavours to ensure that each block always has the intended number
 - When a block is **under-replicated**, it is put in a priority queue for replication. A block with only one replica has the highest priority.
 - The NameNode also makes sure that **not all replicas of a block are on one rack**.
 
-### Balancer
+<Deep title="Balancer">
 
 The block placement policy does not take DataNode disk utilisation into account, so over time usage becomes uneven, especially when new nodes are added. The **balancer** is a tool that balances disk-space usage across the cluster. It iteratively **moves replicas from DataNodes with higher utilisation to DataNodes with lower utilisation**. A key requirement is to maintain data availability: when choosing a replica to move and its destination, the balancer guarantees that the decision reduces **neither the number of replicas nor the number of racks**.
 
-### Block scanner
+</Deep>
+
+<Deep title="Block scanner">
 
 Each DataNode runs a **block scanner** that periodically scans its block replicas and verifies that the stored checksums match the block data. Whenever a reading client or a block scanner detects a **corrupt** block, it notifies the NameNode.
 
 The NameNode marks the replica as corrupt but does **not** schedule its deletion immediately. Instead it starts to replicate a good copy of the block, and only when the good-replica count reaches the replication factor is the corrupt replica removed. This policy aims to **preserve data for as long as possible**: even if *all* replicas of a block are corrupt, the user can still retrieve what is left of the data from them.
 
-### Decommissioning
+</Deep>
+
+<Deep title="Decommissioning">
 
 The cluster administrator specifies which nodes may join by listing the host addresses permitted to register and those not permitted. A current member that becomes excluded is marked for **decommissioning**.
 
 Once a DataNode is marked as decommissioning, it is **no longer chosen as a target** for replica placement, but it **continues to serve read requests**. The NameNode schedules replication of its blocks to other DataNodes. When the NameNode detects that all the blocks on that node have been replicated, the node enters the decommissioned state and can be **safely removed** from the cluster without jeopardising data availability.
 
-### Copying between clusters
+</Deep>
+
+<Deep title="Copying between clusters">
 
 For very large data sets, copying in and out is itself a big job. HDFS provides a tool called **DistCp** for large inter- and intra-cluster parallel copying. It is a MapReduce job in which each map task copies a portion of the source data into the destination file system, and the MapReduce framework automatically handles parallel scheduling, error detection and recovery. MapReduce is the subject of the next lesson.
+
+</Deep>
+
+<Note kind="trick">
+
+Replica placement in five words: **three copies, on two racks**. One copy next to the writer, two more on different machines in another rack.
+
+</Note>
 
 ## Summary
 

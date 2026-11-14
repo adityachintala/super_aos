@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -42,6 +45,12 @@ What this buys:
 - Address spaces can be **shared**, and **process creation** becomes cheaper (more on both below).
 
 Virtual memory can be built on **demand paging** or demand segmentation. Demand paging is by far the more common, and it is the one this lesson covers.
+
+<Note kind="fact">
+
+Virtual memory was invented for the **Atlas** computer at the University of Manchester, running by 1962. Its designers called it the "one-level store": the program sees one big memory and never knows part of it is on a drum.
+
+</Note>
 
 ## Demand paging
 
@@ -115,6 +124,12 @@ The effective access time is directly proportional to the page-fault rate, and t
 <DemandPagingCost client:visible />
 
 <Question client:visible q={checks.eat} />
+
+<Note kind="trick">
+
+A page fault is reaching for a book that is not on your desk. You stop, walk to the library shelf (the disk), bring the book back, and carry on from the same sentence. Slow, but nothing is lost.
+
+</Note>
 
 ## Two bonuses: copy-on-write and memory-mapped files
 
@@ -213,7 +228,7 @@ A page that is used often enough keeps its bit set and is never replaced. If *al
 
 The algorithm replaces the first page it finds in the lowest non-empty class. Preferring clean pages reduces the amount of I/O.
 
-### Counting algorithms
+<Deep title="Counting algorithms">
 
 Keep a count of the references made to each page.
 
@@ -221,6 +236,14 @@ Keep a count of the references made to each page.
 - **MFU** (most frequently used) argues the opposite: the page with the smallest count was probably just brought in and has yet to be used.
 
 Neither is common. They are expensive to implement and do not approximate OPT well.
+
+</Deep>
+
+<Note kind="fact">
+
+**Belady's anomaly** was reported in 1969 and shocked people: with FIFO, giving a program **more** memory can cause **more** page faults. LRU and the optimal algorithm never do this.
+
+</Note>
 
 ## Allocating frames
 
@@ -334,7 +357,15 @@ The working-set model is rather indirect. Thrashing *is* a high page-fault rate,
 
 If a process needs a frame and none is free, a process is suspended and its frames are distributed among those with high fault rates.
 
+<Note kind="trick">
+
+Thrashing is having ten tasks and switching between them so often that you finish none. All your time goes on remembering where you were. The cure is the same for people and computers: **do fewer things at once**.
+
+</Note>
+
 ## Other considerations
+
+<Optional />
 
 Choosing the replacement algorithm and the allocation policy are the big decisions, but several others matter.
 
@@ -364,6 +395,8 @@ Ideally the working set of each process fits within the TLB reach; otherwise the
 **Kernel memory.** Kernel data structures are often smaller than a page and sometimes must be physically contiguous, so the kernel uses its own allocators. The **buddy system** allocates from a fixed-size segment in power-of-two blocks, and adjacent free "buddies" are joined to satisfy bigger requests. **Slab allocation** keeps a cache for each kind of kernel data structure, each backed by slabs of one or more contiguous pages, so objects are handed out and returned without fragmentation.
 
 ## How real systems do it
+
+<Optional />
 
 **Windows** uses demand paging with **clustering**: a fault brings in the faulting page and the pages around it. Each process has a **working-set minimum**, the number of pages it is guaranteed in memory, and a **working-set maximum**. When free memory falls below a threshold, **automatic working-set trimming** removes pages from processes that hold more than their minimum.
 

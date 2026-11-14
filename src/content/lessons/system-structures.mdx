@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -60,6 +63,12 @@ If a system is to be protected and secure, precautions must be instituted throug
 
 <Question client:visible q={checks.services} />
 
+<Note kind="trick">
+
+Two groups of services. For **you**: interface, running programs, I/O, files, communication, error detection. For **the system**: allocation, accounting, protection. Ask "who benefits?" and you can always sort them.
+
+</Note>
+
 ## The user interface
 
 **Command-line interface.** A CLI, or **command interpreter**, allows direct command entry. It is sometimes implemented in the kernel and sometimes by a system program; where several flavours are available they are called **shells**. Its main function is to **fetch a command from the user and execute it**.
@@ -69,6 +78,12 @@ There are two ways to implement commands. Sometimes the commands are **built in*
 **Graphical user interface.** A user-friendly **desktop metaphor**, usually with a mouse, keyboard and monitor. **Icons** represent files, programs and actions, and mouse buttons over objects cause various actions: provide information, show options, execute a function, open a directory (known as a folder). The GUI was invented at **Xerox PARC**.
 
 Many systems include both. Microsoft Windows is a GUI with a CLI command shell. macOS has the Aqua GUI with a UNIX kernel underneath and shells available. Solaris is a CLI with optional GUI interfaces.
+
+<Note kind="fact">
+
+Windows, icons and the mouse were invented at **Xerox PARC** in the early 1970s. Xerox barely sold them. Apple and Microsoft saw the demo and built their businesses on the idea.
+
+</Note>
 
 ## System calls
 
@@ -176,6 +191,12 @@ The process exits with a code of **0** for no error, or a code greater than 0 id
 
 <Question client:visible q={checks.fork} />
 
+<Note kind="real">
+
+On Linux, type `strace ls` in a terminal. It prints every system call the `ls` command makes: dozens of them, just to list a folder. Linux has more than 300 system calls in total.
+
+</Note>
+
 ## System programs
 
 **System programs** provide a convenient environment for program development and execution. Some are simply user interfaces to system calls; others are considerably more complex. They can be divided into:
@@ -206,7 +227,7 @@ How does a program get from source code to a running process?
 
 Modern general-purpose systems do not link libraries into executables. **Dynamically linked libraries** (in Windows, DLLs) are loaded as needed and **shared** by all programs that use the same version of the library: loaded once. Object and executable files have **standard formats**, so the operating system knows how to load and start them.
 
-### Why applications are operating-system specific
+<Deep title="Why applications are operating-system specific">
 
 Applications compiled on one system are usually not executable on other operating systems. **Each operating system provides its own unique system calls**, its own file formats, and so on. An application can be made available on several systems in three ways:
 
@@ -215,6 +236,8 @@ Applications compiled on one system are usually not executable on other operatin
 - use a standard language or API, such as C, and **compile it separately** on each operating system.
 
 The **application binary interface (ABI)** is the architecture-level equivalent of the API. It defines how the different components of binary code can interface for a given operating system on a given architecture and CPU: how parameters are passed, the format of executables, the width of an address.
+
+</Deep>
 
 ## Design and implementation
 
@@ -242,9 +265,17 @@ The reason for separating them is that they change at different rates: **mechani
 
 <PolicyMechanism client:visible />
 
-### Implementation
+<Deep title="Implementation">
 
 Early operating systems were written in **assembly language**, which gives high speed. Now they are written in **high-level languages**: UNIX was written in C. The advantages are that the code can be developed faster, is more compact, is easier to understand and debug, and is far **easier to port** to other hardware. The disadvantages are reduced speed and increased storage requirements, but these matter less than they used to, because modern compilers are sophisticated. A practical approach is to write the system in a high-level language and then, once it is working, identify the **bottleneck** routines and replace them with assembly-language equivalents.
+
+</Deep>
+
+<Note kind="trick">
+
+**Mechanism** is the volume knob. **Policy** is how loud you choose to play the music. One knob serves every taste, which is exactly why you build the knob and not a fixed volume.
+
+</Note>
 
 ## Operating-system structure
 
@@ -291,7 +322,7 @@ Two classic layered systems:
 
 <Question client:visible q={checks.layered} />
 
-### A fifteen-level design hierarchy
+<Deep title="A fifteen-level design hierarchy">
 
 How far can the idea be taken? A well-known hypothetical model, from Brown, Denning and Tichy's 1984 paper *Advanced Operating Systems*, arranges an entire computer system as fifteen levels. Each level manages one kind of object and offers operations on it, using only the levels below.
 
@@ -319,6 +350,8 @@ How far can the idea be taken? A well-known hypothetical model, from Brown, Denn
 
 No real system is built exactly like this. Its value is as a map: it shows which abstraction each part of an operating system provides, and what that part may rely on.
 
+</Deep>
+
 ### Microkernels
 
 The microkernel approach **moves as much as possible from the kernel into user space**, leaving a small kernel. **Communication takes place between user modules using message passing.** If a client program wants to read a file, it sends a message to the file server, which is an ordinary process; the two never interact directly, but through the microkernel.
@@ -345,13 +378,21 @@ Most modern operating systems implement **loadable kernel modules**.
 
 Overall this is **similar to layers, but more flexible**, because any module can call any other. It is also similar to the microkernel approach, in that the primary module has only core functions and knows how to load and communicate with other modules; but it is **more efficient**, because modules **need not invoke message passing** in order to communicate. Solaris, for instance, is organised around a core kernel with loadable modules for scheduling classes, file systems, loadable system calls, executable formats, STREAMS modules, miscellaneous functions and device and bus drivers. Support for a new file system can be added by loading a module.
 
-### Hybrid systems
+<Deep title="Hybrid systems">
 
 Few systems adopt one structure in its pure form.
 
 - **macOS** has a layered design. At the top are the **Aqua** user interface and a set of application environments and services. Below is the kernel environment, consisting mainly of the **Mach microkernel** (memory management, remote procedure calls and interprocess communication, thread scheduling) and a **BSD UNIX** component (a command-line interface, networking, file systems and an implementation of the POSIX API), together with an I/O kit for device drivers and dynamically loadable modules called **kernel extensions**.
 - **iOS** is structured on macOS with added functionality for mobile devices: Cocoa Touch (an API for touch-screen devices), media services, core services and the core operating system.
 - **Android** runs on a modified **Linux kernel**, which provides process, memory and device-driver support and adds power management. Above it are a set of libraries and the Android runtime, which includes a virtual machine for running applications written in Java, and an application framework.
+
+</Deep>
+
+<Note kind="fact">
+
+In 1992 Professor Andrew Tanenbaum posted a message titled "**LINUX is obsolete**", arguing that monolithic kernels were a thing of the past and microkernels the future. Linus Torvalds, then a student, argued back. The debate is still read today.
+
+</Note>
 
 ## Virtual machines
 
@@ -412,6 +453,8 @@ Even without a virtual-machine monitor, an ordinary operating system gives each 
 | I/O devices | Virtual devices | Time multiplexing |
 
 ## Three papers worth knowing
+
+<Optional />
 
 The ideas in this lesson were worked out in real systems, and three of the papers that describe them are part of the usual reading for this subject.
 

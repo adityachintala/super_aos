@@ -20,6 +20,8 @@ export interface Progress {
   tests: Record<string, { best: number; attempts: number }>;
   /** Flashcards: how many times in a row each card was known (0 = needs work, capped at 3). */
   cards: Record<string, number>;
+  /** Sections of each lesson that have been read (indexes into the lesson's sections). */
+  sections: Record<string, number[]>;
 }
 
 const empty = (): Progress => ({
@@ -30,6 +32,7 @@ const empty = (): Progress => ({
   lastLesson: null,
   tests: {},
   cards: {},
+  sections: {},
 });
 
 export const progress = writable<Progress>(empty());
@@ -142,6 +145,25 @@ export function rateCard(id: string, known: boolean) {
     streak: nextStreak(p.streak, new Date()),
     cards: { ...p.cards, [id]: known ? Math.min(3, (p.cards[id] ?? 0) + 1) : 0 },
   }));
+}
+
+export const XP_PER_SECTION = 2;
+
+/** Marks one section of a lesson as read. XP is paid only the first time. Returns XP gained. */
+export function readSection(lessonId: string, index: number): number {
+  let gained = 0;
+  progress.update((p) => {
+    const done = p.sections[lessonId] ?? [];
+    if (done.includes(index)) return p;
+    gained = XP_PER_SECTION;
+    return {
+      ...p,
+      xp: p.xp + gained,
+      streak: nextStreak(p.streak, new Date()),
+      sections: { ...p.sections, [lessonId]: [...done, index] },
+    };
+  });
+  return gained;
 }
 
 export function resetProgress() {

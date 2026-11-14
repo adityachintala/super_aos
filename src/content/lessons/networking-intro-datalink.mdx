@@ -12,6 +12,9 @@ objectives:
 ---
 
 import Callout from '../../components/learn/Callout.astro';
+import Note from '../../components/learn/Note.astro';
+import Deep from '../../components/learn/Deep.astro';
+import Optional from '../../components/learn/Optional.astro';
 import Flow from '../../components/learn/Flow.astro';
 import Question from '../../components/learn/Question.svelte';
 import Checkpoint from '../../components/learn/Checkpoint.svelte';
@@ -137,14 +140,24 @@ The transport layer is the first true **end-to-end** layer: a program on the sou
 
 The OSI **model** is still a good way to think about networks, though its protocols are not widely used. For TCP/IP the opposite holds: the model is thin, but the **protocols** are everywhere. This course, like most, uses a hybrid of five layers: physical, link, network, transport and application.
 
-### The Internet today
+<Deep title="The Internet today">
 
 - **ISP networks** serve as the Internet backbone, and ISPs connect ("peer") to exchange traffic at **Internet exchange points (IXPs)**.
 - Within each network, **routers** switch packets. Between networks, traffic exchange is set by business agreements.
 - Customers connect at the edge by many means: cable, DSL, fibre to the home, cellular wireless.
 - **Data centres** concentrate many servers ("the cloud"), and most traffic is now content from data centres, especially video.
 
+</Deep>
+
+<Note kind="trick">
+
+The seven OSI layers from the bottom up, **P**hysical, **D**ata link, **N**etwork, **T**ransport, **S**ession, **P**resentation, **A**pplication: "**P**lease **D**o **N**ot **T**hrow **S**ausage **P**izza **A**way."
+
+</Note>
+
 ## The physical layer in brief
+
+<Optional />
 
 Below the data link layer, bits must become signals. Three ideas from this layer explain a good deal of what follows.
 
@@ -216,6 +229,12 @@ The transmitted frame is exactly divisible by the generator. The receiver divide
 - **Feedback-based**: the receiver sends back information giving the sender permission to send more.
 - **Rate-based**: the protocol has a built-in mechanism that limits the sending rate.
 
+<Note kind="fact">
+
+Error-correcting codes exist because **Richard Hamming** got annoyed. In the late 1940s the relay computer he used at Bell Labs would detect an error over the weekend and simply stop. He decided the machine should fix the error itself.
+
+</Note>
+
 ## Protocols for one link
 
 The classic way to learn these mechanisms is to build up from a protocol that is too simple to work.
@@ -278,6 +297,12 @@ Pipelining raises a question that stop-and-wait never faced. If a frame in the m
 
 The two approaches are a **trade-off between efficient use of bandwidth and data-link-layer buffer space**. Go-Back-N can waste a lot of bandwidth if the error rate is high, since one error costs a whole window. Selective Repeat avoids that, at the cost of large amounts of receiver memory and more complex logic, and its sequence-number space must be at least twice the window size so that old and new windows cannot be confused.
 
+<Note kind="trick">
+
+**Go-Back-N** is a strict teacher: one mistake and you redo everything from that point. **Selective Repeat** is a kind one: redo only the question you got wrong.
+
+</Note>
+
 ## Sharing a channel: the MAC sublayer
 
 Network links fall into two categories: **point-to-point connections**, and **broadcast channels**, also called multi-access or random-access channels. On a broadcast channel the key question is who gets to use the channel when several want it.
@@ -326,6 +351,12 @@ After a collision, the random delay is chosen by **binary exponential backoff (B
 
 The interval grows exponentially as more and more consecutive collisions occur, so the algorithm **adapts to the number of stations** trying to send. With few contenders the delay is short; with many, the collisions are resolved within a reasonable number of tries.
 
+<Note kind="fact">
+
+**Ethernet** is named after the "luminiferous ether", an invisible substance scientists once thought carried light. Its design borrowed from **ALOHAnet**, a radio network that linked the Hawaiian islands in 1971.
+
+</Note>
+
 ## Switching in the data link layer
 
 Networks grow by joining LANs together. The devices that do so are named according to the **layer** at which they work.
@@ -357,9 +388,11 @@ Entries are **aged**: if no frame is seen from an address for a few minutes, its
 
 Bridges need **no configuration**; they are plug and play. They extend the link layer: they use Ethernet headers and addresses but do not remove them, and they never look at the network-layer header.
 
-### Virtual LANs
+<Deep title="Virtual LANs">
 
 Users are often grouped on LANs by department, and departments do not match the layout of the building. **Virtual LANs (VLANs)** split one physical LAN into several logical LANs to ease management. Each port of a VLAN-aware switch is "coloured" according to the VLAN it belongs to, and a frame is only forwarded to ports of the same colour. Changing which LAN a machine is on becomes a configuration change rather than a rewiring job.
+
+</Deep>
 
 ## Summary
 
