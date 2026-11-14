@@ -9,6 +9,8 @@ import rehypeBites from './src/lib/rehype-bites.mjs';
 
 export default defineConfig({
   // Served at mglsj.eu.org/super_aos, so all asset and page URLs need this prefix.
+  // The full address is needed for absolute URLs in link-preview (Open Graph) tags.
+  site: 'https://mglsj.eu.org',
   base: '/super_aos/',
   integrations: [svelte(), mdx()],
   markdown: {

@@ -16,6 +16,11 @@ interface Props {
 }
 const { title, description = 'An interactive, visual course on Advanced Operating Systems.' } = Astro.props;
 const fullTitle = title ? `${title} · Super AOS` : 'Super AOS · Learn Advanced Operating Systems';
+
+// Link previews need absolute URLs. `site` comes from astro.config.mjs.
+const origin = Astro.site ?? Astro.url;
+const pageUrl = new URL(Astro.url.pathname, origin).href;
+const ogImage = new URL(`${BASE}/og.png`, origin).href; // made by scripts/make-og.ts
 ---
 
 <!doctype html>
@@ -25,6 +30,22 @@ const fullTitle = title ? `${title} · Super AOS` : 'Super AOS · Learn Advanced
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <title>{fullTitle}</title>
+    <link rel="canonical" href={pageUrl} />
+
+    <meta property="og:site_name" content="Super AOS" />
+    <meta property="og:type" content={title ? 'article' : 'website'} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Super AOS: operating systems, one small bite at a time. Three sticky notes read: read one bite, play with it, prove it." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23ffd02f'/><text x='16' y='22' font-size='16' font-weight='700' font-family='sans-serif' text-anchor='middle' fill='%231c1c1e'>OS</text></svg>"
