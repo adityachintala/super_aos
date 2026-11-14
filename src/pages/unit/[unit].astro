@@ -1,0 +1,53 @@
+---
+import Base from '@/layouts/Base.astro';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/starwind/breadcrumb';
+import UnitTest from '@/components/learn/UnitTest.svelte';
+import { units } from '@/lib/course';
+import { questionsFor } from '@/lib/bank';
+
+export function getStaticPaths() {
+  return units.map((unit) => ({ params: { unit: String(unit.id) }, props: { unit } }));
+}
+
+const { unit } = Astro.props;
+const lessons = unit.lessons.map((l) => ({ id: l.id, title: l.title }));
+const pool = questionsFor(lessons.map((l) => l.id));
+---
+
+<Base title={`Unit ${unit.id} test`} description={`Unit test for ${unit.title}: a mixed set of questions across every lesson in the unit.`}>
+  <main class="mx-auto max-w-3xl px-4 pt-8">
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem><BreadcrumbLink href="/">Course map</BreadcrumbLink></BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem><BreadcrumbPage>Unit {unit.id} test</BreadcrumbPage></BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+
+    <h1 class="mt-4 text-3xl leading-tight font-semibold tracking-tight">Unit {unit.id} test: {unit.title}</h1>
+    <p class="text-muted-foreground mt-2 text-lg">{unit.tagline}</p>
+
+    <div class="mt-8">
+      <UnitTest client:load unitId={unit.id} unitTitle={unit.title} lessons={lessons} pool={pool} />
+    </div>
+
+    <section class="mt-10">
+      <h2 class="text-lg font-semibold">Lessons in this unit</h2>
+      <ol class="mt-3 grid gap-2">
+        {
+          unit.lessons.map((l, i) => (
+            <li>
+              <a class="hover:bg-muted flex gap-3 rounded-md border px-3 py-2.5" href={`/learn/${l.id}`}>
+                <span class="bg-muted grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium tabular-nums">{i + 1}</span>
+                <span>
+                  <span class="font-medium">{l.title}</span>
+                  <span class="text-muted-foreground block text-sm">{l.blurb}</span>
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+  </main>
+</Base>

@@ -1,0 +1,350 @@
+---
+title: Threads
+summary: Why one process can have several paths of execution, how threads map onto the kernel and onto processors, and the issues that multithreading brings with it.
+minutes: 40
+prerequisites: [processes-and-ipc]
+objectives:
+  - Distinguish a thread from a process and say what threads share and what they keep private
+  - Explain the benefits of multithreading, and concurrency versus parallelism
+  - Apply Amdahl's law to a multicore program
+  - Compare user-level and kernel-level threads and the many-to-one, one-to-one and many-to-many models
+  - Discuss fork and exec semantics, cancellation, signals, thread pools, thread-specific data and scheduler activations
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import ConcurrencyTimeline from '../../components/viz/ConcurrencyTimeline.svelte';
+import SpeedupLaws from '../../components/viz/SpeedupLaws.svelte';
+import ThreadModels from '../../components/viz/ThreadModels.svelte';
+import ThreadPool from '../../components/viz/ThreadPool.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/threads';
+
+## Two things a process does
+
+So far a process has been treated as one thing. Look closely and it has **two characteristics**, which turn out to be independent.
+
+**Resource ownership.** A process is allocated a virtual address space to hold its image, and from time to time it may be assigned main memory and other resources such as I/O channels, I/O devices and files. The operating system performs a protection function to prevent unwanted interference between processes with respect to resources.
+
+**Scheduling and execution.** The execution of a process follows a path, a **trace**, through one or more programs. That execution may be interleaved with the execution of other processes. A process is an entity that is **scheduled and dispatched** by the operating system.
+
+Because the two are independent, they can be given to two different things:
+
+- the unit of **dispatching** is called a **thread**, or lightweight process;
+- the unit of **resource ownership** is called a **process**, or task.
+
+**Multithreading** is the ability of an operating system to support **multiple threads of execution within a single process**.
+
+| | One thread per process | Multiple threads per process |
+|---|---|---|
+| **One process** | MS-DOS | A Java run-time environment |
+| **Multiple processes** | Traditional UNIX | Windows, Solaris, Linux, Mach, OS/2 |
+
+Examples of why a single process might want more than one path of execution: writing a file to disk in the background while the user keeps typing, or computing on one batch of data while reading in the next.
+
+### What a thread has, and what it shares
+
+Associated with the **process** are:
+
+- a virtual address space that holds the process image;
+- protected access to processors, other processes, files and I/O resources.
+
+Within a process there may be one or more **threads**, each with:
+
+- a thread **execution state** (running, ready, blocked and so on);
+- a saved thread context when not running: one way to view a thread is as an **independent program counter** operating within a process;
+- its own **control block**, with state, saved registers and instruction pointer;
+- a separate **execution stack**;
+- access to the **memory and resources of its process, shared with all the other threads in that process**.
+
+In a **single-threaded** process model, the representation of a process includes its PCB and user address space, as well as user and kernel stacks. In a **multithreaded** environment there is still a single PCB and a single address space, but there are **separate stacks for each thread**, and separate control blocks for each thread containing register values, priority and other thread-related state.
+
+| Shared by all threads of a process | Private to each thread |
+|---|---|
+| Code section | Thread ID |
+| Data section (global variables) | Program counter |
+| Heap | Register set |
+| Open files, signals and other OS resources | Stack |
+
+All the threads of a process reside in the same address space and have access to the same data. When one thread alters an item of data in memory, other threads see the result whenever they access that item.
+
+<Question client:visible q={checks.shared} />
+
+## Why use threads?
+
+**Responsiveness.** Multithreading an interactive application may allow a program to continue running even if part of it is blocked or is performing a lengthy operation. A multithreaded application can still allow user interaction in one thread while an image is being loaded in another.
+
+**Resource sharing.** Processes can share resources only through techniques such as shared memory and message passing, which the programmer must arrange explicitly. Threads share the memory and the resources of their process by default, so an application can have several different threads of activity all within the same address space.
+
+**Economy.** Allocating memory and resources for process creation is costly. Threads are cheaper in every respect:
+
+- it takes **less time to create** a new thread in an existing process than to create a new process (in Solaris, creating a process is about 30 times slower than creating a thread);
+- it takes **less time to terminate** a thread than a process;
+- it takes **less time to switch** between two threads within the same process (context switching between processes is about five times slower);
+- **communication is easy**: communication between processes requires the intervention of the operating system, whereas threads communicate through shared memory without it.
+
+**Scalability.** The benefits are even greater on a multiprocessor architecture, where threads may be running **in parallel on different processors**. A single-threaded process can run on only one CPU, no matter how many are available.
+
+If an application or function should be implemented as a set of related units of execution, it is far more efficient to do so as a collection of threads than as a collection of separate processes.
+
+<Question client:visible q={checks.economy} />
+
+### Where threads are used
+
+- **Foreground and background work.** In a spreadsheet program, one thread displays menus and reads user input while another executes user commands and updates the spreadsheet.
+- **Asynchronous processing.** A word processor may have a thread whose sole job is to write the RAM buffer to disk once every minute, as protection against power failure.
+- **Speed of execution.** A multithreaded process can compute one batch of data while reading the next batch from a device. On a multiprocessor, multiple threads from the same process may be able to execute simultaneously.
+- **Modular program structure.** Programs that involve a variety of activities or a variety of sources and destinations of input and output may be easier to design and implement using threads.
+
+A busy server shows the benefit most clearly. With a single thread, a second request must wait until the first has been completely served. With one thread per request, the server can make progress on one while another waits for the disk.
+
+### Scheduling and thread operations
+
+**Scheduling and dispatching are done at the thread level**, so most of the state information dealing with execution is kept in thread-level data structures. Some actions, however, affect all the threads in a process and must be managed at the process level:
+
+- **Suspension** involves swapping the address space out of main memory. Since all the threads in a process share the same address space, all of them must enter the suspended state at the same time.
+- **Termination** of a process terminates all the threads within it.
+
+The basic thread operations are:
+
+| Operation | Meaning |
+|---|---|
+| **Spawn** | Create a new thread, with its own register context and stack space |
+| **Block** | The thread needs to wait for an event; its registers, program counter and stack pointer are saved |
+| **Unblock** | The event has occurred; the thread moves to the ready queue |
+| **Finish** | The thread has completed; its register context and stacks are deallocated |
+
+Generally a thread can block without blocking the remaining threads in the process, which is what lets a process start two operations at once. The price is that threads must handle **synchronisation** among themselves, since they all touch the same data.
+
+## Multicore programming
+
+Multicore and multiprocessor systems put pressure on programmers to make better use of the cores. The distinction that matters here is between two words that are often used loosely.
+
+- **Parallelism** implies that a system can perform **more than one task simultaneously**.
+- **Concurrency** supports **more than one task making progress**. On a single processor or core, the scheduler provides concurrency by interleaving.
+
+<ConcurrencyTimeline client:visible />
+
+It is therefore possible to have concurrency without parallelism.
+
+<Question client:visible q={checks.parallel} />
+
+There are two types of parallelism:
+
+- **Data parallelism** distributes subsets of the **same data** across multiple cores and performs the **same operation** on each. Summing an array of size *N* on two cores: one thread sums the first half, the other the second half.
+- **Task parallelism** distributes **threads** across cores, each thread performing a **unique operation**. Different threads may be working on the same data or on different data.
+
+As the number of threads grows, so does the architectural support for threading: CPUs have cores, and also **hardware threads**. The Oracle SPARC T4, for example, has 8 cores with 8 hardware threads per core.
+
+The challenges for a programmer are:
+
+- **Identifying tasks** (dividing activities): finding areas of the application that can be divided into separate, concurrent tasks.
+- **Balance**: making sure the tasks perform equal work of equal value, so that every core carries an equal load.
+- **Data splitting**: dividing the data accessed and manipulated by the tasks to run on separate cores.
+- **Data dependency**: where one task depends on data from another, the tasks' execution must be synchronised.
+- **Testing and debugging**: a parallel program has many possible execution paths, which makes this inherently harder.
+
+### Amdahl's law
+
+Amdahl's law identifies the potential performance gain from adding computing cores to an application that has both serial and parallel components. If *S* is the portion that must be performed serially on a system with *N* processing cores:
+
+$$
+\text{speedup} \le \frac{1}{S + \dfrac{1 - S}{N}}
+$$
+
+If an application is 75% parallel and 25% serial, moving from 1 to 2 cores results in a speedup of 1.6 times; moving to 4 cores gives 2.28. As *N* approaches infinity, the speedup approaches **1 / S**.
+
+<Callout type="key">
+The serial portion of an application has a **disproportionate effect** on the performance gained by adding cores. If 40% of an application is serial, the maximum speedup is 2.5 times, whether you add 4 cores or 4,000.
+</Callout>
+
+<SpeedupLaws client:visible />
+
+<Question client:visible q={checks.amdahl} />
+
+## Where threads are implemented
+
+Support for threads may be provided at the user level or by the kernel.
+
+### User-level threads
+
+Thread management is done by a **thread library at user level**. The application creates and manages all its threads through the library. The kernel is unaware of them: the system **schedules the process as a unit**.
+
+- Scheduling and switching are all in user space, so they are **fast**: no mode switch is needed.
+- Scheduling can be **application-specific**.
+- **No operating-system support** is required.
+- A **blocking system call** is a problem: when one thread makes one, all the threads of the process are blocked.
+- They **cannot support multiprocessing**: the kernel assigns one process to one processor at a time.
+
+### Kernel-level threads
+
+Threads are **supported and managed directly by the kernel**.
+
+- If one thread blocks, the kernel can schedule another thread of the same process.
+- It is easier to support **multiple processors**: threads of one process can run on different CPUs.
+- The kernel itself may be multithreaded.
+- A **user/kernel mode switch** is needed to change threads, so operations are slower.
+
+Virtually all contemporary operating systems support kernel threads: Windows, Linux, Solaris, macOS.
+
+## Multithreading models
+
+Ultimately a relationship must exist between user threads and kernel threads. There are three common ways of establishing it. Explore them before reading on: add user threads, block some, and change the number of kernel threads in the many-to-many model.
+
+<ThreadModels client:visible />
+
+### Many-to-one
+
+Many user-level threads are mapped to a **single kernel thread**. Thread management is done in user space, so it is efficient. But **the entire process will block if a thread makes a blocking system call**, and because only one thread can access the kernel at a time, multiple threads are unable to run in parallel on multiprocessors. It is used on systems that do not support kernel threads. Very few systems still use it, since it cannot take advantage of multiple cores.
+
+<Question client:visible q={checks.blocking} />
+
+### One-to-one
+
+**Each user-level thread maps to a kernel thread.** It provides more concurrency than the many-to-one model, by allowing another thread to run when a thread makes a blocking system call, and it allows multiple threads to run in parallel on multiprocessors. The drawback is that **creating a user thread requires creating the corresponding kernel thread**. Because the overhead of creating kernel threads can burden the performance of an application, most implementations **restrict the number of threads** supported by the system. Windows, Linux and OS/2 use this model.
+
+### Many-to-many
+
+Many user-level threads are **multiplexed onto a smaller or equal number of kernel threads**. The number of kernel threads may be specific to a particular application or a particular machine: an application may be allocated more kernel threads on a multiprocessor than on a uniprocessor.
+
+It avoids both shortcomings. Developers can create as many user threads as necessary, and the corresponding kernel threads can run in parallel on a multiprocessor. When a thread performs a blocking system call, the kernel can schedule another thread for execution.
+
+A popular variation is the **two-level model**, which still multiplexes many user-level threads onto a smaller or equal number of kernel threads but also allows a user-level thread to be **bound** to a kernel thread.
+
+| | Many-to-one | One-to-one | Many-to-many |
+|---|---|---|---|
+| Kernel threads per process | One | One per user thread | A tunable number |
+| Thread creation and switching | Fast, in user space | Slower: needs the kernel | Fast for user threads |
+| A blocking system call | Blocks the **whole process** | Blocks only that thread | Blocks one kernel thread; another can run |
+| Parallelism on multiprocessors | **None** | Yes | Yes, up to the number of kernel threads |
+| Limit on number of threads | Practically none | Restricted by kernel overhead | Practically none |
+
+<Callout type="exam">
+A favourite question fixes the many-to-many model and varies the number of kernel threads against the number of processors. **Fewer** kernel threads than processors: some processors stay idle. **Equal**: all processors can be busy, but a kernel thread that blocks leaves its processor idle. **More**: a blocked kernel thread can be replaced by another that is ready, so utilisation rises. Try all three in the simulator.
+</Callout>
+
+## Threading issues
+
+Multithreaded programs raise design questions that single-threaded ones never had to answer.
+
+### fork() and exec()
+
+In a multithreaded program the semantics of `fork()` and `exec()` change. If one thread in a program calls `fork()`, does the new process **duplicate all threads**, or is it a process with a **single thread**? Some UNIX systems have chosen to provide two versions of `fork()`, one of each kind.
+
+`exec()` works as before: the program specified replaces the entire process, including all its threads. Which `fork()` to use therefore depends on the application. If `exec()` is called immediately after forking, duplicating all the threads is unnecessary, since they will be replaced at once; duplicating only the calling thread is appropriate.
+
+### Cancellation
+
+**Thread cancellation** is the task of terminating a thread before it has completed. If multiple threads are concurrently searching a database and one returns the result, the remaining threads should be cancelled. The thread to be cancelled is the **target thread**.
+
+- **Asynchronous cancellation**: one thread **immediately** terminates the target thread.
+- **Deferred cancellation**: the target thread **periodically checks whether it should terminate**, giving it the opportunity to terminate itself in an orderly fashion.
+
+The difficulty lies in cases where resources have been allocated to a cancelled thread, or where a thread is cancelled while in the middle of updating data it shares with other threads. With asynchronous cancellation the operating system may not free a system-wide resource; with deferred cancellation the thread is cancelled only at a point where it can be done safely, a **cancellation point**.
+
+<Question client:visible q={checks.cancel} />
+
+### Signal handling
+
+A **signal** is used in UNIX systems to notify a process that a particular event has occurred. All signals follow the same pattern:
+
+1. A signal is **generated** by the occurrence of a particular event.
+2. The generated signal is **delivered** to a process.
+3. Once delivered, the signal must be **handled**.
+
+A signal may be received **synchronously** or **asynchronously**. Synchronous signals are delivered to the same process that performed the operation causing them: an illegal memory access or a division by zero. Asynchronous signals are generated by an event external to the running process, such as terminating a process with particular keystrokes (control-C) or having a timer expire.
+
+In a single-threaded program, handling a signal is straightforward: it is always delivered to the process. In a multithreaded program there are several options:
+
+- deliver the signal to the **thread to which the signal applies**;
+- deliver the signal to **every thread** in the process;
+- deliver the signal to **certain threads** in the process;
+- **assign a specific thread** to receive all signals for the process.
+
+The right choice depends on the type of signal. Synchronous signals need to be delivered to the thread that caused them and not to other threads. Some asynchronous signals, such as control-C, should be sent to all threads.
+
+### Thread pools
+
+Consider multithreading a web server. Whenever the server receives a request, it creates a separate thread to service it. This is better than creating a separate process, but it has two problems:
+
+1. The **time required to create the thread** before servicing the request, together with the fact that the thread is **discarded** once it has completed its work.
+2. If all concurrent requests are serviced in new threads, there is no bound on the number of threads concurrently active. **Unlimited threads could exhaust system resources** such as CPU time and memory.
+
+One solution is a **thread pool**. The idea is to **create a number of threads at process start-up and place them into a pool, where they sit and wait for work**. When the server receives a request, it awakens a thread from the pool, if one is available, and passes it the request. Once the thread completes its service, it returns to the pool. **If the pool contains no available thread, the server waits until one becomes free.**
+
+<ThreadPool client:visible />
+
+The benefits:
+
+- It is **usually faster** to service a request with an existing thread than to wait to create a thread.
+- A thread pool **limits the number of threads** that exist at any one point. This is particularly important on systems that cannot support a large number of concurrent threads.
+
+The number of threads in the pool can be set from the number of CPUs, the amount of physical memory and the expected number of concurrent requests, or adjusted dynamically.
+
+### Thread-specific data
+
+Threads belonging to a process share the data of the process, and this sharing is one of the benefits of multithreaded programming. In some circumstances, however, **each thread might need its own copy of certain data**. Such data is called **thread-specific data** (or thread-local storage).
+
+In a transaction-processing system, for example, each transaction might be serviced in a separate thread and assigned a unique identifier. To associate each thread with its unique identifier, we could use thread-specific data.
+
+### Scheduler activations
+
+The many-to-many and two-level models require **communication between the kernel and the thread library**, so that the number of kernel threads can be adjusted dynamically to give the best performance.
+
+Many systems place an intermediate data structure between the user and kernel threads: the **lightweight process (LWP)**. To the user-thread library, the LWP appears to be a **virtual processor** on which the application can schedule a user thread to run. Each LWP is attached to a kernel thread, and it is kernel threads that the operating system schedules onto physical processors. If a kernel thread blocks, such as while waiting for an I/O operation to complete, the LWP blocks as well, and so does the user-level thread attached to it.
+
+An application may require any number of LWPs to run efficiently. **One LWP is required for each concurrent blocking system call.** Suppose five different file-read requests occur simultaneously: five LWPs are needed, because all could be waiting for I/O completion in the kernel. If the process has only four LWPs, the fifth request must wait for one of the LWPs to return from the kernel.
+
+One scheme for this communication is **scheduler activation**. The kernel provides an application with a set of virtual processors, and the application can schedule user threads onto them. The kernel must inform the application about certain events, through a procedure known as an **upcall**, handled by the thread library with an **upcall handler**.
+
+<Stepper
+  client:visible
+  title="An upcall when a thread is about to block"
+  steps={[
+    { title: 'A thread is about to block', actor: 'Application thread', detail: 'A user thread running on a virtual processor (LWP) makes a call that will block, for example a read from disk.' },
+    { title: 'The kernel makes an upcall', actor: 'Kernel', detail: 'The kernel informs the application that a thread is about to block and identifies the thread. It allocates a new virtual processor to the application.' },
+    { title: 'The upcall handler runs', actor: 'Thread library', detail: 'The handler runs on the new virtual processor. It saves the state of the blocking thread and relinquishes the virtual processor on which that thread was running.' },
+    { title: 'Another thread is scheduled', actor: 'Thread library', detail: 'The handler schedules another thread that is eligible to run on the new virtual processor. The process keeps making progress.' },
+    { title: 'The awaited event occurs', actor: 'Kernel', detail: 'When the event the blocked thread was waiting for occurs, the kernel makes another upcall to the thread library, informing it that the previously blocked thread is now eligible to run.' },
+    { title: 'The thread becomes runnable again', actor: 'Thread library', detail: 'The handler marks the unblocked thread as eligible to run and schedules an eligible thread on an available virtual processor.' },
+  ]}
+/>
+
+## Threads in real systems
+
+**Pthreads** is a POSIX standard (IEEE 1003.1c) API for thread creation and synchronisation. It is a **specification** of the behaviour of a thread library, not an implementation; how it is implemented is up to the developers of the library. It is common on UNIX-type operating systems.
+
+**Solaris** implements a many-to-many mapping, using four thread-related concepts:
+
+| Concept | Role |
+|---|---|
+| **Process** | A normal UNIX process, including the user's address space, stack and PCB |
+| **User-level threads** | Implemented through a threads library in the address space of a process. They are invisible to the operating system. A user-level thread has a thread ID, register set, stack and priority; none of these are kernel resources |
+| **Lightweight processes** | A mapping between user-level threads and kernel threads. Each LWP supports one or more user-level threads and maps to one kernel thread. LWPs are scheduled independently. An LWP is a kernel data structure holding a register set for the user-level thread it is running, plus memory and accounting information |
+| **Kernel threads** | The fundamental entities that can be scheduled and dispatched to run on one of the system's processors. A kernel thread has only a small data structure and a stack: a copy of the kernel registers, a pointer to the LWP to which it is attached, and priority and scheduling information |
+
+**Windows** implements the one-to-one mapping at kernel level. Each thread contains a thread ID, a register set representing the state of the processor, separate user and kernel stacks, and a private data storage area used by run-time libraries and DLLs. The register set, stacks and private storage area are known as the **context** of the thread. Its primary data structures are **ETHREAD** (the executive thread block, with a pointer to the process the thread belongs to, in kernel space), **KTHREAD** (the kernel thread block, with scheduling and synchronisation information and the kernel-mode stack, in kernel space) and **TEB** (the thread environment block, with the thread ID, user-mode stack and thread-local storage, in user space).
+
+**Linux** does not distinguish between processes and threads; it refers to both as **tasks**. Thread creation is done through the **`clone()`** system call, which allows a child task to **share the address space** of the parent task, along with other resources, depending on the flags passed.
+
+**Java** threads may be created by extending the `Thread` class or by implementing the `Runnable` interface. They are managed by the JVM, and are difficult to classify as user or kernel threads, since that depends on how the JVM is implemented on the host operating system.
+
+## Summary
+
+- A process has two roles: **resource ownership** and **scheduling/execution**. The **thread** is the unit of dispatching; the **process** is the unit of resource ownership.
+- Threads **share** code, data, heap and files, and each has its **own** program counter, registers and stack.
+- Benefits: **responsiveness, resource sharing, economy** and **scalability**.
+- **Concurrency** is several tasks making progress; **parallelism** is several tasks executing at the same instant. **Amdahl's law** bounds the gain: speedup ≤ 1 / (S + (1 − S)/N), approaching 1/S.
+- **User-level threads** are fast but block together and cannot use several processors. **Kernel-level threads** avoid both problems at the cost of mode switches.
+- **Many-to-one**: efficient, but one blocking call blocks the process and there is no parallelism. **One-to-one**: full concurrency, costly creation. **Many-to-many**: the flexibility of both, with LWPs and **scheduler activations** connecting library and kernel.
+- Issues: **fork/exec** semantics, **cancellation** (asynchronous or deferred), **signal** delivery, **thread pools**, and **thread-specific data**.
+
+## Exam-style practice
+
+<Question client:visible q={practice.pools} label="Written practice" />
+
+<Question client:visible q={practice.concurrency} label="Written practice" />
+
+<Checkpoint client:visible lessonId="threads" questions={checkpoint} />

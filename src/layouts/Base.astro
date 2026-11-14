@@ -1,0 +1,57 @@
+---
+import '@/styles/starwind.css';
+import 'katex/dist/katex.min.css';
+import { ThemeInitScript } from '@starwind-ui/astro/theme';
+import { Button } from '@/components/starwind/button';
+import { ThemeToggle } from '@/components/starwind/theme-toggle';
+import Icon from '@/components/Icon.astro';
+import StatsBar from '@/components/learn/StatsBar.svelte';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const { title, description = 'An interactive, visual course on Advanced Operating Systems.' } = Astro.props;
+const fullTitle = title ? `${title} · Super AOS` : 'Super AOS · Learn Advanced Operating Systems';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{fullTitle}</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c3aed'/><text x='16' y='22' font-size='16' font-weight='700' font-family='sans-serif' text-anchor='middle' fill='white'>OS</text></svg>"
+    />
+    <ThemeInitScript />
+  </head>
+  <body class="min-h-screen antialiased">
+    <header class="bg-background/90 sticky top-0 z-40 border-b backdrop-blur">
+      <div class="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4">
+        <a href="/" class="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <span class="bg-primary text-primary-foreground grid size-7 place-items-center rounded-md"><Icon name="brain" class="size-4.5" /></span>
+          <span>Super AOS</span>
+        </a>
+        <nav class="ml-2 hidden items-center md:flex" aria-label="Main">
+          <Button href="/" variant="ghost" size="sm">Course map</Button>
+          <Button href="/review" variant="ghost" size="sm">Review</Button>
+          <Button href="/pyq" variant="ghost" size="sm">Past quizzes</Button>
+          <Button href="/exam" variant="ghost" size="sm">Mock exam</Button>
+        </nav>
+        <div class="ml-auto flex items-center gap-2">
+          <StatsBar client:load />
+          <ThemeToggle size="sm" ariaLabel="Switch between light and dark theme" />
+        </div>
+      </div>
+    </header>
+
+    <slot />
+
+    <footer class="text-muted-foreground mt-20 border-t py-8 text-center text-sm">
+      <p class="px-4">Super AOS is a free study companion for Advanced Operating Systems. Your progress is stored only in this browser.</p>
+    </footer>
+  </body>
+</html>

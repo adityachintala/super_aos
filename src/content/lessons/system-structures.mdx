@@ -1,0 +1,493 @@
+---
+title: System Structures
+summary: What an operating system offers and how it is put together - services, system calls, system programs, the separation of policy from mechanism, kernel structures from monolithic to microkernel, virtual machines, and how a system boots.
+minutes: 55
+prerequisites: [overview-and-complexity, hardware]
+objectives:
+  - List the services an operating system provides to users and to the system itself
+  - Explain how system calls work - APIs, the system-call table, parameter passing - and classify them
+  - Explain the separation of policy from mechanism and why it matters
+  - Compare simple, monolithic, layered, microkernel, modular and hybrid structures
+  - Explain the virtual-machine idea, time and space multiplexing, and how an operating system is generated and booted
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import KernelStructures from '../../components/viz/KernelStructures.svelte';
+import PolicyMechanism from '../../components/viz/PolicyMechanism.svelte';
+import Multiplexing from '../../components/viz/Multiplexing.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/system-structures';
+
+## Three ways to look at an operating system
+
+An operating system can be examined from three vantage points:
+
+- the **services** it provides to users, processes and other systems;
+- the **interface** it makes available to users and programmers;
+- its **components** and their interconnections: its structure.
+
+This lesson takes them in that order, moving from the outside in.
+
+## Operating-system services
+
+An operating system provides an **environment for the execution of programs**, and services to programs and users. The services fall into two sets.
+
+### Services helpful to the user
+
+| Service | What it provides |
+|---|---|
+| **User interface** | Almost all operating systems have one. It may be a command-line interface (CLI), a graphical user interface (GUI) or a batch interface. |
+| **Program execution** | The system must be able to load a program into memory, run it, and end its execution, either normally or abnormally (indicating an error). |
+| **I/O operations** | A running program may require I/O, which may involve a file or an I/O device. For protection and efficiency, users cannot control devices directly. |
+| **File-system manipulation** | Programs need to read and write files and directories, create and delete them, search them, list file information, and manage permissions. |
+| **Communications** | Processes may exchange information, on the same computer or between computers over a network, via **shared memory** or **message passing** (packets moved by the operating system). |
+| **Error detection** | The operating system needs to be constantly aware of possible errors: in the CPU and memory hardware, in I/O devices, in the user program. For each type, it should take the appropriate action to ensure correct and consistent computing. Debugging facilities greatly enhance the ability to use the system efficiently. |
+
+### Services for the efficient operation of the system
+
+Another set of functions exists not to help the user directly but to ensure the efficient operation of the system itself, through **resource sharing**.
+
+| Service | What it provides |
+|---|---|
+| **Resource allocation** | When multiple users or multiple jobs run concurrently, resources must be allocated to each. Some (CPU cycles, main memory, file storage) have special allocation code; others (I/O devices) have general request and release code. |
+| **Accounting** | Keeping track of which users use how much and what kinds of computer resources, for billing or for usage statistics. |
+| **Protection and security** | The owners of information in a multiuser or networked system want to control its use, and concurrent processes should not interfere with each other. **Protection** ensures that all access to system resources is controlled. **Security** from outsiders requires user authentication and extends to defending external I/O devices from invalid access attempts. |
+
+If a system is to be protected and secure, precautions must be instituted throughout it. **A chain is only as strong as its weakest link.**
+
+<Question client:visible q={checks.services} />
+
+## The user interface
+
+**Command-line interface.** A CLI, or **command interpreter**, allows direct command entry. It is sometimes implemented in the kernel and sometimes by a system program; where several flavours are available they are called **shells**. Its main function is to **fetch a command from the user and execute it**.
+
+There are two ways to implement commands. Sometimes the commands are **built in** to the interpreter. Sometimes they are just the **names of programs**: `rm file.txt` makes the shell find a file called `rm`, load it into memory and run it with the parameter `file.txt`. In that case, **adding new features does not require modifying the shell**. UNIX takes this approach.
+
+**Graphical user interface.** A user-friendly **desktop metaphor**, usually with a mouse, keyboard and monitor. **Icons** represent files, programs and actions, and mouse buttons over objects cause various actions: provide information, show options, execute a function, open a directory (known as a folder). The GUI was invented at **Xerox PARC**.
+
+Many systems include both. Microsoft Windows is a GUI with a CLI command shell. macOS has the Aqua GUI with a UNIX kernel underneath and shells available. Solaris is a CLI with optional GUI interfaces.
+
+## System calls
+
+**System calls** are the programming interface to the services provided by the operating system. They are typically written in a high-level language, C or C++.
+
+Even a simple program makes heavy use of them. Consider copying the contents of one file to another:
+
+<Flow
+  steps={[
+    { label: 'Acquire the input file name', note: 'Write a prompt to the screen, accept input' },
+    { label: 'Acquire the output file name', note: 'Write a prompt to the screen, accept input' },
+    { label: 'Open the input file', note: 'If the file does not exist, abort' },
+    { label: 'Create the output file', note: 'If the file exists, abort' },
+    { label: 'Loop: read from input, write to output', note: 'Until the read fails' },
+    { label: 'Close the output file' },
+    { label: 'Write a completion message to the screen' },
+    { label: 'Terminate normally' },
+  ]}
+  caption="Every step is at least one system call"
+/>
+
+### APIs
+
+Programs mostly reach system calls through a high-level **application program interface (API)** and not by direct system-call use. An API specifies a set of functions available to the application programmer, with the parameters each takes and the values it returns. The three most common are:
+
+- the **Win32 API** for Windows;
+- the **POSIX API** for POSIX-based systems, which includes virtually all versions of UNIX, Linux and macOS;
+- the **Java API** for the Java virtual machine.
+
+Why use an API when the system calls are underneath anyway? **Portability**: a program written to an API can be expected to compile and run on any system that supports that API. And **ease of use**: actual system calls are often more detailed and more awkward to work with.
+
+<Question client:visible q={checks.api} />
+
+### How a system call is implemented
+
+- Typically, **a number is associated with each system call**.
+- The **system-call interface** maintains a **table indexed according to these numbers**.
+- The system-call interface invokes the intended system call in the operating-system kernel and returns the status of the system call and any return values.
+
+**The caller need know nothing about how the system call is implemented.** It just needs to obey the API and understand what the operating system will do as a result of the call. Most details of the operating-system interface are hidden from the programmer by the API and managed by the **run-time support library**: a set of functions built into the libraries included with a compiler.
+
+<Stepper
+  client:visible
+  title="A C program calls printf()"
+  steps={[
+    { title: 'The program calls printf()', actor: 'User mode', detail: 'printf() is not a system call. It is a function in the standard C library, which provides a portion of the system-call interface.' },
+    { title: 'The library prepares a system call', actor: 'User mode', detail: 'It formats the output, then places the number of the write() system call and its parameters (file descriptor, buffer address, length) where the kernel expects them.' },
+    { title: 'Trap', actor: 'Hardware', detail: 'The library executes a trap instruction. The hardware saves the state, sets the mode bit to kernel mode and jumps through the interrupt vector to the system-call handler.' },
+    { title: 'Look up the system-call table', actor: 'Kernel mode', detail: 'The system-call interface uses the number as an index into its table and invokes the kernel’s implementation of write().' },
+    { title: 'The kernel does the work', actor: 'Kernel mode', detail: 'It checks that the parameters are legal, then performs the privileged I/O to the terminal or file.' },
+    { title: 'Return to user mode', actor: 'Hardware', detail: 'The return value (the number of bytes written, or an error) is placed where the caller expects it, the mode bit is set to user mode, and execution continues after the trap.' },
+    { title: 'The library returns to the program', actor: 'User mode', detail: 'The C library takes the value returned by write() and passes it back to the user program as the result of printf().' },
+  ]}
+/>
+
+### Passing parameters
+
+Often more information is required than simply the identity of the desired system call. The exact type and amount vary according to the operating system and the call. Three general methods are used to pass parameters to the operating system.
+
+| Method | How | Limit |
+|---|---|---|
+| **Registers** | The simplest: pass the parameters in registers | There may be more parameters than registers |
+| **Block or table** | The parameters are stored in a block, or table, in memory, and the **address of the block** is passed as a parameter in a register. This is the approach taken by Linux and Solaris. | None |
+| **Stack** | The parameters are **pushed** onto the stack by the program and **popped** off the stack by the operating system | None |
+
+The block and stack methods do not limit the number or length of the parameters being passed.
+
+<Question client:visible q={checks.params} />
+
+### Types of system calls
+
+| Category | Examples |
+|---|---|
+| **Process control** | end, abort; load, execute; create process, terminate process; get and set process attributes; wait for time; wait event, signal event; allocate and free memory |
+| **File management** | create file, delete file; open, close; read, write, reposition; get and set file attributes |
+| **Device management** | request device, release device; read, write, reposition; get and set device attributes; logically attach or detach devices |
+| **Information maintenance** | get and set time or date; get and set system data; get and set process, file or device attributes |
+| **Communications** | create, delete communication connection; send, receive messages; transfer status information; attach and detach remote devices |
+
+The same job has different names on different systems.
+
+| | Windows | UNIX |
+|---|---|---|
+| Process control | `CreateProcess()`, `ExitProcess()`, `WaitForSingleObject()` | `fork()`, `exit()`, `wait()` |
+| File management | `CreateFile()`, `ReadFile()`, `WriteFile()`, `CloseHandle()` | `open()`, `read()`, `write()`, `close()` |
+| Device management | `SetConsoleMode()`, `ReadConsole()`, `WriteConsole()` | `ioctl()`, `read()`, `write()` |
+| Information maintenance | `GetCurrentProcessID()`, `SetTimer()`, `Sleep()` | `getpid()`, `alarm()`, `sleep()` |
+| Communications | `CreatePipe()`, `CreateFileMapping()`, `MapViewOfFile()` | `pipe()`, `shmget()`, `mmap()` |
+
+<Callout type="key" title="The instruction set of a virtual processor">
+The hardware offers a set of machine instructions. The operating system adds a second set, the system calls, and removes the privileged instructions from what a program may use. What a program sees is a new machine: ordinary instructions plus system calls. **System calls are the instruction set of the operating system's virtual processor.**
+</Callout>
+
+### Process control in two systems
+
+**MS-DOS** is **single-tasking**. The shell is invoked when the system is booted. Its method of running a program is simple, and **no new process is created**: there is a single memory space, and it loads the program into memory, **overwriting all but the kernel** and a small part of itself, to give the program as much memory as possible. When the program exits, the small remaining portion of the shell **reloads the rest of the shell** from disk.
+
+**FreeBSD**, a free and open-source UNIX variant descended from the Berkeley Software Distribution, is **multitasking**. When a user logs in, the user's choice of shell is invoked. To run a program:
+
+1. the shell executes the **`fork()`** system call to create a new process;
+2. the new process executes **`exec()`** to load the program into itself;
+3. the shell either **waits** for the process to terminate or continues with other user commands, running the program in the background.
+
+The process exits with a code of **0** for no error, or a code greater than 0 identifying the error.
+
+<Question client:visible q={checks.fork} />
+
+## System programs
+
+**System programs** provide a convenient environment for program development and execution. Some are simply user interfaces to system calls; others are considerably more complex. They can be divided into:
+
+- **File management**: create, delete, copy, rename, print, dump, list and generally manipulate files and directories.
+- **Status information**: some ask the system for the date, time, amount of available memory, disk space or number of users; others provide detailed performance, logging and debugging information. Some systems implement a **registry**, used to store and retrieve configuration information.
+- **File modification**: text editors to create and modify files, and special commands to search the contents of files or transform text.
+- **Programming-language support**: compilers, assemblers, debuggers and interpreters.
+- **Program loading and execution**: absolute loaders, relocatable loaders, linkage editors and overlay loaders, and debugging systems.
+- **Communications**: the mechanism for creating virtual connections among processes, users and computer systems, so that users can send messages, browse web pages, send electronic mail, log in remotely and transfer files.
+- **Application programs**: text processors, spreadsheets, graphics, games.
+
+**Most users' view of the operating system is defined by system programs, not the actual system calls.** Someone who uses a file manager and a terminal has an opinion about "the operating system" without ever having seen a system call.
+
+### Linkers and loaders
+
+How does a program get from source code to a running process?
+
+<Flow
+  steps={[
+    { label: 'Compile', note: 'Source code is compiled into object files designed to be loaded into any physical memory location: relocatable object files' },
+    { label: 'Link', note: 'The linker combines them, and libraries, into a single binary executable file' },
+    { label: 'Load', note: 'The executable resides on secondary storage. The loader brings it into memory, where it is eligible to run on a CPU' },
+    { label: 'Relocate', note: 'Final addresses are assigned to the program’s parts, and code and data are adjusted to match' },
+  ]}
+  caption="From source file to memory"
+/>
+
+Modern general-purpose systems do not link libraries into executables. **Dynamically linked libraries** (in Windows, DLLs) are loaded as needed and **shared** by all programs that use the same version of the library: loaded once. Object and executable files have **standard formats**, so the operating system knows how to load and start them.
+
+### Why applications are operating-system specific
+
+Applications compiled on one system are usually not executable on other operating systems. **Each operating system provides its own unique system calls**, its own file formats, and so on. An application can be made available on several systems in three ways:
+
+- write it in an **interpreted language** such as Python or Ruby, for which an interpreter is available on each system;
+- write it in a language that includes a **virtual machine** containing the running application, such as Java;
+- use a standard language or API, such as C, and **compile it separately** on each operating system.
+
+The **application binary interface (ABI)** is the architecture-level equivalent of the API. It defines how the different components of binary code can interface for a given operating system on a given architecture and CPU: how parameters are passed, the format of executables, the width of an address.
+
+## Design and implementation
+
+### Design goals
+
+The first problem in designing a system is **defining the goals**, which depend on the hardware and on the type of system: batch, time-shared, single-user, multi-user, distributed, real-time or general purpose. Beyond that, the requirements divide into two groups.
+
+- **User goals**: the system should be convenient to use, easy to learn and to use, reliable, safe and fast.
+- **System goals**, those of the designers: the system should be easy to design, implement, maintain and operate; it should be flexible, reliable, error-free and efficient.
+
+MS-DOS was a single-user system; IBM's MVS (multiple virtual storage) was a multiuser, multi-access system for mainframes. Their goals, and therefore their designs, had almost nothing in common. There is no unique solution to the problem of defining requirements, but the principles of software engineering apply.
+
+### Mechanisms and policies
+
+The specification and design of an operating system is a highly creative task. One important principle is the **separation of policy from mechanism**.
+
+- **Mechanisms** determine **how** to do something.
+- **Policies** determine **what** will be done.
+
+For example, the **timer** is a mechanism for ensuring CPU protection. Deciding **how long the timer is to be set** for a particular user is a policy decision. The mechanism does not include any decision about which process gets priority. Whether processes that do more I/O should get priority over CPU-bound processes is a policy, and it can be an **input parameter** that changes from one scheduler to another.
+
+The reason for separating them is that they change at different rates: **mechanisms do not change often; policies are likely to change** across places and over time. If policy is built into the mechanism, in the worst case each change in policy requires a change in the underlying mechanism. **A general mechanism that is insensitive to changes in policy is preferred**: a change in policy then requires only the redefinition of certain parameters.
+
+**Microkernel-based operating systems take this to an extreme: they implement only a basic set of primitive mechanisms in the kernel, and policies are provided at user level.**
+
+<PolicyMechanism client:visible />
+
+### Implementation
+
+Early operating systems were written in **assembly language**, which gives high speed. Now they are written in **high-level languages**: UNIX was written in C. The advantages are that the code can be developed faster, is more compact, is easier to understand and debug, and is far **easier to port** to other hardware. The disadvantages are reduced speed and increased storage requirements, but these matter less than they used to, because modern compilers are sophisticated. A practical approach is to write the system in a high-level language and then, once it is working, identify the **bottleneck** routines and replace them with assembly-language equivalents.
+
+## Operating-system structure
+
+A system as large and complex as a modern operating system must be engineered carefully if it is to function properly and be modified easily. Traditionally the approach was ad hoc and unstructured. The alternatives are best compared side by side.
+
+<KernelStructures client:visible />
+
+### Simple structure
+
+**MS-DOS** was written to provide the **most functionality in the least space**. It is **not divided into modules**. Although it has some structure, its **interfaces and levels of functionality are not well separated**: application programs are able to access the basic I/O routines and write directly to the display and disk drives. That leaves MS-DOS vulnerable to errant programs, and the whole system crashes when a user program fails. It was also limited by the hardware of its era, which provided no dual mode and no hardware protection.
+
+### UNIX: a monolithic kernel
+
+The original UNIX, also limited by hardware functionality, had limited structuring. It consists of **two separable parts**:
+
+- the **system programs**;
+- the **kernel**, which consists of **everything below the system-call interface and above the physical hardware**. It provides the file system, CPU scheduling, memory management and other operating-system functions: **a large number of functions for one level**.
+
+### The layered approach
+
+A structured design uses **layers** to realise modularity: encapsulate the modules separately, and arrange them in a hierarchy in which each layer calls procedures only from the layers below.
+
+**The operating system is divided into a number of layers (levels), each built on top of lower layers. The bottom layer (layer 0) is the hardware; the highest (layer N) is the user interface.** With modularity, layers are selected such that **each uses functions and services of only lower-level layers**. A layer is an implementation of an abstract object: data, and the operations that manipulate that data. It can hide the existence of certain data structures, operations and hardware from the layers above.
+
+Two classic layered systems:
+
+| Layer | THE (Dijkstra) | Venus (Liskov) |
+|---|---|---|
+| 6 | | User programs |
+| 5 | User programs | Device drivers and schedulers |
+| 4 | I/O buffering | Virtual memory |
+| 3 | Operator-console device driver | I/O channel |
+| 2 | Memory manager | CPU scheduler |
+| 1 | CPU scheduler | Instruction interpreter |
+| 0 | Hardware | Hardware |
+
+**Advantages.**
+
+- **Modular design**: well-defined interfaces between layers.
+- **Prototyping and development**: the association between function and layer eases the overall design, and development proceeds layer by layer.
+- **Simplifies debugging and system verification.** The first layer can be debugged without any concern for the rest of the system. Once it is debugged, its correct functioning can be assumed while the second layer is debugged, and so on. If an error is found during the debugging of a particular layer, the error must be on that layer.
+
+**Difficulties.** Appropriately defining the various layers requires careful planning, because a layer can use only lower-level layers. And layered implementations tend to be less efficient: each layer adds overhead to a system call.
+
+<Question client:visible q={checks.layered} />
+
+### A fifteen-level design hierarchy
+
+How far can the idea be taken? A well-known hypothetical model, from Brown, Denning and Tichy's 1984 paper *Advanced Operating Systems*, arranges an entire computer system as fifteen levels. Each level manages one kind of object and offers operations on it, using only the levels below.
+
+| Level | Name | Objects | Example operations |
+|---|---|---|---|
+| 15 | Shell | User programming environment | Statements in shell language |
+| 14 | Directories | Directories | Create, destroy, attach, detach, search, list |
+| 13 | User processes | User processes | Fork, quit, kill, suspend, resume |
+| 12 | Stream I/O | Streams | Open, close, read, write |
+| 11 | Devices | External devices such as printers, displays and keyboards | Create, destroy, open, close, read, write |
+| 10 | File system | Files | Create, destroy, open, close, read, write |
+| 9 | Communications | Pipes | Create, destroy, open, close, read, write |
+| 8 | Capabilities | Capabilities | Create, validate, attenuate |
+| 7 | Virtual memory | Segments, pages | Read, write, fetch |
+| 6 | Local secondary storage | Blocks of data, device channels | Read, write, allocate, free |
+| 5 | Primitive processes | Primitive processes, semaphores, ready list | Suspend, resume, wait, signal |
+| 4 | Interrupts | Interrupt-handling programs | Invoke, mask, unmask, retry |
+| 3 | Procedures | Procedures, call stack | Mark stack, call, return |
+| 2 | Instruction set | Evaluation stack, microprogram interpreter | Load, store, add, subtract, branch |
+| 1 | Electronic circuits | Registers, gates, buses | Clear, transfer, activate, complement |
+
+- **Levels 1 to 4 are not part of the operating system**: they are the hardware. But they are where the operating system begins to appear: procedures, and then interrupts.
+- **Levels 5 to 7 are the core of the operating system**, dealing with a single processor. Level 5 supports multiple processes, with the ability to suspend and resume them and the primitives for synchronisation. Level 6 deals with secondary storage as raw blocks. Level 7 creates a logical address space, organised into blocks that are moved between main memory and secondary storage.
+- **Levels 8 and above deal with external objects** such as peripheral devices, files and possibly networks. Level 9 introduces the pipe, a channel whose output from one process is the input to another. Level 10 supports long-term storage of **named files**: data on secondary storage viewed as abstract, variable-length entities, in contrast to level 6, which sees tracks, sectors and fixed-size blocks. Level 14 maintains the association between the **external identifiers** used by people and the **internal identifiers** used by lower levels to locate and control objects. Level 15, the shell, accepts user commands, interprets them, and creates and controls processes as needed.
+
+No real system is built exactly like this. Its value is as a map: it shows which abstraction each part of an operating system provides, and what that part may rely on.
+
+### Microkernels
+
+The microkernel approach **moves as much as possible from the kernel into user space**, leaving a small kernel. **Communication takes place between user modules using message passing.** If a client program wants to read a file, it sends a message to the file server, which is an ordinary process; the two never interact directly, but through the microkernel.
+
+**Benefits:**
+
+- easier to **extend** a microkernel: new services are added in user space and need no modification of the kernel;
+- easier to **port** the operating system to new architectures;
+- more **reliable**: less code is running in kernel mode;
+- more **secure**.
+
+**Detriment:** the **performance overhead** of user-space to kernel-space communication through message passing.
+
+<Question client:visible q={checks.micro} />
+
+### Modules
+
+Most modern operating systems implement **loadable kernel modules**.
+
+- The design uses an **object-oriented approach**.
+- Each core component is **separate**.
+- Each **talks to the others over known interfaces**.
+- Each is **loadable as needed** within the kernel, at boot time or during run time.
+
+Overall this is **similar to layers, but more flexible**, because any module can call any other. It is also similar to the microkernel approach, in that the primary module has only core functions and knows how to load and communicate with other modules; but it is **more efficient**, because modules **need not invoke message passing** in order to communicate. Solaris, for instance, is organised around a core kernel with loadable modules for scheduling classes, file systems, loadable system calls, executable formats, STREAMS modules, miscellaneous functions and device and bus drivers. Support for a new file system can be added by loading a module.
+
+### Hybrid systems
+
+Few systems adopt one structure in its pure form.
+
+- **macOS** has a layered design. At the top are the **Aqua** user interface and a set of application environments and services. Below is the kernel environment, consisting mainly of the **Mach microkernel** (memory management, remote procedure calls and interprocess communication, thread scheduling) and a **BSD UNIX** component (a command-line interface, networking, file systems and an implementation of the POSIX API), together with an I/O kit for device drivers and dynamically loadable modules called **kernel extensions**.
+- **iOS** is structured on macOS with added functionality for mobile devices: Cocoa Touch (an API for touch-screen devices), media services, core services and the core operating system.
+- **Android** runs on a modified **Linux kernel**, which provides process, memory and device-driver support and adds power management. Above it are a set of libraries and the Android runtime, which includes a virtual machine for running applications written in Java, and an application framework.
+
+## Virtual machines
+
+Look again at a layered system. System programs sit above the kernel, and they can use either system calls or hardware instructions. In some ways they **treat the hardware and the system calls as though both were at the same level**. Application programs go further and may view everything under them in the hierarchy as part of the machine itself. Following that thought to its end gives the **virtual machine**.
+
+- **A virtual machine takes the layered approach to its logical conclusion. It treats the hardware and the operating-system kernel as though they were all hardware.**
+- A virtual machine provides **an interface identical to the underlying bare hardware**.
+- The host creates the illusion that each process has its own processor and its own (virtual) memory.
+- **Each guest is provided with a (virtual) copy of the underlying computer**, on which it can run any operating system or software package available for that machine.
+
+The illusion is created by sharing the resources of the physical computer. **CPU scheduling** shares the CPU transparently, so each virtual machine appears to have its own processor. **Memory management** gives each a large virtual memory. **Spooling** and a file system provide virtual card readers and virtual printers. The disk poses a problem, since a machine with three drives cannot give each of seven virtual machines a whole drive: IBM's VM system solved it with **minidisks**, virtual disks made by allocating as many tracks on the physical disks as each needs.
+
+Virtual machines first appeared commercially on **IBM mainframes in 1972**, and the idea later became a household name through **Java**.
+
+<Question client:visible q={checks.vm} />
+
+### How it is implemented
+
+A virtual machine is difficult to implement, because much work is required to provide an **exact duplicate** of the underlying machine. The underlying machine has two modes, user and monitor. The virtual-machine software can run in monitor mode, since it is the operating system; the virtual machine itself can execute **only in user mode**. So the virtual machine must have a **virtual user mode** and a **virtual monitor mode**, both of which run in physical user mode.
+
+- **User-level code executes as is**, directly on the hardware.
+- **Supervisor code executes at user level.**
+- When it attempts a **privileged instruction**, the instruction **traps to the virtual-machine software**, which **simulates** its effect on the virtual machine's state, and resumes the guest. Hidden registers and I/O instructions are simulated in the same way.
+
+Timing can be an issue: the virtual machine is slower than the real one. **Hardware support helps, and more support gives better virtualisation.** Some processors provide "host" and "guest" modes for the purpose.
+
+A variation is **paravirtualisation**, which presents the guest with a system that is **similar but not identical** to the hardware. The **guest must be modified** to run on the paravirtualised hardware, in exchange for which it runs more efficiently. A guest can be an operating system, or, as with Solaris containers (zones), applications that believe they are the only ones on the system while sharing one kernel.
+
+### Benefits
+
+- Fundamentally, **multiple execution environments** (different operating systems) can **share the same hardware**.
+- They are **protected from each other**: each virtual machine is completely isolated from all the others, so a fault or a virus in one does not damage another. Sharing of files can be permitted, in a controlled way, and virtual machines can communicate with each other and with physical systems over a network.
+- It is ideal for **operating-system research and development**. Changing an operating system is dangerous, and normally requires taking the machine away from its users; in a virtual machine, system programmers get their own machine and normal operation continues.
+- It solves **system-compatibility problems**. Thousands of programs existed for MS-DOS on Intel processors; the best way to run them on a different, faster machine was to provide a virtual Intel machine.
+- It allows the **consolidation** of many lightly used systems onto fewer, busier ones.
+- The **Open Virtual Machine Format** is a standard format that allows a virtual machine to run on many different host platforms.
+
+The main disadvantage is that **some performance degradation is inevitable**.
+
+**Java** is the best-known example of a virtual machine at the level of a programming language. The Java compiler generates **bytecode**, instructions for an abstract computer: the **Java virtual machine**, which implements a stack-based instruction set. Since the JVM is available on many types of computer, the same compiled program runs on all of them.
+
+The Virtual Machines lesson in Unit 5 covers hypervisor types, trap-and-emulate and live migration in depth.
+
+### Virtual computers and multiplexing
+
+Even without a virtual-machine monitor, an ordinary operating system gives each process a simpler, private **virtual computer**. It does so by **multiplexing** each physical resource.
+
+- **Time multiplexing**, or time sharing: scheduling a **serially reusable** resource among several users. Each has the whole resource, in turn.
+- **Space multiplexing**, or space sharing: dividing a **multiple-use** resource up among several users. Each has part of the resource, all the time.
+
+<Multiplexing client:visible />
+
+| Physical resource | Virtualised into | By |
+|---|---|---|
+| Processor | Processes | Mainly time multiplexing |
+| Memory | Address spaces | Space and time multiplexing |
+| Disks | Files | Space multiplexing, and transforming blocks into named files |
+| I/O devices | Virtual devices | Time multiplexing |
+
+## Three papers worth knowing
+
+The ideas in this lesson were worked out in real systems, and three of the papers that describe them are part of the usual reading for this subject.
+
+**Dijkstra's THE and "My recollections of operating system design".** THE was a small multiprogramming system built in the mid-1960s, and it introduced the **layered structure** described above: the processor allocator at the bottom, then the memory manager, the console, I/O buffering and user programs. Each layer was built and tested on a foundation already shown to be correct, which let the designers reason about the system and make claims about its correctness instead of merely testing it. The same project gave us **semaphores**, cooperating **sequential processes** as the unit of concurrency, and the first careful treatment of **deadlock** (the "deadly embrace"). In his recollections, Dijkstra describes how the unreproducible errors caused by interrupts convinced him that such systems could be made reliable only by design that made them intellectually manageable, and not by debugging.
+
+**Ritchie and Thompson, "The UNIX Time-Sharing System" (1974).** UNIX showed that a powerful interactive operating system need not be large or expensive: it ran on a modest minicomputer and was written almost entirely in **C**, which made it portable. Its lasting ideas are few and simple:
+
+- a **hierarchical file system** in which a file is just a sequence of bytes, with no structure imposed by the system;
+- **devices treated as files** (special files), so that file and device I/O use the same calls and the same protection;
+- **removable file systems** attached with `mount`;
+- **processes** created by `fork` and overlaid by `exec`, with `wait` and `exit`, and **pipes** connecting them;
+- a **shell** that is an ordinary user program, with input and output redirection, filters and background commands.
+
+The authors attribute its success to design under constraints: the system was written by its own users, on a small machine, with a taste for simplicity. It is the "keep it simple" and "iterate" advice of the System Complexity lesson in practice.
+
+**Barham and others, "Xen and the Art of Virtualization" (2003).** The x86 architecture of the time could not be virtualised cleanly, because some sensitive instructions did not trap in user mode. Xen's answer was **paravirtualisation**: present the guest with an interface that is similar but not identical to the hardware, and **modify the guest kernel** to call the hypervisor explicitly (a **hypercall**) for privileged operations such as page-table updates. Application binaries run unmodified. The result was many isolated virtual machines on one commodity server with a performance overhead of a few percent, which made the large-scale consolidation behind cloud computing practical.
+
+## Debugging, generation and boot
+
+### Operating-system debugging
+
+**Debugging** is finding and fixing errors, or bugs. It includes **performance tuning**, which removes bottlenecks.
+
+- Operating systems generate **log files** containing error information.
+- The failure of an application can generate a **core dump**: a file capturing the memory of the process.
+- An operating-system failure can generate a **crash dump** file containing kernel memory.
+- Tools such as **DTrace**, in Solaris, FreeBSD and macOS, allow **live instrumentation on production systems**: probes fire when code is executed, capturing state data and sending it to the consumers of those probes.
+
+<Callout type="analogy" title="Kernighan's law">
+"Debugging is twice as hard as writing the code in the first place. Therefore, if you write the code as cleverly as possible, you are, by definition, not smart enough to debug it."
+</Callout>
+
+### System generation
+
+Operating systems are designed to run on **any of a class of machines**; the system must then be **configured for each specific computer site**. This process is **system generation (SYSGEN)**.
+
+The operating system is normally distributed on disk or another medium. The SYSGEN program reads from a given file, or asks the operator, or **probes the hardware directly**, to obtain information about the specific configuration:
+
+- which **CPU** is to be used;
+- the amount of **memory**;
+- the available **devices**, their addresses and parameters;
+- the desired operating-system **options**, such as the CPU-scheduling algorithm and buffer sizes.
+
+There are three approaches to using this information. The source code can be **modified and recompiled**, giving a system tailored exactly to the machine. A **precompiled library** of modules can be **linked** selectively, which is faster. Or the system can be completely **table driven**, with all the code present and the selection made at execution time.
+
+### System boot
+
+The operating system must be made available to the hardware so that the hardware can start it. **Booting** is starting a computer by loading the kernel.
+
+- When power is initialised, execution starts at a **fixed memory location**. **Firmware** is used to hold the initial boot code, since it needs no initialisation and cannot be infected easily.
+- A small piece of code, the **bootstrap program** or **bootstrap loader**, **locates the kernel, loads it into memory and starts its execution**.
+- Sometimes it is a **two-step process**: a simple boot loader fetches a more complex **boot block** from a fixed location on disk, which in turn loads the kernel.
+
+## Summary
+
+- An operating system provides services **to users** (user interface, program execution, I/O operations, file-system manipulation, communications, error detection) and **for the system** (resource allocation, accounting, protection and security).
+- **System calls** are the programming interface to those services, usually reached through an **API** (Win32, POSIX, Java). Each has a **number** that indexes a **table**; parameters are passed in **registers**, in a **block** or on the **stack**. The five types are process control, file management, device management, information maintenance and communications.
+- **System programs** define most users' view of the system.
+- **Mechanism** is how; **policy** is what. Separating them lets policy change without touching the mechanism.
+
+| Structure | Idea | Strength | Weakness |
+|---|---|---|---|
+| Simple | Most functionality in least space | Small | No separation, no protection |
+| Monolithic | Everything in one kernel | Fast | Hard to maintain |
+| Layered | Each layer uses only lower ones | Easy to debug and verify | Hard to define layers; overhead |
+| Microkernel | Minimal kernel, services in user space, message passing | Extensible, portable, reliable, secure | Message-passing overhead |
+| Modules | Core plus loadable modules with known interfaces | Flexible and efficient | Modules still run in kernel mode |
+
+- A **virtual machine** takes layering to its logical conclusion, giving each guest an interface identical to the bare hardware. Privileged instructions trap and are simulated. **Paravirtualisation** modifies the guest instead.
+- Resources are shared by **time multiplexing** (processor, devices) and **space multiplexing** (memory, disk).
+- **SYSGEN** configures a system for a specific machine; the **bootstrap loader** in firmware locates and loads the kernel.
+
+## Exam-style practice
+
+<Question client:visible q={practice.policy} label="Written practice" />
+
+<Question client:visible q={practice.layered} label="Written practice" />
+
+<Checkpoint client:visible lessonId="system-structures" questions={checkpoint} />

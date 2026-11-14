@@ -1,0 +1,309 @@
+---
+title: History of Operating Systems
+summary: How operating systems grew, one wasted resource at a time, from a programmer flipping switches to batch monitors, spooling, multiprogramming and time sharing - and what today's multicore and distributed machines add.
+minutes: 35
+prerequisites: [overview-and-complexity]
+objectives:
+  - Describe serial processing and its two problems, scheduling and setup time
+  - Explain the resident monitor, automatic job sequencing and the hardware features a batch system needs
+  - Explain spooling and why it raised CPU utilisation
+  - Explain multiprogramming and time sharing, and the operating-system features each requires
+  - Relate modern requirements (scale, cost, reliability, availability) to parallel and distributed systems
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import SpoolingDemo from '../../components/viz/SpoolingDemo.svelte';
+import MultiprogrammingDemo from '../../components/viz/MultiprogrammingDemo.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/history';
+
+## Why study the history?
+
+Almost every concept in a modern operating system was invented to stop something expensive being wasted. In the 1950s the expensive thing was the **computer**: a machine cost millions, plus power, cooling and staff, and there were few of them. So one question drove two decades of design:
+
+> How do we increase the utilisation of the CPU?
+
+Later, as hardware became cheap, the expensive thing became the **person** waiting for an answer, and the question changed to response time. Following the story in order makes the features of a modern system look less like a list to memorise and more like a chain of consequences.
+
+<Stepper
+  client:visible
+  title="Each stage removes the biggest waste left by the one before"
+  steps={[
+    { title: 'Serial processing', actor: '1940s to 1950s', detail: 'No operating system. The programmer works the machine from the console. Wasted: the CPU, while people book time and set up jobs.' },
+    { title: 'Simple batch', actor: 'early 1960s', detail: 'A resident monitor runs job after job automatically. Wasted: the CPU, while each job waits for slow card readers and printers.' },
+    { title: 'Spooling', actor: 'disks arrive', detail: 'The disk buffers input and output, so the I/O of one job overlaps the computing of another. Wasted: the CPU, whenever the one job in memory waits.' },
+    { title: 'Multiprogrammed batch', actor: '1960s', detail: 'Several jobs are in memory; when one waits, the CPU runs another. Utilisation is now good. Wasted: the user’s time. Turnaround is hours and there is no interaction.' },
+    { title: 'Time sharing', actor: 'late 1960s on', detail: 'The CPU switches among jobs so fast that every user can interact with a running program. Response time is now good.' },
+    { title: 'Parallel and distributed systems', actor: 'today', detail: 'Many cores and many machines: huge processing on cheap hardware, with replication for reliability and availability.' },
+  ]}
+/>
+
+## The stored-program computer
+
+The computers of the early 1940s were designed to perform **specific tasks**. Changing the task meant a great deal of effort and manual labour: rewiring.
+
+**Alan Turing** and **John von Neumann** proposed the concept of the **stored-program computer**: a machine that has both a **program store** and a **data store**, where the program store provides instructions about what to do with the data. To make the machine do something different, load a different program.
+
+This one idea created the **general-purpose computer**. A small experimental machine at Manchester ran the first stored program in 1948; its successor, the Manchester Mark 1, was working in 1949; and in 1951 the **Ferranti Mark 1** became the first general-purpose computer available commercially. (The film *The Imitation Game* tells part of Turing's story.)
+
+A general-purpose machine immediately raises the question this whole course is about: if it can run any program, who decides **which** program runs, and how does that program get in and out?
+
+## Early systems: serial processing
+
+From the 1940s into the 1950s, **the programmer interacted directly with the computer hardware**. Early computers were physically large machines run from a **console**: display lights, toggle switches, a card reader, a printer. The program was loaded into memory from the panel of switches, from paper tape or from punched cards. If an error occurred, it was indicated by the lights. There was **no operating system**.
+
+As time went on, additional software and hardware were developed. Card readers, line printers and magnetic tape became commonplace. So did **libraries of common functions**, linkers, loaders and debuggers, available to all users: the beginning of software reuse.
+
+The routines that performed I/O became especially important. A **device driver** is a special subroutine written for each I/O device. It knows how the buffers, flags, registers, control bits and status bits for that particular device should be used. A driver is written once and called from the library. Later, **compilers** for FORTRAN, COBOL and other languages appeared, which made programming easier and operating the computer harder.
+
+### Two problems
+
+**Scheduling.** Users booked the machine with a **sign-up sheet**. Book an hour and finish in 35 minutes, and the machine idles for 25. Run into trouble and you are forced to stop before your problem is solved.
+
+**Setup time.** A single job consisted of many separate steps:
+
+<Flow
+  steps={[
+    { label: 'Load the compiler tape' },
+    { label: 'Run the compiler' },
+    { label: 'Unload the compiler tape' },
+    { label: 'Load the assembler tape' },
+    { label: 'Run the assembler' },
+    { label: 'Unload it, load the object program' },
+    { label: 'Run the object program' },
+  ]}
+  caption="One FORTRAN job. If an error occurred at any step, you started again from the beginning."
+/>
+
+While tapes were being mounted or the programmer was operating the console, **the CPU sat idle**.
+
+<Question client:visible q={checks.serial} />
+
+## Simple batch systems
+
+The solution came in two parts.
+
+**First, a professional computer operator was hired.** The programmer no longer touched the machine. The operator set up the job, produced a dump if it failed, and started the next job. Setup time fell because of the operator's experience.
+
+**Second, jobs with similar needs were batched together** and run through the computer as a group. Given a FORTRAN job, a COBOL job and another FORTRAN job, the two FORTRAN jobs were run back to back so the compiler was loaded once.
+
+There was still idle time during the transition from one job to the next. To overcome it, **automatic job sequencing** was developed, and with it the first rudimentary operating system: a small program called the **resident monitor**, which **always resided in memory**.
+
+### How the monitor works
+
+The user no longer has access to the machine. The user submits the job, on cards or tape, to the operator. The operator batches the jobs together sequentially and places the entire batch on an input device for the monitor to use.
+
+<div class="not-sw-prose my-6 grid gap-4 sm:grid-cols-[14rem_1fr] sm:items-center">
+  <div class="grid gap-0.5 text-center text-xs font-medium" role="img" aria-label="Memory layout of a simple batch system: the monitor, containing interrupt processing, device drivers, job sequencing and the control language interpreter, above a boundary; below it the user program area">
+    <div class="bg-chart-2 rounded-t-md px-2 py-1.5 text-white">Interrupt processing</div>
+    <div class="bg-chart-2 px-2 py-1.5 text-white">Device drivers</div>
+    <div class="bg-chart-2 px-2 py-1.5 text-white">Job sequencing</div>
+    <div class="bg-chart-2 px-2 py-1.5 text-white">Control language interpreter</div>
+    <div class="border-foreground text-muted-foreground border-t-2 border-dashed py-0.5 text-[0.7rem] font-normal">boundary</div>
+    <div class="bg-muted rounded-b-md px-2 py-8">User program area</div>
+  </div>
+  <p class="text-sm">The <b>monitor</b> occupies one end of memory and stays there. The rest is the <b>user program area</b>, which holds one job at a time. The monitor reads a job from the input device into the user area, passes control to it, and gets control back when the job finishes.</p>
+</div>
+
+The monitor's whole algorithm is a loop:
+
+1. Read the next job from the input device and load any subroutines it needs.
+2. **Pass control to the user's program.** The processor is now fetching and executing the user's instructions.
+3. On completion, **control returns to the monitor.** The processor is now fetching and executing the monitor's instructions. Go to 1.
+
+Each job carries **control cards**, written in a **job control language**, that tell the monitor what to do: mount this tape, compile, load, run. IBM's FORTRAN Monitor System was an early example. From this point on, operating systems began to matter.
+
+<Question client:visible q={checks.monitor} />
+
+### What the hardware must provide
+
+The batch operating system is **simply a program**. It relies on the ability of the processor to fetch instructions from various portions of main memory in order to seize and relinquish control. For that to be safe, the hardware needs four features.
+
+| Feature | Why |
+|---|---|
+| **Memory protection** | While the user program is running, it must not alter the memory area containing the monitor. If it tries, the processor hardware detects the error and transfers control to the monitor. |
+| **Timer** | Prevents a single job from monopolising the system. When the timer expires, control returns to the monitor. |
+| **Privileged instructions** | Some instructions can be executed only by the monitor, notably **I/O instructions**. If a user program encounters one, control shifts to the monitor. |
+| **Interrupts** | Give the operating system more flexibility in relinquishing control to, and regaining control from, user programs. |
+
+<Callout type="key" title="Four features that never went away">
+Memory protection, a timer, privileged instructions and interrupts are still exactly what separates an operating system from an ordinary program. The Hardware Review lesson shows how each one works.
+</Callout>
+
+<Question client:visible q={checks.hardware} />
+
+With a batch operating system, machine time alternates between execution of user programs and execution of the monitor. There are **two overheads**: some machine time is consumed by the monitor, and some memory is occupied by it. Even so, batch systems improved performance over serial systems, because they removed far more idle time than they cost.
+
+### What was still wrong
+
+The CPU was **still mostly idle**, for a new reason: the speed of mechanical I/O devices is intrinsically far slower than that of electronic devices.
+
+- A CPU works in the microsecond range, executing thousands of instructions per second.
+- A fast card reader reads 1200 cards per minute: **20 cards per second**.
+
+Over time the gap widened, since CPU speed increased at a faster rate than device speed. Tape technology helped a little. But most of a job's time was spent reading and writing, and **turnaround time**, from submitting a job to getting the output back, could be up to two days. This was expensive hardware used inexpensively.
+
+When the CPU has nothing to do, it does not stop. It runs this:
+
+```
+loop:  no operation
+       no operation
+       JUMP loop
+```
+
+## Spooling
+
+The introduction of **disk** technology changed the picture. With disks came **SPOOLing**: **S**imultaneous **P**eripheral **O**perations **O**n-**L**ine.
+
+Spooling treats the disk as a **huge buffer**.
+
+- **Input comes from the disk.** Cards are read from the card reader onto the disk ahead of time. When the job runs and asks for its input, it gets it from the disk.
+- **Output goes to the disk.** When the job prints a line, the line is written to the disk. The output is copied to the printer later.
+
+Try it. The three jobs are the same in both modes; only the organisation changes.
+
+<SpoolingDemo client:visible />
+
+The advantages:
+
+- Reading can be done **in advance**, and output can be **stored** until the printer is free.
+- **Spooling overlaps the I/O of one job with the computation of other jobs.** Even while one job's cards are being read, another job's output can be printing.
+- Spooling keeps **both the CPU and the I/O devices working at much higher rates**.
+- It is also used for processing data at remote sites.
+
+All of this depends on one property: **a disk is a random-access device**. A tape can only be read in the order it was written, so the system could not be writing one job's input onto it while reading another's from the middle. On a disk it can.
+
+<Question client:visible q={checks.spooling} />
+
+Spooling had a second, less obvious consequence. Several jobs were now sitting on the disk, ready to run. The system could **choose** which to run next. That choice is **job scheduling**, and it opens the door to the next step.
+
+## Multiprogrammed batch systems
+
+Even with spooling, only one job was in memory, and **a single user cannot keep either the CPU or the I/O devices busy at all times**. A job computes for a while, then waits for I/O, then computes again.
+
+<Question client:visible q={checks.util} />
+
+**Multiprogramming increases CPU utilisation by organising jobs so that the CPU always has one to execute.** The operating system keeps **several jobs in memory at a time**, and the CPU is multiplexed among them.
+
+Suppose the CPU is executing a job that needs a tape to be mounted.
+
+- In a **non-multiprogrammed** system, the CPU sits idle until the tape is ready.
+- In a **multiprogrammed** system, the CPU simply takes up another job. When that job needs to wait, the CPU switches to a third, and so on. Eventually the first job finishes waiting and gets the CPU back.
+
+As long as at least one job needs to execute, the CPU is never idle. A lawyer works the same way: no lawyer has only one client, and while one case waits for a court date, the lawyer works on another.
+
+<MultiprogrammingDemo client:visible />
+
+Notice two things in the simulator. With a **single** job, multiprogramming gains nothing: there is nobody to switch to. And the more I/O-bound the jobs are, the more there is to gain.
+
+### The operating system starts making decisions
+
+A monitor ran whatever came next in the deck. **Multiprogramming is the first instance of the operating system taking decisions** on behalf of the users, and each decision became a major topic:
+
+| Needed feature | Why |
+|---|---|
+| **I/O routines supplied by the system** | Jobs can no longer be trusted to drive shared devices themselves |
+| **Job scheduling** | Of the jobs waiting on disk, which are brought into memory? |
+| **Memory management** | The system must allocate memory to several jobs at once |
+| **CPU scheduling** | The system must choose among several jobs that are ready to run |
+| **Allocation of devices** | Several jobs may want the same device |
+
+## Time-sharing systems
+
+With multiprogramming, **utilisation was fine. Response time was the problem.** A programmer submitted a job and came back hours later to find a missing comma. There was no way to interact with a program while it ran.
+
+**Time sharing**, also called **multitasking**, is a logical extension of multiprogramming. The CPU executes multiple jobs by switching among them, but the switches occur **so frequently** that the users can **interact with each program while it is running**.
+
+- A time-sharing system uses **CPU scheduling and multiprogramming** to provide each user with a small portion of a time-shared computer.
+- A program that is loaded into memory and is executing is called a **process**. In a time-sharing system a process executes for only a short time before it either finishes or needs to perform I/O.
+- Interactive I/O runs at "people speeds". It may take a person seconds to type a line, which is an eternity for a CPU, so the operating system rapidly switches the CPU to some other user's program.
+- A time-shared operating system allows **many users to share the computer simultaneously**. Each has the **impression of having their own computer**, whereas actually one computer is shared among many.
+
+Time sharing was developed to provide **interactive use of a computer system at a reasonable cost**.
+
+<Question client:visible q={checks.timesharing} />
+
+It brought new requirements. Many users' programs, each waiting an arbitrary time for its user, take up valuable memory. They do not all fit, so some must be **swapped out to disk** and brought back, which leads to **virtual memory**. Users keep their programs and data on-line, which requires a **file system**. Users must be protected from each other. And processes that run concurrently must be able to **synchronise** and **communicate** without getting stuck in **deadlock**.
+
+| | Multiprogrammed batch | Time sharing |
+|---|---|---|
+| Principal objective | Maximise processor use | Minimise response time |
+| Source of directives | Job control language, provided with the job | Commands entered at the terminal |
+| The CPU switches when | The running job waits for I/O | The running job waits, or its time slice ends |
+
+## Modern computers
+
+The same ideas now run on very different hardware.
+
+| Kind of system | Description |
+|---|---|
+| **Single-processor** | One CPU executing a general-purpose instruction set |
+| **Multicore** | Several computing cores on a single chip |
+| **Multiprocessor / parallel** | Several processors in close communication, sharing the bus, clock, memory and peripherals |
+| **Distributed** | Separate computers connected by a network, cooperating on a task |
+
+Two kinds of processor matter today.
+
+- The **central processing unit (CPU)** consists of an **arithmetic logic unit (ALU)**, which performs calculations, and a **control unit (CU)**, which performs instruction sequencing and branching. It interacts with memory and the input and output devices to carry out instructions. It is built for general-purpose work, one complex task after another.
+- The **graphics processing unit (GPU)** was introduced to render images for games. It contains **many more ALUs** than a CPU and applies the same operation to many data items at once (**SIMD**: single instruction, multiple data). It emphasises **high throughput**, which is why it is now used for scientific computing and machine learning.
+
+### More requirements, and how they are met
+
+| Requirement | Solution |
+|---|---|
+| **Huge processing** | Parallel processing, distributed processing |
+| **Cost-effective processing** | Distributed processing on commodity processors |
+| **Big files** | Distributed file systems, networked file systems |
+| **Reliability** | Replication |
+| **Availability** | Replication |
+| **Consistency** (of the replicas) | Distributed synchronisation |
+
+The **Hadoop Distributed File System** (HDFS), covered in Unit 5, is an example of all of them at once. It stores **extremely large files**, with data sets in the range of petabytes. It assumes a **streaming data access pattern**, write once and read many times. And it runs on **commodity hardware**: inexpensive machines that are easily available, and that are expected to fail.
+
+Large-scale computing has evolved along two lines.
+
+- **High-performance computing (HPC)**: supercomputers, or massively parallel processors, are gradually being replaced by **clusters** of cooperating computers, out of a desire to share computing resources. A cluster is usually a collection of homogeneous compute nodes physically connected in close range to one another. The measure is raw speed on one large problem.
+- **High-throughput computing (HTC)**: **peer-to-peer** networks are formed for distributed file sharing and content delivery, built over many globally distributed client machines. Peer-to-peer, cloud computing and web-service platforms focus on HTC: the measure is how many tasks are completed per unit time.
+
+Clustering and peer-to-peer technologies together led to **computational grids** and **data grids**, and then to the cloud.
+
+## The themes of a modern operating system
+
+**Multiprogramming, time sharing, virtualisation and distributed computing** are the central themes of modern operating systems. Out of them come the topics of the rest of the course:
+
+- CPU scheduling
+- process synchronisation and communication
+- deadlock handling
+- memory management and protection
+- virtual memory, where a program may be bigger than physical memory
+- on-line and networked file systems, and disk management
+- networking and distributed computing
+- virtual machines
+- security and protection
+- real-time and multimedia support
+
+## Summary
+
+| Stage | Key idea | Solved | Still wrong |
+|---|---|---|---|
+| **Serial processing** | Programmer at the console, no operating system | | Scheduling by sign-up sheet; setup time |
+| **Simple batch** | Operator, batching, **resident monitor**, job control language | Idle time between jobs | CPU idle during slow I/O; long turnaround |
+| **Spooling** | Disk as a buffer | I/O of one job overlaps computation of another | Only one job in memory |
+| **Multiprogramming** | Several jobs in memory; CPU switches when one waits | CPU utilisation | No interaction; response time |
+| **Time sharing** | Switch so frequently that users interact | Response time | (leads to virtual memory, file systems, protection) |
+
+- The **stored-program concept** made the general-purpose computer possible.
+- A batch monitor needs **memory protection, a timer, privileged instructions and interrupts**.
+- Multiprogramming made the operating system take decisions: **job scheduling, CPU scheduling, memory management, device allocation**.
+- Modern systems add many cores and many machines: **parallel and distributed processing** for scale and cost, **replication** for reliability and availability, and **distributed synchronisation** for consistency.
+
+## Exam-style practice
+
+<Question client:visible q={practice.spooling} label="Written practice" />
+
+<Question client:visible q={practice.compare} label="Written practice" />
+
+<Checkpoint client:visible lessonId="history" questions={checkpoint} />

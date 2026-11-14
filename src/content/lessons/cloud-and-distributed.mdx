@@ -1,0 +1,327 @@
+---
+title: Cloud and Distributed Computing
+summary: How computing moved from one big machine to clusters, grids and clouds, what the cloud service models mean, and how to reason about speedup and availability at scale.
+minutes: 45
+prerequisites: [hdfs, mapreduce]
+objectives:
+  - Distinguish centralized, parallel, distributed and cloud computing, and HPC from HTC
+  - Compare clusters, peer-to-peer networks, grids and clouds
+  - Explain the IaaS, PaaS and SaaS service models and why organisations adopt the cloud
+  - Apply Amdahl's law and Gustafson's law, and compute system efficiency
+  - Compute availability from MTTF and MTTR and describe ways to save energy
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import ServiceModels from '../../components/viz/ServiceModels.svelte';
+import SpeedupLaws from '../../components/viz/SpeedupLaws.svelte';
+import AvailabilityCalc from '../../components/viz/AvailabilityCalc.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/cloud-and-distributed';
+
+## Computing at Internet scale
+
+The last two lessons looked at one file system and one programming model built for clusters. This lesson steps back to the whole landscape those belong to.
+
+Over the past sixty years, computing has gone through a series of changes in machine architecture, operating-system platform, network connectivity and application workload. The direction has been constant: instead of using one centralized computer to solve a problem, a **parallel and distributed computing system** uses many computers to solve large-scale problems over the Internet. Distributed computing has become **data-intensive** and **network-centric**.
+
+The word that ties it together is **scalability**: the ability of a system, network or process to handle a growing amount of work, or to be enlarged to accommodate that growth. In practice it means a system can increase its total output under increased load when resources, typically hardware, are added. Two measures make that concrete:
+
+- **Speed-up**: with more resources, the same amount of data is processed in proportionally less time.
+- **Scale-up**: if resources increase in proportion to the data size, the time stays constant.
+
+### Five generations of platforms
+
+| Period | Platform | Examples |
+|---|---|---|
+| 1950 to 1970 | Mainframes, for large businesses and governments | IBM 360, CDC 6400 |
+| 1960 to 1980 | Lower-cost minicomputers, for small businesses and campuses | DEC PDP-11, VAX |
+| 1970 to 1990 | Personal computers built on VLSI microprocessors | |
+| 1980 to 2000 | Portable computers and pervasive devices, wired and wireless | |
+| 1990 onwards | HPC and HTC systems hidden in clusters, grids and Internet clouds | |
+
+The slogans of each era tell the same story. In 1969 Leonard Kleinrock predicted "computer utilities" that would serve homes and offices as electric and telephone utilities do. In 1984 John Gage of Sun coined "the network is the computer". In 2008 David Patterson said "the data center is the computer". More recently Rajkumar Buyya put it as "the cloud is the computer".
+
+### HPC and HTC
+
+Two kinds of system grew out of this history, with different goals.
+
+| | High-performance computing (HPC) | High-throughput computing (HTC) |
+|---|---|---|
+| Emphasises | Raw speed | High-flux computing: many tasks |
+| Measured by | Floating-point speed (the Top 500 list uses the Linpack benchmark); from Gflops in the early 1990s to Pflops by 2010 | **Number of tasks completed per unit of time** |
+| Driven by | Scientific, engineering and manufacturing communities | Internet searches and web services used by millions simultaneously |
+| Typical systems | Supercomputers (MPPs), now largely replaced by clusters | P2P networks, clouds, web-service platforms |
+| Also has to address | | Cost, energy saving, security and reliability in data centres |
+
+Supercomputer users are fewer than 10% of all computer users. The great majority use desktop computers or large servers for Internet searches and market-driven tasks. That is why raw HPC speed is no longer the best measure of system performance, and why computing clouds call for HTC systems built with parallel and distributed technologies.
+
+Both kinds of system aim for the same design objectives: **efficiency** (using resources well; for HTC that means job throughput, data access, storage and power efficiency), **dependability** (reliability and self-management with quality-of-service assurance even under failure), **adaptation** in the programming model (supporting billions of job requests over massive data sets and virtualized resources), and **flexibility** in application deployment (running both HPC and HTC applications well).
+
+<Question client:visible q={checks.htc} />
+
+### Four paradigms
+
+- **Centralized computing.** All computer resources are in one physical system. Processors, memory and storage are fully shared and tightly coupled within one integrated OS.
+- **Parallel computing.** All processors are either tightly coupled with centralized shared memory or loosely coupled with distributed memory. Interprocessor communication is through shared memory or message passing.
+- **Distributed computing.** A distributed system consists of multiple **autonomous computers**, each with its **own private memory**, communicating through a computer network. Information is exchanged by **message passing**.
+- **Cloud computing.** An Internet cloud of resources can be either a centralized or a distributed system. It applies parallel computing, distributed computing, or both, and can be built with physical or virtualized resources over large data centres. Some regard it as a form of **utility computing** or service computing.
+
+<Question client:visible q={checks.paradigm} />
+
+### Degrees of parallelism
+
+Processing can be done in parallel at several granularities, and hardware has climbed through them over time:
+
+| Level | Idea | Status |
+|---|---|---|
+| Bit-level (BLP) | Wider words: 4-bit to 64-bit processors | Well supported |
+| Instruction-level (ILP) | Execute several instructions at once: pipelining, superscalar, VLIW, multithreading. Needs branch prediction, dynamic scheduling, speculation and compiler support | Well supported |
+| Data-level (DLP) | One instruction on many data items: SIMD and vector machines | Well supported |
+| Task-level (TLP) | Several tasks at once on multicore processors | **Far from fully successful**: programming and compiling for many cores is hard |
+| Job-level (JLP) | Whole jobs spread over a distributed system | The granularity of distributed processing |
+
+A modern processor exploits all of the first four. The move from parallel to distributed processing is a move to coarser granularity.
+
+### Utility computing, the Internet of Things
+
+**Utility computing** is a business model in which customers receive computing resources from a paid service provider. All grid and cloud platforms can be regarded as utility service providers.
+
+The **Internet of Things (IoT)** is the networked interconnection of everyday objects, tools, devices and computers: a wireless network of sensors connecting the things in daily life. It demands universal addressability and has to be designed to track on the order of 100 trillion static or moving objects. A **cyber-physical system (CPS)** is the result of interaction between computational processes and the physical world, merging the "3C" technologies of **computation, communication and control** into a closed feedback loop. The IoT emphasises the networking connections among physical objects, the CPS the applications built on them.
+
+## Enabling technologies
+
+Several hardware and software advances made scalable distributed systems possible.
+
+**Multicore CPUs and many-core GPUs.** A multicore processor houses several cores on one chip. Each core has its own private L1 cache, and the cores share an L2 cache. Such processors exploit parallelism at the ILP and TLP levels. CPUs, however, have reached a limit in exploiting massive data-level parallelism because of the **memory wall**. That triggered the development of **many-core GPUs** with hundreds or more simple cores. A CPU is built for sequencing and branching with a few powerful cores; a GPU contains many more arithmetic units, works in SIMD fashion and emphasises throughput. In the GPU programming model the CPU hands its floating-point kernel computation to the GPU, instructing it to perform the massive data processing.
+
+**Memory, storage and networks.** Three kinds of network appear together in a large cluster: a **LAN** connects client hosts to big servers, a **SAN** connects servers to network storage such as disk arrays, and **NAS** connects client hosts directly to disk arrays.
+
+**Virtual machines.** A conventional computer has a single OS image, a rigid architecture that ties application software to a specific hardware platform. A **virtual machine** removes the tie. Between the VMs and the host platform sits a middleware layer called the **virtual machine monitor (VMM)**, or hypervisor, which provides the VM abstraction to a guest OS. A VMM supports four primitive operations:
+
+<Flow
+  steps={[
+    { label: 'Multiplex', note: 'several VMs share one hardware machine' },
+    { label: 'Suspend', note: 'store a VM in stable storage' },
+    { label: 'Provision', note: 'resume a suspended VM, possibly on new hardware' },
+    { label: 'Migrate', note: 'move a VM from one platform to another' },
+  ]}
+/>
+
+These operations let a VM be provisioned on any available hardware and let many server functions be **consolidated** on the same platform, which eliminates server sprawl. VMware claimed that server utilisation could be raised from a typical 5 to 15 percent to 60 to 80 percent. Virtual machines are the subject of the next lesson.
+
+**Data centres.** Almost all cloud platforms use popular x86 processors, low-cost terabyte disks and Gigabit Ethernet. A large data centre may have thousands of servers. The design philosophy is **low cost**: high-end switches and routers may be too expensive, so high-bandwidth networks may not fit the economics of the cloud. The software must therefore tolerate cheap, failure-prone components, which is exactly what HDFS and MapReduce do.
+
+## System models
+
+Distributed and cloud systems are built over a large number of autonomous computer nodes, interconnected by SANs, LANs or WANs in a hierarchical manner. A few LAN switches can connect hundreds of machines as a working cluster, and a WAN can connect many local clusters into a cluster of clusters. Massive systems are classified into four groups.
+
+| | Clusters | Peer-to-peer networks | Computational grids | Internet clouds |
+|---|---|---|---|---|
+| Architecture | Homogeneous compute nodes connected at close range by SAN or LAN | Flexible network of client machines, globally distributed | Heterogeneous clusters and resources coupled over LAN, WAN or the Internet, across organisations | Virtualized clusters of servers in data centres |
+| Control | Centralized: a master and compute nodes | Self-organising; every peer is both client and server | Centralized control with server orientation and authenticated security | Dynamic provisioning of servers, storage and networks |
+| Aimed at | High-performance computing, search engines, web services | Distributed file sharing and content delivery | Distributed supercomputing, global problem solving | Utility computing, outsourced services |
+| Examples | Google search clusters | BitTorrent, Skype | TeraGrid, ChinaGrid | Amazon Web Services, Google App Engine, Microsoft Azure |
+
+### Clusters and the single system image
+
+A typical server **cluster** is built around a low-latency, high-bandwidth interconnection network, which can be as simple as a SAN or a LAN. Larger clusters use multiple levels of Gigabit Ethernet, Myrinet or InfiniBand switches. The cluster connects to the Internet through a gateway whose IP address locates it.
+
+Most clusters have **loosely coupled** nodes: all the resources of a node are managed by its own OS. As a result, most clusters have **multiple system images**, one per node.
+
+A **single system image (SSI)** is an illusion created by software or hardware that presents a collection of resources as one integrated, powerful resource. It makes the cluster appear to the user as a single machine. A cluster *without* it is nothing more than a collection of independent computers.
+
+<Question client:visible q={checks.ssi} />
+
+### Grids
+
+Like an electric power grid, a **computing grid** offers an infrastructure that couples computers, software and middleware, special instruments, and people and sensors together. It is often constructed across LANs, WANs or Internet backbone networks, at regional, national or global scale. The computers in a grid are primarily workstations, servers, clusters and supercomputers; personal computers and handheld devices serve as access devices.
+
+### Clouds
+
+IBM defined a cloud this way: *"A cloud is a pool of virtualized computer resources. A cloud can host a variety of different workloads, including batch-style backend jobs and interactive and user-facing applications."*
+
+From that definition:
+
+- A cloud allows workloads to be **deployed and scaled out quickly** through rapid provisioning of virtual or physical machines.
+- It supports **redundant, self-recovering, highly scalable** programming models that let workloads recover from unavoidable hardware and software failures.
+- It should **monitor resource use in real time**, so that allocations can be rebalanced when needed.
+
+Traditionally a distributed system was owned and operated by one administrative domain, such as a research laboratory or a company, for its own on-premises needs. Those systems suffer from constant maintenance, poor utilisation and the rising cost of hardware and software upgrades. Cloud computing, as an **on-demand** paradigm, relieves users of these problems.
+
+## Cloud service models
+
+Clouds offer their resources at three levels. Switch between them to see which layers of the stack the customer still looks after.
+
+<ServiceModels client:visible />
+
+**Infrastructure as a Service (IaaS).** This model puts together the infrastructure demanded by users: servers, storage, networks and the data-centre fabric. The user can deploy and run multiple VMs running guest operating systems with specific applications. The user does **not** manage or control the underlying cloud infrastructure, but can specify when to request and release resources.
+
+**Platform as a Service (PaaS).** This model lets the user deploy **user-built applications** onto a virtualized cloud platform. PaaS includes middleware, databases, development tools and runtime support. The platform integrates hardware and software with specific programming interfaces; the provider supplies the API and software tools (Java, Python, .NET and so on). The user is freed from managing the cloud infrastructure.
+
+**Software as a Service (SaaS).** This is browser-initiated application software used by thousands of paying customers. It applies to business processes, industry applications, customer relationship management (CRM), enterprise resource planning (ERP), human resources and collaborative applications. On the customer side there is **no upfront investment** in servers or software licences. On the provider side, costs are rather low compared with conventional hosting of user applications.
+
+<Question client:visible q={checks.service} />
+
+### Why adopt the cloud?
+
+1. Data centres can be sited in areas with **protected space and higher energy efficiency**.
+2. **Peak-load capacity is shared** among a large pool of users, improving overall utilisation.
+3. **Infrastructure maintenance is separated** from domain-specific application development.
+4. Cost is **significantly lower** than with traditional computing paradigms.
+5. Cloud programming and application development are supported.
+6. Service and data discovery, and content and service distribution, are provided.
+7. Privacy, security, copyright and reliability issues have to be addressed.
+8. Service agreements, business models and pricing policies have to be worked out.
+
+The first six are benefits. The last two are a reminder that moving to the cloud raises questions that do not exist when everything is in your own building.
+
+## Software environments
+
+**Towards distributed operating systems.** The computers in most distributed systems are loosely coupled, so a distributed system inherently has multiple system images, because every node runs an independent operating system. To promote resource sharing and fast communication among nodes, it is best to have a **distributed OS** that manages all resources coherently and efficiently. Such a system is likely to be closed, relying on message passing and remote procedure calls between nodes. There have been three approaches:
+
+1. Build a **network OS** over a large number of heterogeneous machines. This gives the lowest transparency to users; it is essentially a distributed file system, with independent computers sharing files.
+2. Develop **middleware** that offers a limited degree of resource sharing. DCE and the MOSIX system for Linux clusters are examples; MOSIX2 runs a virtualization layer in Linux that gives applications a partial single-system image and can migrate processes among nodes, clusters and grids.
+3. Develop a **truly distributed OS** for higher transparency. The Amoeba project aimed to make a network of computers appear to the user as a single machine.
+
+**Programming models.**
+
+| Model | What it is |
+|---|---|
+| **MPI** | A library of subprograms callable from C or FORTRAN for writing parallel programs that run on a distributed system by message passing |
+| **MapReduce** | A programming model for scalable data processing on large clusters over large data sets |
+| **Hadoop** | A software library for writing and running applications over vast amounts of distributed data, scaling to petabytes |
+
+**Grid standards.** The **Open Grid Services Architecture (OGSA)** is a common standard for grid services, covering among other things security based on certificate authorities and public-key infrastructure.
+
+## Performance and scalability
+
+### Metrics
+
+In a distributed system, performance depends on many factors.
+
+- **System throughput** is measured in MIPS, Tflops (tera floating-point operations per second) or TPS (transactions per second).
+- **Job response time** and **network latency** matter to users; an interconnection network with low latency and high bandwidth is preferred.
+- **System overhead** comes from OS boot time, compile time, I/O data rate and so on.
+- Other metrics include quality of service, **availability** and dependability, and security resilience against network attacks.
+
+### Dimensions of scalability
+
+- **Size scalability**: achieving higher performance or more functionality by increasing the machine size (more processors, cache, memory, storage, I/O channels).
+- **Software scalability**: upgrades to the OS or compilers, adding libraries, porting new applications, friendlier programming environments.
+- **Application scalability**: matching the *problem* size to the machine size. Problem size affects the data set or the workload.
+- **Technology scalability**: a system that can adapt to changes in building technologies, such as components and networking.
+
+### Amdahl's law
+
+How much faster does a program run on *n* processors? Suppose it takes time *T* on one processor, and a fraction **α** of the code must be executed sequentially; α is the **sequential bottleneck**. The remaining (1 − α) can be run in parallel. The total time on *n* processors is αT + (1 − α)T / n, so the speedup is
+
+$$
+S = \frac{T}{\alpha T + (1-\alpha)T/n} = \frac{1}{\alpha + (1-\alpha)/n}
+$$
+
+The maximum speedup of *n* is reached only when α = 0, that is, when the code is fully parallelizable. As *n* grows without bound, *S* approaches
+
+$$
+\lim_{n\to\infty} S = \frac{1}{\alpha}
+$$
+
+Surprisingly, this upper bound is **independent of the cluster size**. With α = 0.25 the maximum speedup is 4, even with hundreds of processors. The lesson of Amdahl's law is to make the sequential bottleneck as small as possible; increasing the cluster size alone may not give a good speedup.
+
+<Question client:visible q={checks.amdahl} />
+
+### The problem with a fixed workload
+
+Amdahl's law assumes the **same workload** whether the program runs on one processor or many. Define **system efficiency** as speedup per processor:
+
+$$
+E = \frac{S}{n} = \frac{1}{\alpha n + 1 - \alpha}
+$$
+
+On a large cluster this is dismal. With *n* = 256 and α = 0.25, *E* = 1 / (0.25 × 256 + 0.75) ≈ **1.5%**. Only a few processors, say four, are kept busy while the majority sit idle.
+
+### Gustafson's law
+
+To get higher efficiency from a large cluster, **scale the problem size to match the cluster's capability**. This gives the scaled-workload speedup proposed by John Gustafson in 1988.
+
+Let *W* be the workload of a program. On an *n*-processor system the user scales it to
+
+$$
+W' = \alpha W + (1-\alpha)\,n\,W
+$$
+
+Only the parallelizable portion is scaled *n* times. *W′* is essentially the sequential execution time on a single processor, and running it on *n* processors takes the time of the original *W*. The scaled-workload speedup is therefore
+
+$$
+S' = \frac{W'}{W} = \alpha + (1-\alpha)\,n
+$$
+
+and the efficiency is *E′* = *S′* / *n* = α / *n* + (1 − α). For the same 256-node cluster with α = 0.25, *S′* = 192.25 and *E′* ≈ **75%**.
+
+<SpeedupLaws client:visible />
+
+<Callout type="exam" title="Which law applies?">
+Use **Amdahl's law** when the workload is fixed: it tells you the gain from adding processors to the *same* problem. Use **Gustafson's law** when the problem grows with the machine: it tells you how much *more* work a bigger machine can do in the same time. A good answer states the assumption before the formula.
+</Callout>
+
+## Availability, security and energy
+
+### Fault tolerance and availability
+
+**High availability (HA)** is desired in all clusters, grids, P2P networks and clouds. A system is highly available if it has a long **mean time to failure (MTTF)** and a short **mean time to repair (MTTR)**:
+
+$$
+\text{Availability} = \frac{\text{MTTF}}{\text{MTTF} + \text{MTTR}}
+$$
+
+Availability is affected by many factors. Any component that brings down the whole system when it fails is a **single point of failure**; the rule of thumb is to design a dependable system with none, by adding hardware redundancy, improving component reliability and designing for testability. In general, as a distributed system grows, availability falls, because there is a higher chance of some failure and more difficulty isolating it.
+
+<AvailabilityCalc client:visible />
+
+<Question client:visible q={checks.avail} />
+
+### Network threats and data integrity
+
+Clusters, grids and clouds must be protected from attacks that cause a **loss of confidentiality** (information leaks), a **loss of data integrity** (user alteration, Trojan horses, service spoofing), or a **loss of availability** (denial-of-service attacks). Lack of authentication or authorization leads to illegitimate use of computing resources. Protecting a data centre needs integrated solutions rather than a single mechanism.
+
+### Energy efficiency
+
+The traditional goals of parallel and distributed systems are high performance and high throughput with some reliability. Energy has joined them: energy consumption raises monetary, environmental and system-performance issues, and **cooling** is a further cost on top of the power used by the machines themselves.
+
+**Unused servers.** Significant savings come simply from switching off servers that are not in use. Surveys have found about one sixth of servers powered on without being actively used.
+
+**Active servers.** Energy can be reduced at each layer of the system:
+
+| Layer | Where the energy goes, and how to save it |
+|---|---|
+| Application | Energy is proportional to the number of instructions executed and the number of transactions with main memory; design applications to be energy-aware |
+| Middleware | Efficient scheduling that reduces both task execution time and energy consumption |
+| Resource | Power-management of the hardware: switching between power modes and operating frequencies |
+| Network | Energy-efficient routing algorithms and protocols |
+
+**DVFS.** **Dynamic voltage and frequency scaling** reduces dynamic power consumption by adjusting the voltage and clock frequency of a CPU on the fly. In CMOS circuits the energy used is
+
+$$
+E = C_{\text{eff}}\, f\, v^2\, t
+$$
+
+where *v* is the supply voltage, *f* the clock frequency, *t* the time and *C*<sub>eff</sub> the effective capacitance. Because energy depends on the *square* of the voltage, running a lightly loaded processor at lower voltage and frequency saves a great deal, at the cost of taking longer.
+
+## Summary
+
+- Computing has moved from centralized machines to **parallel and distributed systems** that are data-intensive and network-centric. **HPC** pursues raw speed; **HTC** pursues tasks completed per unit time.
+- **Distributed** means autonomous computers with private memory exchanging messages. A **cloud** is a pool of virtualized resources that may be centralized or distributed.
+- Four system classes: **clusters** (homogeneous, local, usually with multiple system images unless SSI software is added), **P2P networks**, **grids** and **clouds**.
+- **IaaS** rents infrastructure, **PaaS** rents a platform for your own applications, **SaaS** rents finished software.
+- **Amdahl**: S = 1 / (α + (1 − α)/n), bounded by 1/α. Efficiency E = S/n collapses on large clusters for a fixed workload. **Gustafson**: S′ = α + (1 − α)n when the workload is scaled.
+- **Availability** = MTTF / (MTTF + MTTR). Avoid single points of failure.
+- **Energy** is saved by switching off idle servers, by energy-aware design at each layer, and by **DVFS**.
+
+## Exam-style practice
+
+<Question client:visible q={practice.network} label="Written practice" />
+
+<Question client:visible q={practice.virtualization} label="Written practice" />
+
+<Checkpoint client:visible lessonId="cloud-and-distributed" questions={checkpoint} />

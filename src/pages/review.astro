@@ -1,0 +1,32 @@
+---
+import Base from '@/layouts/Base.astro';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/starwind/breadcrumb';
+import ReviewDeck from '@/components/learn/ReviewDeck.svelte';
+import { units } from '@/lib/course';
+import { bank } from '@/lib/bank';
+import { flashcards } from '@/data/flashcards';
+
+const unitInfo = units.map((u) => ({ id: u.id, title: u.title, lessons: u.lessons.map((l) => ({ id: l.id, title: l.title })) }));
+---
+
+<Base title="Review" description="Flashcards for every lesson and a queue of the questions you have not yet got right.">
+  <main class="mx-auto max-w-3xl px-4 pt-8">
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem><BreadcrumbLink href="/">Course map</BreadcrumbLink></BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem><BreadcrumbPage>Review</BreadcrumbPage></BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+
+    <h1 class="mt-4 text-3xl leading-tight font-semibold tracking-tight">Review</h1>
+    <p class="text-muted-foreground mt-2 text-lg">
+      Short, regular recall beats one long re-read. Use the flashcards for definitions and formulas, and the weak-spots list to retry the
+      questions you dropped marks on.
+    </p>
+
+    <div class="mt-8">
+      <ReviewDeck client:load units={unitInfo} cards={flashcards} pool={bank} />
+    </div>
+  </main>
+</Base>

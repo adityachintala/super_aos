@@ -1,0 +1,301 @@
+---
+title: System Complexity
+summary: What a system is, what an operating system is, why large systems become hard to understand, and the small set of ideas - modularity, abstraction, layering, hierarchy, iteration - used to keep them under control.
+minutes: 35
+prerequisites: []
+objectives:
+  - Define a system and identify its nine characteristics in an example
+  - Explain what an operating system is, its two goals, and the views of it as resource allocator, control program and kernel
+  - Recognise the signs and sources of complexity in a system
+  - Explain how modularity, abstraction, layering and hierarchy reduce complexity
+  - Explain why computer systems are different, and why iteration and simplicity are needed as well
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import SystemAnatomy from '../../components/viz/SystemAnatomy.svelte';
+import ModularityCalc from '../../components/viz/ModularityCalc.svelte';
+import Interconnections from '../../components/viz/Interconnections.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/overview-and-complexity';
+
+## Three questions
+
+Before studying how operating systems work, it is worth being exact about three words that are usually used loosely.
+
+- What is a **system**?
+- What is an **operating system**?
+- What is a **computer** operating system?
+
+If you have studied digital logic, computer architecture and programming, you can already build a circuit for a given function, write an assembly-language program, and solve a problem in a high-level language using calls such as `printf()`, `scanf()` and `fopen()`. This course is about what lies **underneath** those calls: the software that turns bare hardware into something a program can use.
+
+## What is a system?
+
+A **system** is an interrelated set of components, with an identifiable boundary, working together for some purpose.
+
+Systems can be **natural**, such as the human body or the solar system, or **fabricated**, such as a bicycle, a bus, a computer, a government or a boat.
+
+Every system has **nine characteristics**.
+
+| Characteristic | Meaning |
+|---|---|
+| **Components** | A system is made up of components. A component is either an irreducible part or an aggregation of parts; it is also called a **subsystem**. |
+| **Interrelationships** | The components are interrelated: one subsystem depends on one or more others. |
+| **Boundary** (scope) | The limit within which all the components are contained, separating the system from other systems. |
+| **Purpose** | The overall goal or function of the system: its reason for existing. |
+| **Environment** | Everything external to the system that interacts with it. |
+| **Interfaces** | The points of contact where the system meets its environment, or where subsystems meet each other. |
+| **Input** | Whatever the system takes from its environment in order to fulfil its purpose. |
+| **Output** | Whatever the system returns to its environment in order to fulfil its purpose. |
+| **Constraints** | Limits on what the system can accomplish: capacity, speed or capabilities. |
+
+Pick a characteristic below and see what it is in a fast-food restaurant, then in an operating system.
+
+<SystemAnatomy client:visible />
+
+<Question client:visible q={checks.system} />
+
+## What is an operating system?
+
+Here is a definition that does not mention computers at all.
+
+- **Every tool consists of a machine part and an operating part.**
+- The operating part of a tool is called the **operating system** of that tool.
+- The purpose of the operating system is to **facilitate the operation of the underlying machine**.
+
+A car has an engine, a gearbox and brakes: the machine part. It also has a steering wheel, pedals and a dashboard: the operating part. You drive without knowing how fuel injection works, because the operating part **abstracts the machine part in terms of simple services, hiding the details**. A telephone and a television have operating systems in the same sense. For some tools the operating system may not exist: a **pen** has nothing between you and the machine.
+
+An operating system is itself a **system**, and a **subsystem** of the tool it belongs to. It can provide services to users or to other subsystems.
+
+<Callout type="analogy" title="The driver never touches the engine">
+The pedals are an interface. Pressing the accelerator is a request for a service ("go faster"), and the car decides how much fuel and air that takes. Replace the petrol engine with an electric motor and the pedal still means the same thing. That is exactly what an operating system does for programs: `read()` means the same whether the data is on a hard disk, a solid-state drive or a network server.
+</Callout>
+
+### A computer operating system
+
+A computer is also a tool with a machine part and an operating part. **The operating part of a computer is called the computer operating system.** It abstracts the underlying hardware in terms of simple services by hiding the details of the hardware. Examples are Windows, macOS, UNIX, Solaris, Linux, Android and iOS. From here on, "operating system" means a computer operating system.
+
+<Question client:visible q={checks.os} />
+
+A computer system can be divided into **four components**:
+
+<Flow
+  steps={[
+    { label: 'Users', note: 'People, machines, other computers' },
+    { label: 'Application programs', note: 'Define the ways system resources are used to solve users’ problems: compilers, databases, games, browsers' },
+    { label: 'Operating system', note: 'Controls and coordinates the use of the hardware among the application programs for the users' },
+    { label: 'Hardware', note: 'Provides the basic computing resources: CPU, memory, I/O devices' },
+  ]}
+  caption="Each level uses only the one below it"
+/>
+
+The textbook definition follows directly: an operating system is **a program that acts as an intermediary between a user of a computer and the computer hardware**. It has two goals:
+
+1. Make the computer system **convenient** to use.
+2. Use the computer hardware in an **efficient** manner.
+
+There is no universally accepted definition of what is part of the operating system, but three descriptions are common.
+
+| View | The operating system is… |
+|---|---|
+| **Resource allocator** | The manager of all resources: CPU time, memory space, file-storage space, I/O devices. It decides between conflicting requests for efficient and fair use. |
+| **Control program** | The controller of the execution of user programs and the operation of I/O devices, preventing errors and improper use. |
+| **Kernel** | The one program running at all times on the computer. Everything else is a system program or an application program. |
+
+The two goals, efficiency and convenience, are **sometimes contradictory**. Much of operating-system theory concentrates on the optimal use of resources, because for most of computing history hardware was the expensive part.
+
+<Question client:visible q={checks.goals} />
+
+## Why systems get complicated
+
+A modern operating system runs to tens of millions of lines of code, written by thousands of people. Windows has about 50 million lines. Understanding how something of that size is built at all requires a vocabulary for **complexity**.
+
+"Complex" means **difficult to understand**. There are five signs.
+
+| Sign | Why it indicates complexity |
+|---|---|
+| A large number of **components** | More components, more to understand |
+| A large number of **interconnections** | More interconnections, more ways for parts to affect each other |
+| Many **irregularities** | Lack of regularity, non-repetitive interconnections and exceptions each need separate understanding |
+| A long **description** | One measure of the complexity of an object is the length of its shortest description |
+| A **team** of designers, implementers or maintainers | If it takes many people to maintain the system, no one person understands it |
+
+<Question client:visible q={checks.signs} />
+
+### Where complexity comes from
+
+**Cascading and interacting requirements.** More requirements mean more complexity, and as the requirements increase, so do the **interactions** between them. Consider a telephone: call waiting, call return, call forwarding, call blocking, reverse billing, caller ID, caller ID blocking, anonymous call rejection, do not disturb. What should happen when a forwarded call reaches a phone that blocks anonymous callers, from a caller who blocks caller ID? Each new feature must be reconciled with all the others. This is the **principle of escalating complexity: adding a requirement increases complexity out of proportion.**
+
+**Generality.** Generality means meeting many requirements with a single design, so that it applies in a variety of circumstances. Some generality is valuable, but it must be chosen with judgement. An automobile with four independent steering wheels is more general and much more complex. A vehicle that can be driven on the highway and also used as a boat is unlikely to be efficient as either. The advice is to **avoid excessive generality: if it is good for everything, it is good for nothing.**
+
+**Scaling.** A design that works at one size does not simply stretch.
+
+- Small insects absorb oxygen through their skins. A larger organism's oxygen need grows with its volume, the cube of its size, while its skin grows only with the square. So large organisms add lungs and blood vessels: whole new subsystems.
+- The programmer of a four-bit microprocessor can write the code that controls a toaster directly in binary. The programmers of a video game on a 64-bit processor need computers, an operating system, compilers, video editors and special-effects generators.
+
+**Change.** When the environment changes, requirements change. The original design may lose its relevance, knowledge of how to maintain old equipment disappears, and unanticipated requirements appear. Changes to an existing system **propagate**: a bug fix introduces another bug. The bottom line is that **as systems age, they accumulate changes and become more complex.**
+
+**Maintaining high utilisation.** We want high performance, and when a resource is scarce we want its utilisation to be high. But **trying to increase the utilisation of a limited resource increases complexity**. A single-lane road needs no rules until you try to keep it full in both directions. Most of what follows in this course, from scheduling to virtual memory, is machinery invented to squeeze more out of scarce hardware.
+
+## Coping with complexity
+
+There are four general techniques. All four are ways to divide things up and to place the resulting pieces in a suitable relation to one another.
+
+### Modularity
+
+**Divide and conquer.** Analyse or design the system as a collection of interacting subsystems called **modules**, so that one can think about each module in isolation.
+
+A simple model shows the benefit. Suppose a program has N statements, that the number of bugs is proportional to N, and that the time to find and fix one bug is also proportional to the size of the program. Debugging time is then proportional to **N × N**.
+
+Now divide the program into **K modules** of N/K statements each, and suppose a bug in one module can be found by looking at that module alone:
+
+$$
+K \times \frac{N}{K} \times \frac{N}{K} = \frac{N^2}{K}
+$$
+
+**Debugging time is reduced by a factor of K.**
+
+<ModularityCalc client:visible />
+
+<Question client:visible q={checks.modularity} />
+
+Modularity also allows **incremental improvement**: it is easy to replace an inferior module with an improved one. That helps with the complexity caused by change.
+
+### Abstraction
+
+The modularity argument relied on an assumption: that the discovery of a bug leads to examining **only one module**. There must be little or no **propagation of effects** from one module to another. There are many ways to cut a system into modules, and some prove far better than others.
+
+**Abstraction** is the ability of any module to treat all the others entirely on the basis of their **external specifications**, without needing any knowledge of what goes on inside.
+
+- You can find a DVD player that is compatible with a television set by matching the connectors, with no idea how either works inside.
+- You hand a parcel to an overnight delivery service knowing only the promise: it will be there tomorrow.
+
+Well-designed and properly enforced modular abstractions are especially important in **limiting the impact of faults**, because they control the propagation of effects.
+
+<Callout type="key" title="The robustness principle">
+**Be tolerant of inputs and strict on outputs.** A module that accepts inputs somewhat outside its specification, while keeping its own outputs well inside theirs, stops small errors from spreading. This is the key idea behind modern mass production, and in computer systems it shapes human interfaces, network protocols and fault tolerance. Its companion is the **safety-margin principle**: keep track of how close inputs are to the edge of their range, and report those that are drifting out of tolerance, before they fail.
+</Callout>
+
+### Layering
+
+A good abstraction minimises the number of interconnections. One systematic way to reduce interconnections is a method of organising modules called **layering**.
+
+Take a set of mechanisms that is already complete (a **lower layer**) and use it to create a different complete set of mechanisms (an **upper layer**). A layer may itself be implemented as several modules, but a module interacts only with its **peers** in the same layer and with the modules of the **next lower and next higher layer**.
+
+You have used layers all through your studies: transistors make gates, gates make a processor, the processor's instruction set supports an operating system, the operating system supports a programming language, the language supports your program. At each level you needed to know only the level directly beneath.
+
+<Question client:visible q={checks.layering} />
+
+### Hierarchy
+
+1. Start with a small group of modules and assemble them into a stable, self-contained **subsystem** with a well-defined interface.
+2. Assemble a small group of subsystems to produce a larger subsystem. Repeat.
+
+The result is a tree structure known as a **hierarchy**. A large company is organised this way: a manager deals with a handful of direct reports, not with every employee.
+
+**Hierarchy reduces the number of interconnections**, and that is easy to count.
+
+<Interconnections client:visible />
+
+### Summary of the four
+
+| Technique | What it does |
+|---|---|
+| **Modularity** | Divides the system into parts that can be considered separately |
+| **Abstraction** | Lets each part be used knowing only its external specification |
+| **Layering** | Builds each set of mechanisms only on the complete set below |
+| **Hierarchy** | Assembles parts into subsystems, and subsystems into larger ones |
+
+## Why computer systems are different
+
+All complex systems, whether a space station, a national economy or a communications satellite, share certain problems:
+
+- **emergent properties**: behaviour that appears only when the components are put together and could not be predicted from them one at a time;
+- **propagation of effects**: a small change in one place has consequences far away;
+- **incommensurate scaling**: as a system grows, not all of its parts grow at the same rate, so something breaks first;
+- **trade-offs**: improving one thing makes another worse.
+
+Computer systems differ from the others in two ways, and both make the problem harder.
+
+### No nearby bounds on composition
+
+**Computer systems are digital.** In an **analog** system every component contributes noise. The physical behaviour of each component varies, the noise from individual components accumulates, and as the number of components increases there comes a point where **noise dominates** the behaviour of the system. That is an engineering limit on how large an analog system can be. A photocopy of a photocopy is not the same as the original.
+
+Digital logic maps a **range** of analog values onto 0 or 1. A gate, a flip-flop, a memory chip, a processor: each takes a slightly degraded signal and produces a clean one. If a 0 becomes a 1 that is a big mistake, and big mistakes are easy to detect. **If a signal does not accumulate noise as it passes through a string of devices, noise does not limit the number of devices that can be connected.** A processor chip contains billions of transistors.
+
+<Question client:visible q={checks.digital} />
+
+**Computer systems are controlled by software**, and here the contribution to complexity is worse. Hardware at least has physical limits, such as the speed of light. Software appears to have none. A typical operating system or database system has on the order of ten million program statements.
+
+With composition unbounded, the only limit left is **the ability of humans to understand** what they have built. And the abstractions that are supposed to help are never perfect. A **leaky abstraction** is one that does not perfectly conceal the underlying implementation: you call `read()` and it usually takes microseconds, but sometimes it takes a hundred milliseconds, and to know why you must know about disks. Leakiness plays the role in software that noise plays in analog systems.
+
+It is also easy for a designer to **misuse** the tools of modularity, abstraction, layering and hierarchy to include still more complexity. With no physical limit to push back, new features keep getting added.
+
+### The rate of change is unprecedented
+
+The cost of computation and communication has dropped by roughly 30 percent a year for decades, and some components have improved faster still. No other technology has behaved like this. A bridge, an aeroplane or a dam built to today's knowledge will still be reasonable in thirty years. A complex computer system that takes several years to build may be **obsolete by the time it is delivered**, because the assumptions about what is cheap and what is expensive have changed underneath it.
+
+## Two more techniques
+
+The difficulty is no longer knowing that modularity, abstraction, layering and hierarchy help. It is choosing the **right** modularity from a sea of plausible alternative modularities, the right abstraction from a sea of plausible abstractions, and likewise the right layering and the right hierarchy. Computer-system designers rely on two further ideas.
+
+### Iteration
+
+**Start by building a simple working system that meets only a modest number of requirements, and then evolve it.**
+
+- Take **small steps**. Small steps reduce risk, because each one can be checked and, if wrong, undone.
+- **Do not rush.**
+- **Plan for feedback**: release versions, and learn from how they are used.
+- **Study failures.**
+
+UNIX, which you will meet later in this unit, began as a tiny system written by two people for one small machine.
+
+### Keep it simple
+
+This is one of the most effective methods of handling complexity, and the hardest to practise, because the **designer must impose the limits**: nothing else will. The pressure to add features is constant, and the arguments for each one always sound reasonable:
+
+- the new feature will make the system more effective;
+- cost and performance are not a concern this time;
+- each feature has already been demonstrated somewhere;
+- all the exceptions look easy to deal with;
+- competitors will market a system that has it;
+- and the designers are confident.
+
+No single feature sinks a system. The system designer has to keep in mind the **cumulative impact** of adding one more. The balancing principle is to **avoid sweeping simplifications** too: a design that ignores real requirements is not simple, it is wrong.
+
+<Callout type="history" title="Where these ideas come from">
+The treatment of complexity in this lesson follows Saltzer and Kaashoek, *Principles of Computer System Design*. Its claims will be tested throughout the course: every operating system you study is an answer to the question of which modularity, which abstractions and which layers to choose.
+</Callout>
+
+## What the course covers
+
+The lessons are organised into five units.
+
+| Unit | Topics |
+|---|---|
+| 1. Foundations | What an operating system is, its history, the hardware it runs on, and how it is structured |
+| 2. Processes | Processes and threads, CPU scheduling, synchronisation, deadlocks |
+| 3. Networking | The layered network model, the data link, network and transport layers |
+| 4. Memory | Memory management and virtual memory |
+| 5. Storage and distributed systems | File systems, disks and RAID, the Hadoop Distributed File System, MapReduce, cloud computing, virtual machines |
+
+Operating-system concepts were originally developed for a machine with a **single processor**. Today, computing systems are built from **multiple cores** and from many **commodity machines** connected by a network, in shared-memory, shared-disk and shared-nothing architectures, to run loads as different as a search engine, a weather forecast and a mobile service. The aim throughout is to understand the general principles, problems, solutions and design choices, with the emphasis on widely applicable concepts and not on the features of any one product.
+
+## Summary
+
+- A **system** is an interrelated set of components with an identifiable boundary, working together for a purpose. It has nine characteristics: components, interrelationships, boundary, purpose, environment, interfaces, input, output and constraints.
+- Every tool has a machine part and an operating part. The **operating system** is the operating part: it hides the machine's details behind simple services.
+- A computer system has four components: **hardware, operating system, application programs, users**. The operating system is an intermediary whose goals are **convenience** and **efficiency**; it is a **resource allocator**, a **control program**, and at its core the **kernel**.
+- **Signs of complexity**: many components, many interconnections, many irregularities, a long description, a team of maintainers.
+- **Sources**: cascading and interacting requirements (escalating complexity), generality, scaling, change over time, and maintaining high utilisation.
+- **Coping**: modularity (N² becomes N²/K), abstraction (external specifications only; the robustness principle), layering, hierarchy.
+- Computer systems have **no nearby bounds on composition** (digital, and controlled by software) and an **unprecedented rate of technological change**. So designers also **iterate** from a simple working system, and **keep it simple**.
+
+## Exam-style practice
+
+<Question client:visible q={practice.inputOutput} label="Written practice" />
+
+<Question client:visible q={practice.cope} label="Written practice" />
+
+<Checkpoint client:visible lessonId="overview-and-complexity" questions={checkpoint} />

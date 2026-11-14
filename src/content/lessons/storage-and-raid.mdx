@@ -1,0 +1,399 @@
+---
+title: Secondary Storage and RAID
+summary: How hard disks and SSDs really behave, how the order of requests changes performance, and how arrays of disks buy speed and reliability.
+minutes: 55
+prerequisites: [hardware, virtual-memory]
+objectives:
+  - Describe the structure of hard disks and flash devices and what limits their performance
+  - Compute seek, rotational latency and total I/O time for a disk request
+  - Run FCFS, SSTF, SCAN, C-SCAN, LOOK and C-LOOK on a request queue and total the head movement
+  - Explain how RAID uses striping, mirroring and parity, and compare the RAID levels
+  - Distinguish host-attached, network-attached, SAN, cloud and object storage
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import DiskIoTime from '../../components/viz/DiskIoTime.svelte';
+import DiskScheduler from '../../components/viz/DiskScheduler.svelte';
+import ParityDemo from '../../components/viz/ParityDemo.svelte';
+import RaidExplorer from '../../components/viz/RaidExplorer.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/storage-and-raid';
+
+## Where data lives when the power is off
+
+Main memory is fast, small and forgets everything when the power goes. Programs and data therefore live on **secondary storage**, and virtual memory uses it too, as the backing store for pages that are not in memory. In modern computers the bulk of secondary storage is of two kinds: **hard disk drives (HDDs)** and **nonvolatile memory (NVM) devices**, mainly flash.
+
+The two behave very differently, and the operating system has to understand both. A hard disk is a mechanical device where *position* matters enormously. A flash device has no moving parts but has odd rules about writing. This lesson covers how each works, how the OS schedules requests to them, how storage is prepared and attached, and finally how many unreliable disks are combined into one fast, reliable store with **RAID**.
+
+## Hard disk drives
+
+An HDD spins one or more **platters** coated with magnetic material under moving **read-write heads**.
+
+- Each platter surface is divided into concentric circular **tracks**, and each track into **sectors**.
+- The set of tracks at one arm position, across all platters, is a **cylinder**.
+- All the heads are attached to a single **disk arm** that moves them together from cylinder to cylinder.
+- Drives rotate at 60 to 250 revolutions per second (5,400 to 15,000 RPM are common figures).
+
+The head flies on a thin cushion of air just above the surface. If it touches the surface, the result is a **head crash**, which usually destroys the disk.
+
+<Callout type="history">
+The first commercial disk drive was the IBM Model 350, shipped in 1956. It stored 5 million characters on fifty 24-inch platters and had an access time of a little under one second.
+</Callout>
+
+### What a request costs
+
+To read or write a sector, the drive has to do two mechanical things before any data moves:
+
+- **Seek**: move the arm to the right cylinder. The time taken is the **seek time**.
+- **Wait**: let the platter rotate until the wanted sector is under the head. This is the **rotational latency**.
+
+Together these are the **positioning time**, or random-access time. Only then does data flow, at the drive's **transfer rate**.
+
+Seek times range from about 3 ms to 12 ms, with 9 ms common for desktop drives. Rotational latency follows from the spindle speed. One revolution takes 60 / RPM seconds, and on average the sector you want is half a revolution away:
+
+$$
+\text{average latency} = \frac{1}{2} \times \frac{60}{\text{RPM}} \ \text{seconds}
+$$
+
+Then:
+
+$$
+\text{average access time} = \text{average seek time} + \text{average latency}
+$$
+
+$$
+\text{average I/O time} = \text{average access time} + \frac{\text{amount to transfer}}{\text{transfer rate}} + \text{controller overhead}
+$$
+
+**Worked example.** Transfer a 4 KB block on a 7,200 RPM disk with a 5 ms average seek, a 1 Gb/s transfer rate and 0.1 ms of controller overhead.
+
+- Latency: half of 60/7200 s = 4.17 ms.
+- Transfer: 4 KB is 32 Kb; at 1 Gb/s that takes about 0.031 ms.
+- Total: 5 + 4.17 + 0.031 + 0.1 ≈ **9.3 ms**.
+
+Notice how little of that is actually transferring data.
+
+<DiskIoTime client:visible />
+
+<Question client:visible q={checks.latency} />
+
+## Nonvolatile memory devices
+
+Flash-based storage that looks like a disk drive is a **solid-state disk (SSD)**. The same technology appears as USB drives, and as the main storage soldered onto the boards of phones and laptops. An SSD typically uses **NAND flash**: each chip is an array of blocks, and each block is an array of pages.
+
+Compared with hard disks, NVM devices:
+
+- have **no moving parts**, so there is no seek time and no rotational latency;
+- are **much faster**, to the point that the bus can be the bottleneck;
+- can be more reliable, since nothing mechanical can crash;
+- are **more expensive per megabyte**, with less capacity;
+- may have a **shorter life span**, and need careful management.
+
+That management is needed because flash has awkward rules:
+
+- It is read and written in **page** increments, but a page **cannot be overwritten in place**.
+- Before a page can be rewritten it must be **erased**, and erasing happens only in much larger **block** increments.
+- Each cell survives only a limited number of erase cycles (around 100,000) before it wears out. Life span is quoted in **drive writes per day (DWPD)**: a 1 TB drive rated at 5 DWPD is expected to take 5 TB of writes per day throughout its warranty period.
+
+The device hides all this behind a controller that runs several algorithms:
+
+| Mechanism | What it does |
+|---|---|
+| **Flash translation layer (FTL)** | A table mapping logical blocks to the physical pages that currently hold valid data. An "overwrite" becomes a write to a fresh page plus a table update; the old page is marked invalid. |
+| **Garbage collection** | Copies the still-valid pages out of a block full of mostly invalid ones, then erases the block to reclaim it. |
+| **Over-provisioning** | Keeps spare capacity (often around 20%) set aside so that garbage collection always has somewhere to write. |
+| **Wear leveling** | Spreads erases evenly, so that no block wears out long before the rest. |
+
+<Question client:visible q={checks.ssd} />
+
+### Volatile memory and tape
+
+**RAM drives** present a part of DRAM as a raw block device, usually formatted with a file system (Linux `/dev/ram`, or `/tmp` as a `tmpfs`). They are not really secondary storage, because the contents vanish with the power, but they give users very fast temporary storage under their own control, unlike the caches and buffers that the OS manages on their behalf.
+
+**Magnetic tape** holds a lot and lasts a long time, but access is sequential and slow, so today it is used mainly for backup and archives.
+
+## How devices are attached and addressed
+
+Storage is reached through an **I/O bus**: SATA (the most common), SAS, USB and Fibre Channel, among others. Because NVM is so much faster than a hard disk, it has its own interface, **NVM express (NVMe)**, which connects directly to the PCI bus.
+
+Data transfers on a bus are carried out by **controllers**. The **host controller** (or host-bus adapter) sits at the computer end, and a **device controller** is built into each drive. To perform I/O, the computer places a command in the host controller using memory-mapped I/O ports; the host controller sends it to the device controller; and the data is moved between the device and memory by DMA.
+
+**Address mapping.** The OS does not think in cylinders and sectors. A drive is addressed as a large **one-dimensional array of logical blocks**, where the logical block is the smallest unit of transfer. This array is mapped onto the device in order: block 0 is the first sector of the first track on the outermost cylinder, the mapping proceeds through that track, then the other tracks in that cylinder, then the remaining cylinders from outermost to innermost. This is **logical block addressing (LBA)**. In practice the mapping is not quite so tidy, because drives hide defective sectors by substituting spares, and because tracks do not all hold the same number of sectors.
+
+## Scheduling a hard disk
+
+The OS is responsible for using hardware efficiently. For a disk that means fast access time and high **disk bandwidth**: the total number of bytes transferred, divided by the total time from the first request to the completion of the last.
+
+Access time is dominated by seeking, and seek time is roughly proportional to **seek distance**. So when several requests are waiting, the *order* in which they are served changes the total work a great deal.
+
+A request specifies whether it is input or output, the disk address, the memory address, and the amount to transfer. If the drive is idle the request is served at once. If it is busy, requests join a **queue**, and scheduling algorithms only make sense when a queue exists.
+
+All the algorithms below are illustrated with the same example, which is loaded into the simulator: a disk with cylinders 0 to 199, the head at cylinder **53**, and the queue
+
+> 98, 183, 37, 122, 14, 124, 65, 67
+
+<DiskScheduler client:visible />
+
+### FCFS
+
+**First come, first served.** Serve the requests in arrival order.
+
+- Fair: no request waits behind later arrivals.
+- Slow: the head swings wildly, for example from 122 down to 14 and back up to 124.
+
+Total head movement for the example: **640 cylinders**.
+
+### SSTF
+
+**Shortest seek time first.** Always serve the request closest to the current head position.
+
+The order becomes 65, 67, 37, 14, 98, 122, 124, 183, for a total of **236 cylinders**, a little over a third of FCFS.
+
+SSTF is a form of shortest-job-first scheduling, and it inherits SJF's flaw: it **may starve** some requests. If requests near the head keep arriving, a request far away may wait indefinitely. It is also not optimal; for this queue, a better order exists.
+
+<Question client:visible q={checks.sstf} />
+
+### SCAN, the elevator algorithm
+
+The arm starts at one end of the disk and moves towards the other, **serving requests as it reaches each cylinder**, until it gets to the other end. Then the direction reverses and servicing continues. It behaves like an elevator that goes all the way up and then all the way down.
+
+For the example, moving towards 0 first: 37, 14, then on to cylinder 0, then 65, 67, 98, 122, 124, 183, for **236 cylinders**.
+
+<Callout type="pitfall" title="Why some books say 208">
+You will often see 208 quoted for this example. That figure reverses at cylinder 14, the last request, instead of travelling on to cylinder 0. Strictly, turning at the last request is the LOOK algorithm described below. In an exam, state which rule you are applying and show the path; switch the simulator between SCAN and LOOK with "Towards 0" to see both.
+</Callout>
+
+SCAN has a weakness in **how evenly it treats requests**. When the head reverses at one end, the cylinders it has just covered have few requests waiting, since they were served moments ago. The heaviest density of waiting requests is at the *other* end, and those have waited longest.
+
+### C-SCAN
+
+**Circular SCAN** is designed to give a more **uniform wait time**. The head moves from one end to the other, serving requests as it goes. When it reaches the far end it **returns immediately to the beginning** without serving anything on the way back, and starts again. The cylinders are treated as a circular list that wraps around from the last to the first.
+
+For the example, moving up: 65, 67, 98, 122, 124, 183, on to 199, jump to 0, then 14, 37. Counting the return trip, that is **382 cylinders**. The total movement is larger, but no region of the disk is favoured.
+
+### LOOK and C-LOOK
+
+SCAN and C-SCAN as described move the arm across the full width of the disk. In practice there is no reason to travel past the last request. **LOOK** and **C-LOOK** are the same algorithms except that the arm goes only **as far as the final request in each direction**, then reverses (LOOK) or jumps back (C-LOOK) at once. They "look" for a request before continuing.
+
+For the example, C-LOOK moving up serves 65, 67, 98, 122, 124, 183, jumps to 14, then 37: **322 cylinders**.
+
+| Algorithm | Order rule | Example total | Starvation? |
+|---|---|---|---|
+| FCFS | Arrival order | 640 | No |
+| SSTF | Nearest request next | 236 | **Yes** |
+| SCAN | Sweep to the edge, reverse | 236 (towards 0) | No |
+| C-SCAN | Sweep to the edge, jump back | 382 (towards 199) | No |
+| LOOK | Sweep to the last request, reverse | 208 (towards 0) | No |
+| C-LOOK | Sweep to the last request, jump back | 322 (towards 199) | No |
+
+<Question client:visible q={checks.starve} />
+
+### Choosing an algorithm
+
+- **SSTF** is common and has a natural appeal, since it improves so much on FCFS.
+- **SCAN and C-SCAN** perform better on systems that place a **heavy load** on the disk, because they are less likely to cause starvation.
+- Performance depends on the number and type of requests. With usually only one request in the queue, every algorithm behaves like FCFS.
+
+To avoid starvation, Linux provides a **deadline** scheduler. It keeps separate queues for reads and writes and gives reads priority, because processes are more likely to block waiting on a read. There are four queues: one read and one write queue sorted in **LBA order** (essentially C-SCAN), and one read and one write queue in **FCFS order**. Requests are sent in batches in LBA order. After each batch, the scheduler checks whether any request in the FCFS queues is older than a configured age (500 ms by default); if so, the queue containing it is chosen for the next batch.
+
+Today this work is mostly done inside the drives and controllers themselves, which know the real geometry. The OS hands over LBAs and the device sorts them.
+
+### Scheduling NVM devices
+
+Disk-scheduling algorithms exist to reduce head movement. A flash device has no head. For that reason NVM devices generally use a simple **FCFS** policy, sometimes merging adjacent requests. One wrinkle remains: read times are uniform, but write times are not, because a write may trigger garbage collection.
+
+## Detecting and correcting errors
+
+Storage, memory and networks all have to cope with bits that get flipped.
+
+- **Error detection** determines that a problem has occurred. The simplest method is a **parity bit**: one extra bit chosen so that the total number of 1s is even (or odd). A single flipped bit changes the parity and is detected, though a double error goes unnoticed. Parity is one form of **checksum**. A stronger method, common in networking, is the **cyclic redundancy check (CRC)**, which uses a hash function to detect multiple-bit errors.
+- An **error-correcting code (ECC)** goes further: it stores enough extra information to work out *which* bits are wrong and fix them. Each sector on a drive carries an ECC. A **soft error** is one the ECC can correct; a **hard error** is detected but cannot be corrected, and the data is lost.
+
+Hold on to the idea of parity. It comes back as the foundation of RAID.
+
+## Getting a device ready for use
+
+A new drive is a blank slate. Several steps turn it into something that holds files.
+
+<Flow
+  steps={[
+    { label: 'Low-level format', note: 'divide into sectors with header, data and ECC' },
+    { label: 'Partition', note: 'split into groups of cylinders, each a logical disk' },
+    { label: 'Logical format', note: 'make a file system: write its initial structures' },
+    { label: 'Mount', note: 'check consistency, add to the mount table' },
+  ]}
+/>
+
+1. **Low-level (physical) formatting** divides the disk into sectors that the controller can read and write. Each sector holds a header, a data area (usually 512 bytes or 4 KB) and an error-correcting code. This is normally done at the factory.
+2. **Partitioning** divides the device into one or more groups of cylinders, each treated as a separate logical disk.
+3. **Logical formatting**, or "making a file system", stores the initial file-system data structures: maps of free and allocated space and an empty directory. For efficiency most file systems group blocks into **clusters**: device I/O is done in blocks, file-system I/O in clusters.
+4. At **mount** time the file system's consistency is checked. If the metadata is not correct it is repaired and checked again; then the file system is added to the mount table.
+
+Some applications, databases in particular, prefer **raw disk** access: a partition with no file system, where the application does its own block management and keeps the OS out of the way.
+
+**Booting.** A tiny **bootstrap** program lives in firmware. Its job is to load a fuller bootstrap loader from the **boot blocks** at a fixed location on the boot partition, and that loader knows enough to find and load the kernel from the file system. A boot-management program at that point can offer a choice of operating systems.
+
+**Bad blocks.** Disks have defective sectors from the start and develop more. With **sector sparing**, the controller keeps spare sectors and transparently remaps each bad sector to one of them.
+
+### Swap space
+
+Swap space is the part of secondary storage used by virtual memory, for whole processes (swapping) or for pages (paging), when DRAM is not large enough. Because it is so much slower than memory, it is worth optimising:
+
+- It can be a **file within a normal file system**, which is convenient to create and resize but goes through the file-system layers.
+- Or it can be a **raw partition** managed by a special swap-space manager tuned for speed rather than storage efficiency.
+- Several swap spaces on separate devices spread the paging I/O load.
+
+## Storage attachment
+
+Computers reach storage in three ways.
+
+**Host-attached storage** is reached through local I/O ports, over SATA, USB, Thunderbolt and the like. High-end systems use **Fibre Channel (FC)**, a high-speed serial architecture in which many hosts and storage devices connect to a common fabric.
+
+**Network-attached storage (NAS)** is storage made available over a network rather than a local bus. Clients attach to a remote *file system* using protocols such as **NFS** and **CIFS**, implemented with remote procedure calls over TCP or UDP on an IP network. A related protocol, **iSCSI**, carries the SCSI *block* protocol over IP, so that a host can treat remote storage as if it were a local disk.
+
+**Cloud storage** also provides storage across a network, but over the Internet or a WAN to a remote data centre. NAS appears as just another file system; cloud storage is **API-based**, with programs calling the provider's interface (Amazon S3, Dropbox, OneDrive, iCloud). APIs are used because of the latency and failure scenarios on a WAN, which file-system protocols handle poorly.
+
+Two more terms describe how large installations are built:
+
+- A **storage array** is a purpose-built box containing controllers, memory, software and from a few to thousands of disks. It provides RAID, hot spares and features such as snapshots, clones, replication and deduplication to the hosts attached to it.
+- A **storage-area network (SAN)** is a *private network* that connects multiple hosts to multiple storage arrays, using storage protocols over Fibre Channel or InfiniBand switches. Storage is handed out to hosts by **LUN masking**, which makes particular logical units (virtual disks) visible to particular servers. It is flexible: storage can be added, removed and reallocated easily. Keeping storage on its own network also stops storage I/O from consuming the bandwidth of the communications network, which is a drawback of NAS.
+
+## RAID
+
+A single disk has two limitations:
+
+- **Speed.** Its data-transfer rate is limited, and access is essentially serial.
+- **Reliability.** When it fails, the data is gone.
+
+The answer to both is **RAID**: a *redundant array of independent disks*. When the idea was introduced, the *I* stood for "inexpensive", because an array of cheap small disks was offered as an alternative to one large, expensive disk. Today RAID is used for its higher reliability and higher data-transfer rate rather than for economy, and the *I* is read as "independent".
+
+### Reliability through redundancy
+
+Putting many disks together makes failure *more* likely, not less. If a single disk has a mean time to failure (MTTF) of 100,000 hours, then among 100 disks some disk will fail on average every 100,000 / 100 = **1,000 hours**, about 41 days. If each failure lost data, a large array would be useless.
+
+The solution is **redundancy**: store extra information that is not normally needed, but that can be used to rebuild what was lost when a disk fails.
+
+The simplest form is **mirroring**. Every logical disk consists of two physical disks, and every write goes to both. Reads can use either. Data is lost only if the second disk fails before the first has been replaced and rebuilt, so what matters is the **mean time to repair**.
+
+### Performance through parallelism
+
+With several disks, the number of reads per unit time can go up, since different disks can serve different requests. The transfer rate of a single request can be raised too, by **data striping**.
+
+- **Bit-level striping** splits the bits of each byte across the disks. With eight disks, bit *i* of every byte goes to disk *i*. The array behaves like one disk with eight times the capacity and eight times the transfer rate. Every disk takes part in every access.
+- **Block-level striping** spreads the *blocks* of a file across the disks. With *n* disks, block *i* goes to disk (*i* mod *n*) + 1. This is the common form.
+
+Striping has two goals: to **increase the throughput** of many small accesses by balancing the load, and to **reduce the response time** of large accesses.
+
+### Parity: redundancy at a discount
+
+Mirroring costs a whole extra disk for every disk of data. **Parity** protects several disks with just one extra.
+
+Take the corresponding bits of each data disk and compute their XOR; store the result on a parity disk. If any single disk fails, each of its bits can be recomputed from the surviving disks and the parity. One caveat: parity can tell you *what* the missing data is only if you know *which* disk failed. Fortunately a disk controller can tell whether a sector was read correctly, so that is known.
+
+<ParityDemo client:visible />
+
+<Question client:visible q={checks.parity} />
+
+### The RAID levels
+
+The schemes are classified into **levels**. Explore the layouts here first, then read the details. Fail a disk, then a second one, and see what each level can take.
+
+<RaidExplorer client:visible />
+
+**RAID 0: striping.** Block-level striping with **no redundancy**: no mirroring and no parity. It has the best performance and capacity, and no protection. One failed disk loses the whole array.
+
+**RAID 1: mirroring.** Every disk has a mirror. Simple, reliable and fast to recover, at the cost of half the capacity.
+
+**RAID 2: memory-style error-correcting codes.** Bit-level striping, with several extra disks holding ECC bits, as memory systems do. It is **not used in practice**: it needs more disks than RAID 3 and gives no advantage, because disks already report their own errors.
+
+**RAID 3: bit-interleaved parity.** Since the controller can tell which disk failed, a *single* parity disk is enough for both detection and correction. Data is striped at the bit (or byte) level.
+
+- Compared with RAID 1, only one disk of overhead is needed, however many data disks there are, and the transfer rate is as good, since reads and writes are spread over all the data disks.
+- The cost is that **every disk participates in every I/O**, so the array serves only one request at a time. Computing and writing the parity also slows writes.
+
+**RAID 4: block-interleaved parity.** Block-level striping, as in RAID 0, plus one disk holding a parity block for each stripe.
+
+- **A block read accesses only one disk.** The transfer rate of any one small read is no higher than a single disk's, but several reads can be carried out **in parallel**, so the overall I/O rate is higher.
+- **Large reads** use all the disks and get a high transfer rate, as do large writes.
+- **A small write is expensive.** Overwriting one block takes four disk accesses: read the old data, read the old parity, write the new data, write the new parity. This is the **read-modify-write** cycle.
+- **The parity disk is a bottleneck.** Every write, to any block on any disk, must update it.
+
+**RAID 5: block-interleaved distributed parity.** The same as RAID 4, except that the parity is **spread across all N + 1 disks** instead of sitting on one. For each stripe, one disk holds the parity and the others hold data, and the disk that holds parity rotates from stripe to stripe. (A parity block never shares a disk with the data it protects, or a single failure would lose both.) Because no one disk is involved in every write, the bottleneck disappears. RAID 5 is the most common parity RAID.
+
+**RAID 6: P + Q redundancy.** Like RAID 5, but with a second, independently computed check block in every stripe, using error-correcting codes rather than plain parity. It tolerates **any two** disk failures, at the cost of two disks' worth of capacity and more computation on each write.
+
+<Callout type="exam" title="RAID 3 against 4 against 5 in one breath">
+**3 → 4:** moving from bit to block striping means a read touches one disk, so many small reads run in parallel. **4 → 5:** distributing the parity removes the single parity disk that every write had to queue for. Both changes keep the same overhead of one disk.
+</Callout>
+
+### Combining levels: 0+1 and 1+0
+
+RAID 0 gives performance, RAID 1 gives reliability. Combining them gives both, at twice the disk cost.
+
+- **RAID 0+1**: a set of disks is striped, and the stripe is then **mirrored** to another, equivalent stripe.
+- **RAID 1+0**: disks are **mirrored in pairs**, and the mirrored pairs are then striped.
+
+They sound alike, but they fail differently. In 0+1, one failed disk makes its **entire stripe** inaccessible, leaving only the other stripe. In 1+0, one failed disk is unavailable, but its mirror partner and all the other disks keep working. **RAID 1+0 has the better fault tolerance.** Try both in the explorer above: fail disk 0, then see which second failures are fatal.
+
+<Question client:visible q={checks.nested} />
+
+### Selecting a level
+
+| Level | Redundancy | Overhead | Typical use |
+|---|---|---|---|
+| 0 | None | None | High-performance work where losing the data is not critical |
+| 1 | Mirror | 100% | High reliability with fast recovery |
+| 0+1 and 1+0 | Mirror plus stripe | 100% | Where both performance and reliability matter; 1+0 preferred |
+| 5 | Distributed parity | One disk | Storing large volumes of data economically |
+| 6 | Double parity | Two disks | Large arrays where a second failure during rebuild is a real risk |
+
+Rebuild time is part of the choice. Rebuilding a mirror is a straight copy from the other disk. Rebuilding RAID 5 means reading *every* other disk to recompute the lost one, which can take hours for large disks, during which a second failure is fatal.
+
+A **hot spare** is an unused disk kept in the array. When a disk fails, the spare is used automatically as its replacement and the rebuild starts at once, without waiting for a person. This reduces the mean time to repair.
+
+The idea behind RAID is not specific to disks. It has been applied to arrays of tapes, so that data survives a damaged tape, and to broadcasting data over wireless systems, where a receiver that misses a block can reconstruct it from the others and the parity.
+
+### What RAID does not protect against
+
+RAID protects against **disk failure**. It does not prevent or detect other kinds of trouble: a bad pointer in the file system, an incomplete write, a controller bug, or data silently corrupted on the way to the disk.
+
+Solaris **ZFS** takes a different approach. It keeps **checksums of all data and metadata**, and stores each checksum *with the pointer* to the block rather than with the block itself. On every read it can tell both whether the block has changed and whether it is the right block at all. With a mirror or parity available it can then repair the damage automatically.
+
+ZFS also does away with separate volumes and partitions. Disks are gathered into **pools**, and the file systems in a pool share its space, taking and releasing it as needed, much as programs use `malloc()` and `free()`.
+
+Other useful features found alongside RAID:
+
+- A **snapshot** is a view of the file system as it was at a point in time, before a set of changes.
+- **Replication** automatically duplicates writes to a separate site, for redundancy and disaster recovery. It can be synchronous or asynchronous.
+
+## Object storage
+
+File systems navigated by people through directories do not scale to the very largest data sets. **Object storage** starts from a different idea: a **storage pool** into which **objects** are placed.
+
+- An object is just a container of data.
+- There is **no way to navigate** the pool: no directory structure, and few services.
+- It is oriented towards computers, not users.
+
+The typical sequence is: create an object in the pool and receive an **object ID**; access the object by that ID; delete it by that ID.
+
+Object-storage management software decides where objects are stored and manages their protection, typically by keeping **N copies on N different systems** in the cluster. Such systems are **horizontally scalable** (add more machines to grow) and hold unstructured, content-addressable data. The **Hadoop file system (HDFS)** and **Ceph** are two examples; HDFS has a lesson of its own later in this unit.
+
+## Summary
+
+- **Hard disks** are mechanical. I/O time = seek + rotational latency + transfer + overhead, and positioning dominates. Average latency is half a revolution: ½ × 60/RPM.
+- **Flash** has no seek or latency, but pages cannot be overwritten in place and blocks wear out, so the controller runs an FTL, garbage collection, over-provisioning and wear leveling.
+- **Disk scheduling** reduces head movement: FCFS (fair, slow), SSTF (fast, can starve), SCAN (elevator), C-SCAN (uniform wait), LOOK and C-LOOK (stop at the last request). NVM just uses FCFS.
+- A device is made usable by **low-level formatting, partitioning and logical formatting**; it boots from boot blocks and hides bad sectors by sparing.
+- Storage can be **host-attached**, **network-attached** (files over NFS/CIFS), on a **SAN** (blocks over a private storage network), or in the **cloud** (APIs).
+- **RAID** gets reliability from **redundancy** (mirrors or parity) and speed from **striping**. Level 0 stripes, 1 mirrors, 4 adds a parity disk, 5 distributes the parity, 6 survives two failures, and 1+0 beats 0+1 on fault tolerance.
+- RAID handles disk failure only; **checksums** as in ZFS catch silent corruption.
+
+## Exam-style practice
+
+<Question client:visible q={practice.why} label="Written practice" />
+
+<Question client:visible q={practice.attach} label="Written practice" />
+
+<Checkpoint client:visible lessonId="storage-and-raid" questions={checkpoint} />

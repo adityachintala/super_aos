@@ -1,0 +1,423 @@
+---
+title: Memory Management
+summary: How an operating system fits many processes into one physical memory, keeps them apart, and translates every address they use.
+minutes: 55
+prerequisites: [processes-and-ipc, hardware]
+objectives:
+  - Explain when and how a program's addresses get bound to real memory locations
+  - Trace an address through a relocation register, a page table and a segment table
+  - Place processes with first fit, best fit and worst fit, and recognise both kinds of fragmentation
+  - Compute page-number and offset bits, effective access time, and the number of page-table levels
+  - Compare hierarchical, hashed and inverted page tables, and paging with segmentation
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import RelocationDemo from '../../components/viz/RelocationDemo.svelte';
+import MemoryAllocator from '../../components/viz/MemoryAllocator.svelte';
+import PagingWalker from '../../components/viz/PagingWalker.svelte';
+import PageTableLevels from '../../components/viz/PageTableLevels.svelte';
+import SegmentationDemo from '../../components/viz/SegmentationDemo.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/memory-management';
+
+## The problem
+
+A program sitting on disk is just a file. To run, it has to be brought into **main memory** and placed inside a process, because the CPU can only fetch instructions and data from memory. Memory itself is very simple: a large array of bytes, each with its own address. The memory unit sees nothing but a stream of addresses; it has no idea which process they belong to or what they are for.
+
+That simplicity leaves the operating system with three jobs:
+
+1. **Sharing.** Many processes want to be in memory at once, and memory is small compared with what they would like to use.
+2. **Protection.** One process must not be able to read or overwrite another process, or the operating system.
+3. **Translation.** A program is written without knowing where in memory it will end up, so something must connect the addresses it uses to the addresses it actually gets.
+
+This lesson follows the solutions roughly in the order they were invented. Each one fixes a weakness of the one before, and that chain of "problem, fix, new problem" is the best way to remember them:
+
+<Flow
+  steps={[
+    { label: 'Contiguous allocation', note: 'one block per process' },
+    { label: 'Fragmentation', note: 'free memory in useless pieces' },
+    { label: 'Paging', note: 'fixed-size pieces, any frame will do' },
+    { label: 'Big, slow page tables', note: 'TLBs and smarter table structures' },
+    { label: 'Segmentation', note: 'pieces that mean something' },
+  ]}
+/>
+
+## From source code to a real address
+
+Addresses change form several times on the way from your source file to the memory chip.
+
+<Flow
+  steps={[
+    { label: 'Source program', note: 'symbolic: count' },
+    { label: 'Compiler', note: 'relocatable: "14 bytes from the start of this module"' },
+    { label: 'Linker / loader', note: 'absolute: 74014' },
+    { label: 'In memory', note: 'the binary image runs' },
+  ]}
+  caption="Each step is a binding: a mapping from one address space to another."
+/>
+
+In your source code an address is **symbolic**: a variable name such as `count`. The compiler turns it into a **relocatable** address, an offset from the start of the module. The linkage editor or loader finally turns that into an **absolute** address. The interesting question is *when* that last step happens.
+
+### Three moments for address binding
+
+| Binding time | What it requires | If the program must move |
+|---|---|---|
+| **Compile time** | The starting location is known in advance, so the compiler emits *absolute code*. | Recompile. (MS-DOS `.COM` programs worked this way.) |
+| **Load time** | The compiler emits *relocatable code*; the loader fixes the addresses when it knows where the program goes. | Reload. |
+| **Execution time** | Binding is delayed until each address is actually used. Needs hardware support for mapping addresses. | Nothing: the process can be moved while it runs. Most operating systems use this. |
+
+<Callout type="key">
+The later the binding, the more flexible the system. Execution-time binding is what makes swapping a process back in at a different place, compaction, paging and virtual memory possible at all. Its price is hardware that translates every single address.
+</Callout>
+
+<Question client:visible q={checks.binding} />
+
+### Loading and linking only what you need
+
+Two techniques avoid filling memory with code that may never run.
+
+**Dynamic loading.** A routine is not loaded until it is called. All routines sit on disk in relocatable format; when one is called for the first time, the calling code checks whether it is in memory and, if not, asks the loader to bring it in. A large program with lots of rarely used code (error handlers are the classic example) uses far less memory this way. It needs **no special support from the operating system**; it is a matter of how the program is designed.
+
+**Dynamic linking.** With *static* linking, library routines are copied into every executable. With dynamic linking, linking itself is postponed until execution time. The executable contains a small **stub** for each library routine. When called, the stub locates the routine in memory (loading the library if necessary), replaces itself with the routine's address, and runs it. Every process shares one copy of the library, and a library can be updated without relinking the programs that use it. Because the library code is shared between processes that are otherwise protected from each other, dynamic linking **needs operating-system support**.
+
+### Overlays
+
+Before virtual memory, how did you run a program that was larger than the memory you were given? With **overlays**: keep in memory only the instructions and data needed at a given time, and overwrite them with the next part when it is needed.
+
+A two-pass assembler shows the idea. Suppose pass 1 needs 70K, pass 2 needs 80K, the symbol table 20K and common routines 30K. Loading everything takes 200K, so with only 150K available the program cannot run. But the two passes are never needed together:
+
+- **Overlay A** = symbol table + common routines + pass 1 = 120K
+- **Overlay B** = symbol table + common routines + pass 2 = 130K
+
+When pass 1 finishes, a small overlay driver reads overlay B over the top of overlay A and jumps to pass 2. Both fit in 150K.
+
+Overlays need no operating-system support, but the programmer must design the overlay structure by hand and understand the program completely. Today they survive only on small systems that lack memory-management hardware.
+
+## Logical and physical addresses
+
+With execution-time binding, the address a program uses and the address that reaches the memory chip are two different things.
+
+- A **logical address** (also called a **virtual address**) is generated by the CPU. The set of all logical addresses a program can generate is its *logical address space*.
+- A **physical address** is the one seen by the memory unit.
+
+With compile-time and load-time binding the two are identical. With execution-time binding they differ, and a hardware device called the **memory-management unit (MMU)** converts one to the other on every reference.
+
+The simplest MMU holds a single **relocation register** (also called the base register). Its value is added to every address the process generates on its way to memory. A **limit register** holds the size of the process's range, and every logical address is first compared against it.
+
+<RelocationDemo client:visible />
+
+Notice two things. The user program deals only in logical addresses and *never sees* a physical address. And protection comes for free: any address at or beyond the limit causes a trap to the operating system, which treats it as a fatal addressing error.
+
+<Callout type="pitfall">
+Protection only works because user programs cannot change the registers. The instructions that load the base and limit registers are **privileged**: they execute only in kernel (monitor) mode, where the OS has unrestricted access to all memory. The dispatcher loads both registers as part of every context switch.
+</Callout>
+
+<Question client:visible q={checks.privileged} />
+
+## Swapping
+
+Suppose the CPU scheduler picks a process, and the dispatcher finds it is not in memory, and there is no free memory either. The dispatcher **swaps out** some process that is in memory to a **backing store** (a fast disk big enough to hold the memory images of all processes) and **swaps in** the one it wants.
+
+- With priority scheduling the variant is called **roll out, roll in**: a lower-priority process is rolled out so a higher-priority one can run.
+- Most of the swap time is **transfer time**, which is directly proportional to the amount of memory swapped. Swapping a large process is slow.
+- Where does a swapped-out process return to? With compile-time or load-time binding it must return to exactly the same location. With execution-time binding it can go anywhere.
+
+### The pending I/O problem
+
+A process should be idle when it is swapped. Imagine process A asks a device to read data into a buffer in A's memory, and is then swapped out while it waits. The freed memory goes to process B. When the device finishes, it writes the data into what is now **B's memory**.
+
+There are two ways out:
+
+1. **Never swap a process with pending I/O.** Simple, but restrictive, and awkward when I/O is asynchronous.
+2. **Do I/O only into operating-system buffers.** The OS buffer never moves. Data is copied between it and the process only when the process is swapped back in. This costs an extra copy.
+
+Full swapping of whole processes is too slow to be used routinely. UNIX kept it normally disabled, starting it only when many processes were running and memory use crossed a threshold, and stopping when the load fell. Modern systems swap individual pages instead, which is the subject of the next lesson.
+
+## Contiguous allocation
+
+Memory is usually divided in two: the resident operating system in low memory, together with the interrupt vector, and user processes in high memory. In **contiguous allocation**, each process occupies a single unbroken block.
+
+The earliest scheme cut memory into **fixed partitions**, one process per partition. The number of partitions fixes the degree of multiprogramming, and a small process in a big partition wastes the rest. The generalisation is **variable partitions**:
+
+- The OS keeps a table of which parts of memory are occupied and which are free.
+- A block of free memory is called a **hole**. At first all of user memory is one big hole.
+- When a process arrives, the OS searches for a hole large enough. If the hole is too big it is **split**: one part goes to the process, the rest becomes a smaller hole.
+- When a process terminates, its block becomes a hole again. If it sits next to other holes, they are **merged** into one bigger hole.
+
+After a while, memory looks like a street with parked cars and gaps of every size between them. Which gap should the next car take?
+
+### First fit, best fit, worst fit
+
+This is the **dynamic storage-allocation problem**: how to satisfy a request of size *n* from a list of holes.
+
+| Strategy | Rule | Notes |
+|---|---|---|
+| **First fit** | Take the first hole that is big enough. | Fastest: the search stops at the first match. |
+| **Best fit** | Take the *smallest* hole that is big enough. | Must search the whole list unless it is sorted by size. Leaves the smallest leftover hole. |
+| **Worst fit** | Take the *largest* hole. | Must also search the whole list. Leaves the largest leftover hole. |
+
+Simulations show that first fit and best fit both beat worst fit in speed and in storage utilisation. Neither first fit nor best fit is clearly better at using storage, but first fit is generally faster.
+
+The simulator below starts with a well-known exercise. Step through it and predict where each request will go before you press the button.
+
+<MemoryAllocator client:visible />
+
+<Callout type="exam">
+Placement questions are a favourite. Two habits prevent most mistakes: **redraw the hole list after every placement** (the leftover of a split hole is a new hole that later requests can use), and state at the end which requests had to wait and which algorithm used memory most efficiently.
+</Callout>
+
+## Fragmentation
+
+In the simulator, first fit ends with 959K free and still cannot place a 426K process. That is fragmentation, and it comes in two kinds.
+
+**External fragmentation.** Enough total free memory exists to satisfy a request, but it is not contiguous. The free space is outside any allocation, broken into pieces that are individually too small. Analysis of first fit gives the **50-percent rule**: for every *N* allocated blocks, about *0.5 N* more blocks are lost to fragmentation, so roughly one third of memory may be unusable.
+
+**Internal fragmentation.** The memory handed to a process is slightly larger than what it asked for, and the difference is wasted *inside* the allocation. Take a hole of 18,464 bytes and a request for 18,462. Splitting would leave a 2-byte hole, and the bookkeeping to track that hole costs far more than 2 bytes. So the allocator simply gives away the whole hole, and 2 bytes sit unused inside the partition.
+
+<Question client:visible q={checks.fragmentation} />
+
+### Compaction
+
+One cure for external fragmentation is **compaction**: shuffle the contents of memory so that all the free space ends up together in one large block. Press *Compact memory* in the simulator to watch the waiting process finally fit.
+
+Compaction has strings attached:
+
+- It is possible **only if relocation is dynamic** and done at execution time. If addresses were fixed at compile or load time, a moved process would break.
+- It has the same **I/O problem** as swapping: a process doing I/O into its own memory cannot be moved. Either latch the job in memory during I/O, or do I/O only into OS buffers.
+- It is **expensive**, since large amounts of memory must be copied.
+
+The other cure is more radical. Stop insisting that a process be contiguous. That leads to **paging** and **segmentation**.
+
+## Paging
+
+The idea behind paging is disarmingly simple. If all the pieces are the same size, any free piece will fit any request, and external fragmentation cannot happen.
+
+- Divide **physical memory** into fixed-size blocks called **frames**. The size is a power of two; 4K bytes is typical.
+- Divide each process's **logical memory** into blocks of the same size, called **pages**.
+- Keep a list of free frames. To run a process of *n* pages, find any *n* free frames (they need not be adjacent) and load the pages into them.
+- Record which frame holds which page in a per-process **page table**.
+
+<Callout type="analogy">
+A book's pages do not need to be stored in order on one shelf. You could scatter them across any free slots in a huge filing cabinet, as long as you keep an index that says "page 7 is in slot 312". The reader keeps asking for pages by number and never needs to know where they physically are. The index is the page table.
+</Callout>
+
+### Translating an address
+
+Every logical address is split into two parts:
+
+- the **page number** *p*, used as an index into the page table, and
+- the **page offset** *d*, the position inside that page.
+
+The page table entry for *p* gives the frame number *f*. The physical address is then *f* followed by the same offset *d*: the offset passes through untouched.
+
+Because the page size is a power of two, the split costs nothing. If the logical address space is $2^m$ bytes and the page size is $2^n$ bytes, the low *n* bits of an address are the offset and the high *m − n* bits are the page number. In decimal terms:
+
+$$
+p = \left\lfloor \frac{\text{address}}{\text{page size}} \right\rfloor, \qquad d = \text{address} \bmod \text{page size}, \qquad \text{physical} = f \times \text{page size} + d
+$$
+
+**Worked example.** The page size is 4 bytes and the page table maps page 0 → frame 5, page 1 → frame 6, page 2 → frame 1, page 3 → frame 2.
+
+| Logical address | Page, offset | Frame | Physical address |
+|---|---|---|---|
+| 0 | 0, 0 | 5 | 5 × 4 + 0 = 20 |
+| 3 | 0, 3 | 5 | 5 × 4 + 3 = 23 |
+| 4 | 1, 0 | 6 | 6 × 4 + 0 = 24 |
+| 13 | 3, 1 | 2 | 2 × 4 + 1 = 9 |
+
+Now drive it yourself. Move the address slider and watch which bits change, then change the page size and see the boundary between page number and offset move.
+
+<PagingWalker client:visible />
+
+<Question client:visible q={checks.pageBits} />
+
+### What paging gives you
+
+- **No external fragmentation.** Any free frame can be given to any process that needs one.
+- **Some internal fragmentation.** A process rarely needs an exact number of pages. One that needs 9 pages and 1 byte gets 10 frames. On average half a page per process is wasted, which argues for small pages; but small pages mean bigger page tables, so page sizes have grown over time.
+- **A clean separation of views.** The program sees one contiguous address space starting at zero. In reality it is scattered across physical memory, mixed in with other processes. The mapping is hidden from the user and controlled by the OS.
+- **Protection.** A process can only reach frames that appear in its own page table, and it has no way to name any other.
+
+### Protection bits and the valid bit
+
+Each page-table entry carries a few extra bits besides the frame number:
+
+- **Protection bits** mark a page read-write, read-only or execute-only. Writing to a read-only page causes a hardware trap to the OS.
+- A **valid-invalid bit** says whether the page is part of the process's logical address space at all. A process rarely uses its whole address range; references to an *invalid* page trap to the OS. (In the simulator above, a few pages are marked invalid so you can see this happen.)
+
+Some systems add a **page-table length register (PTLR)** so that the table only needs to be as long as the process actually requires.
+
+### Two problems to solve
+
+A straightforward page table has two costs, and the rest of the paging story is about reducing them:
+
+- **Speed.** The table is too big for registers, so it lives in main memory. Every reference now needs *two* memory accesses: one to read the page-table entry and one for the data itself.
+- **Space.** With a 32-bit address space and 4K pages there are $2^{32} / 2^{12} = 2^{20}$ pages. At 4 bytes per entry, that is **4 MB of page table for every process**.
+
+## Making paging fast: the TLB
+
+The page table is found through the **page-table base register (PTBR)**, so a context switch only needs to change that one register. But the two-accesses-per-reference problem would halve the speed of memory.
+
+The fix is a small, very fast hardware cache called the **translation look-aside buffer (TLB)**. It is an **associative memory**: each entry holds a key (page number) and a value (frame number), and when presented with a page number it compares it against **all keys simultaneously**.
+
+1. The page number is presented to the TLB.
+2. **TLB hit:** the frame number comes out immediately, and memory is accessed once.
+3. **TLB miss:** the page table in memory is consulted (an extra access), and the page-frame pair is added to the TLB so the next reference to that page is fast.
+
+A TLB holds only a small number of entries, but programs tend to use the same few pages again and again for a while, so most lookups hit. The fraction that do is the **hit ratio**. You saw this in the simulator: nearby accesses keep hitting, random ones keep missing.
+
+### Effective access time
+
+Let the TLB search take $\varepsilon$, a memory access take $t$, and the hit ratio be $\alpha$. A hit costs $\varepsilon + t$. A miss costs $\varepsilon + 2t$ (one extra access for the page table). So
+
+$$
+\text{EAT} = \alpha(\varepsilon + t) + (1-\alpha)(\varepsilon + 2t)
+$$
+
+With $\varepsilon$ = 20 ns, $t$ = 100 ns and a 98% hit ratio: 0.98 × 120 + 0.02 × 220 = 117.6 + 4.4 = **122 ns**, only a 22% slowdown over the unpaged 100 ns.
+
+<Question client:visible q={checks.eat} />
+
+### Whose entries are these?
+
+TLB entries belong to one process's page table. After a context switch they would give wrong translations for the next process. Two options:
+
+- **Flush the TLB** on every context switch. Simple, but the new process starts with a run of misses.
+- Store an **address-space identifier (ASID)** in each entry. An ASID uniquely identifies a process, so entries from several processes can live in the TLB together and only those matching the running process are used.
+
+## Making page tables small
+
+Modern machines have logical address spaces of $2^{32}$ to $2^{64}$ bytes. A flat table with a slot for every possible page, valid or not, is easy to index but wasteful: 4 MB per process at 32 bits and far worse at 64. There are three classic remedies.
+
+### Hierarchical page tables
+
+Page the page table itself. Split the page number into parts; the first part indexes an **outer page table** whose entries point to pages of the *inner* page table.
+
+On a 32-bit machine with 4K pages, the address is 20 bits of page number and 12 bits of offset. Since one 4K page holds 1024 four-byte entries, the 20 bits are split 10 + 10:
+
+| p₁ (outer index) | p₂ (inner index) | d (offset) |
+|---|---|---|
+| 10 bits | 10 bits | 12 bits |
+
+The saving comes from the fact that most of a process's address space is unused. Whole regions of the inner table that would contain only invalid entries are simply never allocated; the outer table marks them absent.
+
+The cost is time: each level adds one memory access on a TLB miss. Real designs chose different depths (two levels on the VAX, three on 32-bit SPARC, four on the Motorola 68030), always trading size against speed. At 64 bits the trade stops being attractive, since the number of levels becomes too large for a plain hierarchy.
+
+<PageTableLevels client:visible />
+
+<Callout type="exam" title="Recipe for 'how many levels?' questions">
+1. Offset bits = log₂(page size).
+2. Entries per page = page size ÷ entry size. Its log₂ is the number of bits one level can translate.
+3. Remaining bits = address bits − offset bits.
+4. Levels = remaining bits ÷ bits per level, **rounded up**.
+
+Set the calculator to 64 bits, 4K pages and 4-byte entries and check that you get 6.
+</Callout>
+
+### Hashed page tables
+
+Common for address spaces larger than 32 bits. The virtual page number is **hashed** into a table. Each slot of the hash table holds a chain of elements that hashed to the same place, and each element stores a virtual page number, the frame it maps to, and a pointer to the next element.
+
+To translate, hash the page number, walk the chain comparing virtual page numbers, and take the frame from the element that matches. The table's size depends on how many pages are actually mapped, not on how large the address space is.
+
+If hashing is new to you: a hash function takes a key *K* and computes a bucket number from 0 to *B − 1*, commonly the remainder of *K ÷ B*. Records whose keys land in the same bucket are linked into that bucket's list. Looking up a key means computing its bucket and searching only that short list.
+
+### Inverted page tables
+
+The ordinary scheme has one table per process, with one entry per *virtual* page. Turn that inside out: keep **one table for the whole system**, with **one entry per physical frame**. Entry *i* says which page of which process currently occupies frame *i*, as a pair ⟨process id, page number⟩.
+
+A virtual address is now the triple ⟨process id, page number, offset⟩. To translate it, the table is searched for the matching ⟨process id, page number⟩; if the match is found at entry *i*, the physical address is frame *i* plus the offset.
+
+| | Conventional page table | Inverted page table |
+|---|---|---|
+| Number of tables | One per process | One for the system |
+| Entries | One per virtual page | One per physical frame |
+| Size grows with | Virtual address space | Physical memory |
+| Lookup | Direct index by page number | Search for ⟨pid, page⟩ |
+| Shared pages | Easy | Difficult |
+
+The space saving is large, which is why 64-bit UltraSPARC and PowerPC used this design. The costs:
+
+- **Search time.** The table is sorted by physical address but looked up by virtual address, so in principle the whole table must be searched. A hash table narrows this to one or a few entries, at the price of an extra memory reference; the TLB hides most of that.
+- **Sharing is hard.** A frame has exactly one entry, so it cannot easily be mapped by two different virtual addresses.
+- **Incomplete information.** The table only describes pages that are in memory, so the OS needs additional per-process tables to find pages that are on disk.
+
+## Sharing pages
+
+Paging makes it easy to share code. If code is **reentrant** (it never modifies itself during execution), many processes can execute the same physical copy at once, each with its own private data.
+
+Suppose 40 users run a text editor that has 150K of code and 50K of data.
+
+- Without sharing: 40 × (150K + 50K) = **8000K**.
+- With the code shared: 150K + 40 × 50K = **2150K**.
+
+Each process's page table simply maps its editor-code pages to the same frames, while its data pages map to private frames. Shared code must appear at the same place in the logical address space of every process that shares it; private pages can be anywhere. Compilers, window systems and database systems are shared this way.
+
+## Segmentation
+
+Paging cuts a program into arbitrary same-size chunks that mean nothing to the programmer. But programmers do not think of memory as a linear array of bytes. They think of a main program, some functions, a stack, a symbol table, some arrays: a collection of **variable-sized segments** with no particular order among them.
+
+**Segmentation** is a memory-management scheme that supports this view. The logical address space is a collection of segments, and a logical address is a pair:
+
+> ⟨segment number *s*, offset *d*⟩
+
+A **segment table** maps these two-dimensional addresses to one-dimensional physical addresses. Each entry has:
+
+- a **base**: the physical address where the segment starts, and
+- a **limit**: the length of the segment.
+
+The offset *d* is checked against the limit. If it is legal, the physical address is base + *d*; otherwise the hardware traps. A **segment-table base register (STBR)** points to the table, and a **segment-table length register (STLR)** gives the number of segments, so segment number *s* is legal only if it is less than STLR. If this reminds you of the relocation and limit registers from earlier, it should: a segment table is an array of base-limit pairs, one per segment.
+
+<SegmentationDemo client:visible />
+
+What segmentation is good at:
+
+- **Protection that makes sense.** Protection bits attach to a segment, and a segment is a meaningful unit: code can be marked execute-only, a constant table read-only. With paging, a single page might contain both code and data.
+- **Sharing that makes sense.** Processes share whole segments, such as a library, by having entries that point to the same base.
+
+What it is bad at: segments vary in length, so finding room for them is the **dynamic storage-allocation problem** all over again. Segments are placed by first fit or best fit, and **external fragmentation returns**.
+
+<Question client:visible q={checks.segVsPage} />
+
+### Segmentation with paging
+
+The two schemes can be combined to get the logical structure of segments without the external fragmentation.
+
+**MULTICS** solved the problems of external fragmentation and long search times by **paging the segments**. A segment-table entry no longer holds the base address of the segment; it holds the base address of a **page table for that segment**. The offset within the segment is split into a page number and a page offset, and translated through that page table.
+
+**The Intel 386** also used segmentation with paging, with a two-level paging scheme underneath: the segment mechanism produces a linear address, which is then split into a page-directory index, a page-table index and an offset.
+
+## Summary
+
+| Scheme | Unit of allocation | External fragmentation | Internal fragmentation | Hardware needed |
+|---|---|---|---|---|
+| Contiguous, fixed partitions | Whole process | No | Yes (unused part of partition) | Base and limit registers |
+| Contiguous, variable partitions | Whole process | **Yes** | Negligible | Base and limit registers |
+| Paging | Fixed-size page | No | Yes (about half a page per process) | Page table, TLB |
+| Segmentation | Variable-size segment | **Yes** | No | Segment table |
+| Segmentation with paging | Page within a segment | No | Yes | Segment table and page tables |
+
+The ideas worth carrying with you:
+
+- **Binding time** decides flexibility: compile time (recompile to move), load time (reload to move), execution time (move freely, needs an MMU).
+- The CPU generates **logical** addresses; the MMU turns them into **physical** addresses. User programs never see physical addresses.
+- **External** fragmentation is free memory between allocations that is too scattered to use. **Internal** fragmentation is unused memory inside an allocation.
+- **Compaction** cures external fragmentation but needs execution-time relocation and is costly.
+- **Paging**: address = page number + offset; the page table maps page to frame; the offset is unchanged.
+- The **TLB** caches translations. EAT = α(ε + t) + (1 − α)(ε + 2t).
+- Page tables are shrunk by making them **hierarchical**, **hashed** or **inverted**.
+- **Segmentation** matches the programmer's view and gives natural protection and sharing, but brings external fragmentation back; **paging the segments** removes it.
+
+Next, [Virtual Memory](/learn/virtual-memory) asks a bold question: what if a process's pages did not all have to be in memory at the same time?
+
+## Exam-style practice
+
+Written questions are how this subject is usually examined. Write a full answer first, then compare it with the model answer and tick the marking points you covered.
+
+<Question client:visible q={practice.inverted} label="Written practice" />
+
+<Question client:visible q={practice.loading} label="Written practice" />
+
+<Checkpoint client:visible lessonId="memory-management" questions={checkpoint} />

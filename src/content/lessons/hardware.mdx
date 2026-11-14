@@ -1,0 +1,493 @@
+---
+title: Hardware Review
+summary: The hardware facts every operating system is built on - the instruction cycle, interrupts, the ways of doing I/O, dual-mode protection, the storage hierarchy and caching, and multiprocessor machines.
+minutes: 50
+prerequisites: [overview-and-complexity, history]
+objectives:
+  - Describe the components of a simple computer and trace the fetch-execute cycle
+  - Explain how interrupts are raised, accepted and handled, and why an operating system is interrupt driven
+  - Compare programmed, interrupt-driven and DMA data transfer, and synchronous with asynchronous I/O
+  - Explain dual-mode operation and the protection of I/O, memory and the CPU
+  - Explain the storage hierarchy, caching and cache coherency, and describe multiprocessor and clustered systems
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import SimpleComputer from '../../components/viz/SimpleComputer.svelte';
+import ProtectionCheck from '../../components/viz/ProtectionCheck.svelte';
+import StorageHierarchy from '../../components/viz/StorageHierarchy.svelte';
+import CacheCoherency from '../../components/viz/CacheCoherency.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/hardware';
+
+## Why an operating-systems course starts with hardware
+
+An operating system is a program, and it runs on the same CPU as the programs it controls. So how can it possibly stay in charge? A user program could overwrite it, ignore it, or simply never give the CPU back.
+
+The answer is that the hardware provides a small number of mechanisms **designed for the operating system's benefit**: interrupts, a mode bit, a pair of protection registers and a timer. This lesson reviews how a computer works, with the aim of understanding those mechanisms. Everything in the later units is built on them.
+
+### Starting up
+
+When a computer is powered on or rebooted, memory holds nothing useful. The first thing to run is the **bootstrap program**.
+
+- It is typically stored in **ROM or EPROM**, generally known as **firmware**, so that it survives power-off.
+- It **initialises all aspects of the system**: CPU registers, device controllers, memory contents.
+- It **loads the operating-system kernel** into memory and starts its execution.
+
+From then on the kernel is "the one program running at all times".
+
+<Question client:visible q={checks.bootstrap} />
+
+## How a computer is organised
+
+A modern general-purpose computer consists of **one or more CPUs** and a number of **device controllers**, connected through a common **bus** that provides access to shared memory.
+
+- **Each device controller is in charge of a particular type of device** (disks, displays, USB devices).
+- **Each device controller has a local buffer** and a set of special-purpose registers.
+- The CPU moves data between main memory and the controllers' local buffers; the actual **I/O is between the device and the local buffer** of its controller.
+- **The I/O devices and the CPU can execute concurrently**, competing for memory cycles.
+- A device controller informs the CPU that it has finished an operation by causing an **interrupt**.
+
+### The von Neumann architecture
+
+Nearly all computers follow a design described in 1945 by John von Neumann and others in the *First Draft of a Report on the EDVAC*. It consists of:
+
+- a **processing unit** containing an arithmetic logic unit and processor registers;
+- a **control unit** containing an instruction register and a program counter;
+- **memory** that stores both **data and instructions**;
+- external mass storage;
+- input and output mechanisms.
+
+The decisive feature is the third: instructions live in the same memory as data. That is the stored-program concept from the History lesson, turned into an architecture.
+
+### A simple computer
+
+To study interrupts it helps to strip a computer down to its essentials.
+
+| Component | Role |
+|---|---|
+| **Processor (CPU)** | Controls the operation of the computer and performs its data-processing functions |
+| **Main memory** | Stores data and programs. It is volatile: its contents are lost when power is removed |
+| **I/O modules** | Move data between the computer and its external environment |
+| **System bus** | The mechanism for communication among processors, main memory and I/O modules |
+
+Within the processor is a set of **registers**: a level of memory that is faster and smaller than main memory.
+
+| Register | Holds |
+|---|---|
+| **PC**, program counter | The address of the next instruction to be fetched |
+| **IR**, instruction register | The instruction most recently fetched |
+| **MAR**, memory address register | The address in memory for the next read or write |
+| **MBR**, memory buffer register | The data to be written into memory, or the data just read from it |
+| **I/O AR**, **I/O BR** | The address of an I/O device, and the data exchanged with it |
+| **AC**, accumulator | Temporary storage for arithmetic |
+| **PSW**, program status word | Condition codes and status bits (below) |
+
+Registers are of two kinds. **User-visible registers** are available to the programmer: data registers, and address registers such as an **index register** (an index added to a base value), a **segment pointer** and a **stack pointer** (which points to the top of the stack). **Control and status registers** are used to control the operation of the processor, and differ from machine to machine.
+
+The **program status word** is a register, or set of registers, containing:
+
+- **Sign**: the sign bit of the last arithmetic operation
+- **Zero**: set if the result of an arithmetic operation is zero
+- **Carry**: set if there was a carry or borrow
+- **Equal**: set if a compare found equality
+- **Overflow**: set if the result overflowed
+- **Interrupt enable/disable**: used to disable or enable interrupts
+- **Supervisor**: indicates whether the processor is executing in supervisor or user mode
+
+The last two bits are the ones that matter most to an operating system.
+
+## The instruction cycle
+
+Program execution is the main function of the computer, and it consists of repeating two stages.
+
+<Flow
+  steps={[
+    { label: 'Fetch', note: 'Bring the instruction at the address in the PC from memory into the IR. Increment the PC.' },
+    { label: 'Execute', note: 'Interpret the instruction and perform the required action.' },
+  ]}
+  caption="Repeated until a halt instruction"
+/>
+
+**Fetch.** The PC contains the address of the next instruction. The processor fetches it from memory and **increments the PC**, unless told otherwise, so that the next fetch takes the instruction that follows.
+
+**Execute.** The processor interprets the instruction and performs the required action, which falls into one of four categories:
+
+- **Processor-memory**: transfer data between processor and memory
+- **Processor-I/O**: transfer data to or from a peripheral device
+- **Data processing**: an arithmetic or logic operation on data
+- **Control**: alter the sequence of execution, for example a jump
+
+### A worked example
+
+Take a machine with a 16-bit word: a 4-bit operation code followed by a 12-bit address.
+
+| Opcode | Instruction | Meaning |
+|---|---|---|
+| 0001 | LOAD *address* | Load the accumulator from memory |
+| 0010 | STORE *address* | Store the accumulator to memory |
+| 0101 | ADD *address* | Add the contents of memory to the accumulator |
+
+The program `LOAD 940; ADD 941; STORE 941` adds the contents of location 940 to the contents of location 941 and stores the result in 941. In hexadecimal the three instructions are 1940, 5941 and 2941, stored at addresses 300, 301 and 302.
+
+Step through it below. Watch the PC run one ahead of the instruction being executed.
+
+<SimpleComputer client:visible />
+
+<Question client:visible q={checks.cycle} />
+
+## Interrupts
+
+With only fetch and execute, a processor that starts an I/O operation has no choice but to wait for it, and devices are thousands of times slower than the processor. **Interrupts are provided to improve performance.** With interrupts, the processor can be engaged in executing other instructions while an I/O operation is in progress, and the device announces when it is done.
+
+To make that possible, an **interrupt cycle** is added to the instruction cycle.
+
+<Flow
+  steps={[
+    { label: 'Fetch the next instruction' },
+    { label: 'Execute it' },
+    { label: 'Check for an interrupt', note: 'If interrupts are enabled and one is pending, process it. Otherwise go straight back to fetch.' },
+  ]}
+  caption="The instruction cycle with interrupts"
+/>
+
+In the simulator above, press "Device raises an interrupt" at any moment and keep stepping. Three things are worth seeing:
+
+1. The current instruction always **completes** first.
+2. The PC and PSW are **saved**, and the PC is loaded with the address of the handler.
+3. After the handler returns, the program picks up exactly where it left off and still computes 5.
+
+<Question client:visible q={checks.when} />
+
+### Common functions of interrupts
+
+- An interrupt **transfers control to the interrupt service routine**, generally through the **interrupt vector**, which contains the addresses of all the service routines.
+- The interrupt architecture must **save the address of the interrupted instruction**.
+- **Incoming interrupts are disabled** while another interrupt is being processed, to prevent a **lost interrupt**.
+- A **trap** is a **software-generated interrupt**, caused either by an **error** (division by zero, invalid memory access) or by a **user request** for an operating-system service.
+
+### How an interrupt is handled
+
+<Stepper
+  client:visible
+  title="A disk read completes"
+  steps={[
+    { title: 'The CPU starts the I/O', actor: 'OS', detail: 'The CPU loads the appropriate registers within the device controller. The controller examines them to determine what action to take.' },
+    { title: 'The controller does the transfer', actor: 'Device', detail: 'For a read, the controller transfers the data from the device into its local buffer. Meanwhile the CPU is executing something else.' },
+    { title: 'The controller raises the interrupt request line', actor: 'Device', detail: 'The CPU hardware has a wire called the interrupt request line, which it senses after executing every instruction.' },
+    { title: 'The CPU saves its state', actor: 'Hardware', detail: 'On sensing the signal, the CPU saves the PC and the PSW on a stack, disables further interrupts and switches to supervisor mode.' },
+    { title: 'Jump through the interrupt vector', actor: 'Hardware', detail: 'The interrupt vector holds the memory addresses of the specialised interrupt handlers. The interrupt number indexes it, and the CPU jumps to that address.' },
+    { title: 'The handler services the device', actor: 'OS', detail: 'It saves any other registers it will use, moves the data from the controller’s buffer to main memory, and records that the device is free.' },
+    { title: 'Return from interrupt', actor: 'OS', detail: 'The saved registers, PSW and PC are restored. The interrupted program resumes as though nothing had happened.' },
+  ]}
+/>
+
+<Question client:visible q={checks.vector} />
+
+<Callout type="key" title="An operating system is interrupt driven">
+If there are no processes to execute, no I/O devices to service and no users to respond to, an operating system sits quietly, waiting for something to happen. Events are almost always signalled by an interrupt or a trap. For each type of interrupt, a separate segment of operating-system code determines what action is taken. Seen this way, an operating system is a collection of interrupt handlers.
+</Callout>
+
+## I/O structure
+
+### Three ways to transfer data
+
+| Technique | How it works | Cost |
+|---|---|---|
+| **Programmed data transfer** | The CPU issues the I/O command and then **repeatedly checks the status** of the I/O module until the operation is complete. The module never interrupts. | A time-consuming process that keeps the processor busy unnecessarily |
+| **Interrupt-driven data transfer** | The CPU issues the command and continues with other work. The I/O module **interrupts** the processor to request service when it is ready to exchange data. | The CPU is free in between, but it still handles every word: typically one interrupt per byte |
+| **Direct memory access (DMA)** | The device controller transfers an **entire block** of data directly between its buffer and main memory, **without CPU intervention**. | **One interrupt per block**, not one per byte |
+
+**DMA** is used for high-speed I/O devices able to transmit information at close to memory speeds. If such a device interrupted for every byte, the CPU would have time for nothing else. Instead the processor issues a command to the DMA module, giving it:
+
+- whether a **read or write** is requested;
+- the **address of the I/O device** involved;
+- the **starting location in memory** to read from or write to;
+- the **number of words** to be read or written.
+
+The processor then continues with other work. The DMA module transfers the data and interrupts the processor when the whole block is done. There is a small price: to move the data the DMA module takes control of the bus, so the processor may occasionally have to wait for the bus and runs slightly slower.
+
+<Question client:visible q={checks.dma} />
+
+### Synchronous and asynchronous I/O
+
+After an I/O operation starts, there are two possibilities for the program that requested it.
+
+| | Synchronous I/O | Asynchronous I/O |
+|---|---|---|
+| Control returns to the user program | Only upon I/O completion | Immediately, without waiting for completion |
+| While waiting | A wait instruction idles the CPU until the next interrupt, or the CPU spins in a wait loop | The CPU does other work |
+| Requests outstanding | At most one at a time; no simultaneous I/O processing | Several, on several devices |
+
+A wait loop is as simple as it sounds, a jump to itself, and continues until an interrupt occurs:
+
+```
+loop:  JUMP loop
+```
+
+To keep track of many I/O requests at once, the operating system uses a **device-status table**. It contains an entry for each I/O device indicating its **type, address and state** (not functioning, idle or busy). If a device is busy, the entry also holds the queue of requests waiting for it. When an interrupt arrives, the operating system indexes into the table to find the device, updates its entry, and starts the next queued request.
+
+## Operating-system structure
+
+Recall from the History lesson what the operating system is trying to do with this hardware.
+
+**Multiprogramming** is needed for efficiency. A single user cannot keep the CPU and the I/O devices busy at all times, so multiprogramming organises jobs so that the CPU always has one to execute. A subset of the jobs in the system is kept in memory; one is selected and run by **job scheduling**; when it has to wait, for I/O for example, the operating system switches to another job.
+
+**Time sharing** (multitasking) is the logical extension, in which the CPU switches jobs so frequently that users can interact with each job while it is running.
+
+- **Response time** should be under one second.
+- Each user has at least one program executing in memory: a **process**.
+- If several jobs are ready to run at the same time, the system needs **CPU scheduling**.
+- If the processes do not fit in memory, **swapping** moves them in and out to run.
+- **Virtual memory** allows execution of processes that are not completely in memory.
+
+## Protection: dual-mode operation
+
+In early systems, programmers had complete control over the machine. As operating systems developed, control was given to the operating system, which began performing functions such as I/O on behalf of programs and **sharing** resources among them.
+
+Sharing changes the consequences of an error. **Without sharing, an error causes problems only for the one program that was running. With sharing, an error in one program can cause problems for many**, and for the operating system itself. An operating system must ensure that an incorrect program cannot cause other programs to execute incorrectly. (MS-DOS and the early Mac OS did not, and a faulty program could bring down the whole machine.)
+
+Four protection measures are needed, and all four require hardware support.
+
+### Dual-mode operation
+
+The hardware differentiates between at least two modes of operation.
+
+1. **User mode**: execution done on behalf of a user.
+2. **Monitor mode** (also called **kernel mode**, **supervisor mode** or **system mode**): execution done on behalf of the operating system.
+
+A **mode bit** is added to the hardware to indicate the current mode: **monitor (0)** or **user (1)**.
+
+- When the system starts, the hardware starts in monitor mode. The operating system is loaded, and it starts user processes in user mode.
+- **Whenever an interrupt, trap or fault occurs, the hardware switches to monitor mode.** So whenever the operating system gains control, the mode bit is 0.
+- Before passing control to a user program, the operating system sets the mode to user.
+
+The protection comes from designating some machine instructions as **privileged instructions**. **Privileged instructions can be executed only in monitor mode.** If an attempt is made to execute one in user mode, the hardware does not execute it; it treats it as illegal and traps to the operating system.
+
+<div class="not-sw-prose my-6">
+  <svg viewBox="0 0 520 130" class="mx-auto w-full max-w-lg" role="img" aria-label="Two states: monitor mode and user mode. An interrupt, trap or fault moves from user to monitor. The privileged set-user-mode instruction moves from monitor to user.">
+    <defs>
+      <marker id="dm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke" /></marker>
+    </defs>
+    <rect x="30" y="40" width="150" height="50" rx="25" fill="var(--chart-4)" />
+    <text x="105" y="62" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">Monitor mode</text>
+    <text x="105" y="79" text-anchor="middle" font-size="11" fill="#fff">mode bit = 0</text>
+    <rect x="340" y="40" width="150" height="50" rx="25" fill="var(--chart-2)" />
+    <text x="415" y="62" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">User mode</text>
+    <text x="415" y="79" text-anchor="middle" font-size="11" fill="#fff">mode bit = 1</text>
+    <path d="M345 46 Q260 6 175 46" fill="none" stroke="var(--foreground)" stroke-width="1.5" marker-end="url(#dm-arrow)" />
+    <text x="260" y="16" text-anchor="middle" font-size="12" fill="var(--foreground)">interrupt, trap or fault</text>
+    <path d="M175 84 Q260 124 345 84" fill="none" stroke="var(--foreground)" stroke-width="1.5" marker-end="url(#dm-arrow)" />
+    <text x="260" y="124" text-anchor="middle" font-size="12" fill="var(--foreground)">set user mode (privileged)</text>
+  </svg>
+</div>
+
+Dual-mode operation protects the operating system from errant users, and errant users from one another.
+
+### I/O protection
+
+A user program may disrupt the normal operation of the system by issuing an illegal I/O operation: reading another user's file directly from the disk, say.
+
+**Solution: all I/O instructions are privileged instructions.** A user program cannot perform I/O itself; it must ask the operating system to do it.
+
+That is not quite enough. I/O protection is complete only if **a user program can never gain control of the computer in monitor mode**. Consider a user program that, as part of its execution, stores a new address in the interrupt vector. When the next interrupt occurs, the hardware switches to monitor mode and jumps to the user's code. So the interrupt vector must be protected too: instructions that modify it are privileged, and it must lie in protected memory.
+
+### Memory protection
+
+Memory protection must be provided **at least for the interrupt vector and the interrupt service routines**, and in practice for the operating system and for every program against every other.
+
+Two registers determine the range of legal addresses a program may access:
+
+- the **base register** holds the smallest legal physical memory address;
+- the **limit register** contains the size of the range.
+
+Memory outside the defined range is protected. **The CPU hardware compares every address generated in user mode with the registers.** Any attempt to access memory outside the range results in a trap to the operating system, which treats it as a fatal addressing error.
+
+<ProtectionCheck client:visible />
+
+- When executing in **monitor mode**, the operating system has **unrestricted access** to both the monitor's and the users' memory.
+- **The load instructions for the base and limit registers are privileged instructions.** Otherwise a program could simply widen its own range.
+
+### CPU protection
+
+The operating system must **maintain control**. A user program stuck in an infinite loop, or one that never calls the operating system, must not be able to keep the CPU for ever.
+
+- A **timer** interrupts the computer after a specified period.
+- The timer is **decremented every clock tick**. When it reaches **0**, an **interrupt occurs**.
+- Before turning control over to a user program, the operating system sets the timer. If the timer interrupts, control transfers to the operating system, which may treat it as a fatal error or give the program more time.
+- The timer is commonly used to **implement time sharing**, and also to compute the current time.
+- **Load-timer is a privileged instruction.**
+
+<Question client:visible q={checks.mode} />
+
+### System calls: how a user program asks for help
+
+If I/O instructions are privileged, how does a user program ever do I/O? **The user must ask the monitor to do it. Such a request is called a system call.**
+
+<Stepper
+  client:visible
+  title="A user program reads from a file"
+  steps={[
+    { title: 'The program executes a system call', actor: 'User mode', detail: 'A special instruction (a trap, or software interrupt) is executed, with a parameter identifying which service is wanted.' },
+    { title: 'The hardware treats it as a software interrupt', actor: 'Hardware', detail: 'Control passes through the interrupt vector to a service routine in the operating system, and the mode bit is set to monitor mode.' },
+    { title: 'The operating system examines the request', actor: 'Monitor mode', detail: 'It determines which system call has occurred, checks that the parameters are correct and legal, and executes the request. Here it performs the privileged I/O instructions itself.' },
+    { title: 'Control returns to the user program', actor: 'User mode', detail: 'The mode bit is set back to user mode, and execution continues at the instruction following the system call.' },
+  ]}
+/>
+
+Putting it together, the general operation of a system is:
+
+- To improve utilisation, multiprogramming and time sharing share the computer's resources among many programs.
+- Sharing means the operating system must control I/O to provide continuous, consistent and correct operation, so **dual mode** was introduced.
+- **I/O instructions**, instructions that **modify the memory-management registers** or the **timer**, the **halt** instruction, instructions that turn interrupts on and off, and the instruction that **changes from user mode to monitor mode** are all privileged.
+
+## What the operating system manages
+
+With control secured, the operating system has four large responsibilities. Each is the subject of later units.
+
+**Process management.** A **process is a program in execution**: a unit of work within the system. A program is a **passive** entity; a process is an **active** one. A process needs resources, CPU, memory, I/O and files, to accomplish its task, and on termination its reusable resources must be reclaimed. A single-threaded process has one program counter specifying the next instruction to execute; a multithreaded process has one program counter per thread. Typically a system has many processes, some user and some operating-system, running concurrently on one or more CPUs. The operating system is responsible for:
+
+- creating and deleting both user and system processes;
+- suspending and resuming processes;
+- providing mechanisms for process **synchronisation**, process **communication** and **deadlock handling**.
+
+**Memory management.** All data must be in memory before and after processing, and all instructions must be in memory in order to execute. Memory management determines what is in memory and when, to optimise CPU utilisation and response to users. Its activities are keeping track of which parts of memory are being used and by whom, deciding which processes and data to move into and out of memory, and allocating and deallocating memory space as needed.
+
+**Storage management.** The operating system provides a **uniform, logical view of information storage**. It abstracts the physical properties of storage devices to a logical storage unit: the **file**. File-system management covers creating and deleting files and directories, primitives to manipulate them, mapping files onto secondary storage, and backing files up onto stable storage. **Mass-storage management** covers free-space management, storage allocation and disk scheduling; since the entire speed of a computer may hinge on the disk subsystem, its algorithms matter.
+
+**The I/O subsystem.** One purpose of an operating system is to **hide the peculiarities of hardware devices** from the user. The I/O subsystem consists of:
+
+- memory management of I/O, including **buffering** (storing data temporarily while it is being transferred), **caching** (storing parts of data in faster storage for performance) and **spooling** (overlapping the output of one job with the input of other jobs);
+- a general device-driver interface;
+- drivers for specific hardware devices.
+
+**Protection and security.** **Protection** is any mechanism for controlling the access of processes or users to the resources defined by the operating system. **Security** is the defence of the system against internal and external attacks: denial of service, worms, viruses, identity theft, theft of service. Systems first distinguish among users with **user IDs**, which are associated with all of a user's files and processes to determine access; **group IDs** allow sets of users to be managed together; and **privilege escalation** lets a user change to an effective ID with more rights.
+
+<Callout type="history" title="Kernel data structures">
+Inside the kernel, all of this is held in the data structures you already know: **lists** (singly linked, doubly linked, circular), **stacks** (last in, first out), **queues** (first in, first out), **trees** (binary search trees, balanced trees such as B-trees), **hash maps**, and **bitmaps**. A bitmap gives the status of n items in n bits: to track 1000 disk blocks, use 1000 bits, each showing whether one block is occupied (1) or free (0).
+</Callout>
+
+## The storage hierarchy
+
+**Main memory** is the only large storage medium that the CPU can access directly. It is random access, and typically **volatile**. **Secondary storage** is an extension of main memory that provides large **non-volatile** capacity; the most common device is the magnetic disk, whose surface is divided into tracks and the tracks into sectors.
+
+No single storage technology is at once fast, large and cheap. So storage systems are organised in a **hierarchy** according to three properties:
+
+- **speed**
+- **cost**
+- **volatility**
+
+<StorageHierarchy client:visible />
+
+Movement of information between levels of the hierarchy may be **explicit or implicit**, depending on the hardware design and the controlling software. Transfer from cache to CPU registers is usually a hardware function with no operating-system intervention; transfer from disk to memory is usually controlled by the operating system.
+
+### Caching
+
+**Caching** is copying information into a faster storage system. It is an important principle, performed at many levels in a computer: in hardware, in the operating system and in software.
+
+- Information in use is **copied from slower to faster storage temporarily**.
+- The faster storage, the **cache**, is **checked first** to determine whether the information is there.
+- If it is, the information is used directly from the cache (fast).
+- If it is not, the data is copied to the cache and used there, on the assumption that it will be needed again soon.
+
+Main memory can be viewed as a **cache for secondary storage**.
+
+A cache is **smaller than the storage being cached**, so it cannot hold everything. **Cache management is an important design problem**: careful selection of the **cache size** and of a **replacement policy** can result in a large fraction of all accesses being found in the cache.
+
+<Question client:visible q={checks.caching} />
+
+### Cache coherency
+
+Caching has a price: the same datum may now exist in several places.
+
+Suppose an integer A, located in a file on a magnetic disk, is to be incremented by 1. The file block containing A is copied into main memory. A is then copied to the cache, and from there to an internal register. So a copy of A appears in **several places**. Once the increment takes place in the register, the value of A **differs** between the storage systems. It becomes the same again only after the new value is written back all the way to the disk.
+
+<CacheCoherency client:visible />
+
+How much this matters depends on the environment.
+
+- If only **one process** executes at a time, there is no difficulty: an access to A is always to the copy at the highest level of the hierarchy.
+- In a **multitasking** environment, where the CPU is switched back and forth among processes, extreme care must be taken that if several processes wish to access A, **each obtains the most recently updated value**, no matter where it is stored in the hierarchy.
+- In a **multiprocessor** environment each CPU also has its own local cache, so a copy of A may exist simultaneously in several caches. The hardware must provide **cache coherency**: an update to the value of A in one cache is immediately reflected in all other caches where A resides, so that **all CPUs have the most recent value**.
+- In a **distributed** environment the situation is even more complex. **Several copies (replicas) of a datum can exist** on different computers, and the system must ensure that when one is updated, all the others are brought up to date as soon as possible.
+
+## Computer-system architecture
+
+### Multiprocessor systems
+
+Also known as **parallel systems** or **tightly coupled systems**, these have two or more processors in close communication, sharing the bus and sometimes the clock, memory and peripheral devices. They have three advantages.
+
+1. **Increased throughput.** More work, measured as the number of tasks finished per unit time. The speed-up with N processors is less than N, because of the overhead of keeping the parts working together and contention for shared resources.
+2. **Economy of scale.** The total cost is less than that of several single-processor systems, because peripherals, mass storage and power supplies are shared.
+3. **Increased reliability.** The failure of one processor will not halt the system, only slow it down.
+   - **Graceful degradation**: the ability to continue providing service proportional to the level of surviving hardware.
+   - **Fault tolerance**: the service level does not decrease at all. This needs duplicated components and a mechanism for detecting, diagnosing and correcting a failure (the HP NonStop systems are an example).
+
+There are two types.
+
+- **Asymmetric multiprocessing**: each processor is assigned a specific task. A master processor controls the system, and the others look to it for instructions.
+- **Symmetric multiprocessing (SMP)**: each processor performs all tasks, including operating-system functions and user processes. All processors are peers. Solaris, Windows and Linux all support SMP.
+
+Adding CPUs changes the **memory-access model**. In **uniform memory access (UMA)**, access to any memory from any CPU takes the same amount of time. In **non-uniform memory access (NUMA)**, some parts of memory take longer to reach than others: each CPU, or group of CPUs, has its own local memory, which is fast to access, and reaches the others' memory more slowly. The operating system can limit the penalty through careful scheduling and memory placement.
+
+**Multicore.** A recent trend is to include **multiple computing cores on a single chip**. On-chip communication is faster than between-chip communication, and one chip with several cores uses significantly less power than several single-core chips. It puts pressure on operating-system designers and application programmers to make good use of the cores.
+
+**Blade servers** place multiple processor boards, I/O boards and networking boards in the same chassis. Each blade-processor board boots independently and runs its own operating system.
+
+### Clustered systems
+
+A clustered system, like a multiprocessor system, gathers several CPUs, but it is composed of **two or more individual systems working together**, usually **sharing storage** via a **storage-area network (SAN)**.
+
+Clustering is usually used to provide a **high-availability** service: one that continues even if one or more systems in the cluster fail.
+
+- **Asymmetric clustering**: one machine is in **hot-standby mode**, doing nothing but monitoring the active server. If that server fails, the standby takes over.
+- **Symmetric clustering**: two or more nodes are running applications and monitoring each other. It is more efficient, since it uses all the hardware.
+
+Some clusters are built for **high-performance computing (HPC)**. Applications must be written specifically to take advantage of them, a technique known as **parallelisation**: dividing a program into separate components that run in parallel on the individual computers.
+
+## Computing environments
+
+- **Traditional computing.** The boundaries have blurred over time. An office once meant PCs on a network with terminals attached to mainframes or minicomputers providing batch and time sharing; now portals give networked and remote systems access to the same resources. Home networks were once a single system with a modem; now they are networked and firewalled.
+- **Distributed computing.** A collection of separate, possibly heterogeneous, systems networked together. The network is a communications path, a LAN, MAN or WAN. A **network operating system** provides features between systems across the network, and a communication scheme lets systems exchange messages, creating the **illusion of a single system**.
+- **Client-server computing.** Dumb terminals have been supplanted by smart PCs, and many systems are now **servers** responding to requests generated by **clients**. A **compute server** provides an interface through which a client requests a service, such as a database query; a **file server** provides an interface for clients to store and retrieve files.
+- **Peer-to-peer computing.** Another model of distributed system, which does not distinguish clients from servers. All nodes are **peers**, and each may act as client, server or both. A node must join the network, and finds services either by registering with a central lookup service or by broadcasting a request and using a discovery protocol.
+- **Virtualisation.** Allows operating systems to run as applications within other operating systems. **Emulation** is used when the source CPU type differs from the target type, and is generally the slowest method. In **virtualisation** proper, a guest operating system natively compiled for the CPU runs on a host, with a **virtual machine manager (VMM)** providing the virtualisation services. It is used for running several operating systems for exploration or compatibility, for developing and testing applications without multiple machines, and for managing compute environments in data centres.
+- **Cloud computing.** Delivers computing, storage and even applications **as a service across a network**. It is a logical extension of virtualisation, which it uses as its base. Clouds may be **public** (available to anyone willing to pay), **private** (run by a company for its own use) or **hybrid**, and may offer **software as a service (SaaS)**, **platform as a service (PaaS)** or **infrastructure as a service (IaaS)**. Unit 5 covers these in detail.
+- **Real-time embedded systems.** The most prevalent form of computer. They vary considerably, usually running a special-purpose, limited operating system with real-time constraints: processing must be done within fixed time limits. Related are **multimedia systems**, where streams of data must be delivered according to time restrictions, and **handheld systems**, with limited CPU, memory and power.
+- **Open-source operating systems.** Made available in source-code format, not just as compiled binaries. The movement was started by the Free Software Foundation, whose "copyleft" GNU General Public License requires that the source be distributed with the binaries. Examples include GNU/Linux and BSD UNIX, which is also the core of macOS.
+
+## Summary
+
+- The **bootstrap program**, held in firmware, initialises the system and loads the kernel.
+- A computer is CPUs and **device controllers** on a common bus. Each controller has a local buffer and reports completion with an **interrupt**.
+- The **instruction cycle** is fetch then execute; the **PC** points at the next instruction and the **IR** holds the current one. With interrupts, an **interrupt cycle** follows each execute.
+- On an interrupt the hardware **saves the PC and PSW**, disables interrupts, and jumps through the **interrupt vector** to a service routine. A **trap** is a software-generated interrupt. **An operating system is interrupt driven.**
+
+| I/O technique | CPU involvement |
+|---|---|
+| Programmed | CPU polls the device continuously |
+| Interrupt-driven | Device interrupts when ready; about one interrupt per byte |
+| DMA | Controller moves a whole block; one interrupt per block |
+
+- **Dual mode**: a mode bit distinguishes **user mode (1)** from **monitor mode (0)**; privileged instructions run only in monitor mode.
+
+| Protection | Mechanism |
+|---|---|
+| I/O | All I/O instructions are privileged; users request I/O by **system call** |
+| Memory | **Base and limit registers**, checked by hardware on every user-mode address |
+| CPU | A **timer** interrupt returns control to the operating system |
+
+- The **storage hierarchy** trades speed against cost and size. **Caching** copies information into faster storage; **cache size** and **replacement policy** are the design problems; **cache coherency** keeps copies in several CPUs' caches consistent.
+- **Multiprocessor systems** give increased throughput, economy of scale and increased reliability; they are **symmetric** or **asymmetric**, UMA or NUMA. **Clustered systems** link separate machines for high availability or high performance.
+
+## Exam-style practice
+
+<Question client:visible q={practice.noCache} label="Written practice" />
+
+<Question client:visible q={practice.coherency} label="Written practice" />
+
+<Question client:visible q={practice.interruptDriven} label="Written practice" />
+
+<Checkpoint client:visible lessonId="hardware" questions={checkpoint} />

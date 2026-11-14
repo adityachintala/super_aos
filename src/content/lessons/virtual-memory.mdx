@@ -1,0 +1,396 @@
+---
+title: Virtual Memory
+summary: How a process can run with only some of its pages in memory, what happens on a page fault, and how the system decides which page to throw out.
+minutes: 60
+prerequisites: [memory-management]
+objectives:
+  - Explain demand paging and trace the steps of handling a page fault
+  - Compute the effective access time of a demand-paged system
+  - Run FIFO, optimal, LRU and second-chance replacement on a reference string and count the faults
+  - Explain Belady's anomaly and why LRU has to be approximated
+  - Describe frame allocation, thrashing, and how the working-set and page-fault-frequency methods prevent it
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import DemandPagingCost from '../../components/viz/DemandPagingCost.svelte';
+import PageReplacement from '../../components/viz/PageReplacement.svelte';
+import WorkingSet from '../../components/viz/WorkingSet.svelte';
+import Thrashing from '../../components/viz/Thrashing.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/virtual-memory';
+
+## Why keep the whole program in memory?
+
+Everything in the previous lesson assumed that a process's entire logical address space sits in physical memory while it runs. Overlays and dynamic loading relax that a little, but the program is still limited by the size of main memory, and the programmer has to do the work.
+
+Yet the whole program is rarely needed at once:
+
+- Programs contain code for **error conditions** that almost never occur.
+- Arrays, lists and tables are declared far larger than they get used. A 100 × 100 table may never hold more than 10 × 10 elements; an assembler with room for 3,000 symbols typically sees fewer than 200.
+- Whole **features** of a program are used rarely.
+
+**Virtual memory** is a technique that allows a process to execute even though it is *not completely in memory*. It presents main memory as an extremely large, uniform array of storage, separate from the physical memory that actually exists.
+
+What this buys:
+
+- **Programs can be larger than physical memory.** The programmer writes for a huge virtual address space and stops worrying about memory limits.
+- **More programs can run at once**, because each uses less physical memory. CPU utilisation and throughput go up.
+- **Less I/O** is needed to load or swap a program, so each one starts faster.
+- Address spaces can be **shared**, and **process creation** becomes cheaper (more on both below).
+
+Virtual memory can be built on **demand paging** or demand segmentation. Demand paging is by far the more common, and it is the one this lesson covers.
+
+## Demand paging
+
+Take a paging system and add one rule: **never bring a page into memory until it is needed.** Instead of a swapper that moves whole processes, a **lazy swapper**, or **pager**, moves individual pages.
+
+A page is "needed" when it is referenced. If the reference is illegal, the process is aborted. If the page is legal but not in memory, it is brought in. The result is less I/O, less memory per process, faster response and room for more users.
+
+### The valid-invalid bit, reused
+
+The hardware needs a way to tell whether a page is in memory. The **valid-invalid bit** in each page-table entry, which you met as a protection device, does the job:
+
+- **valid (1)**: the page is legal *and* in memory.
+- **invalid (0)**: the page is either illegal, or legal but currently on disk.
+
+Initially the bit is 0 on every entry. As long as a process only touches pages marked valid, it runs exactly as if everything were in memory. When address translation meets an invalid entry, the hardware traps to the operating system: a **page fault**.
+
+### Handling a page fault
+
+<Stepper
+  client:visible
+  title="What happens on a page fault"
+  steps={[
+    { title: 'Trap', actor: 'Hardware', detail: 'Translation finds the valid-invalid bit set to 0 and traps to the operating system. The registers and process state are saved.' },
+    { title: 'Is the reference legal?', actor: 'OS', detail: 'The OS checks an internal table (kept with the process control block). If the address is outside the process’s address space, the process is terminated.' },
+    { title: 'Find a free frame', actor: 'OS', detail: 'Take one from the free-frame list. If there is none, a page-replacement algorithm must choose a victim (covered below).' },
+    { title: 'Schedule a disk read', actor: 'OS', detail: 'Read the wanted page from the backing store into the frame. This is slow, so the CPU is given to another process while this one waits.' },
+    { title: 'Update the tables', actor: 'OS', detail: 'When the read completes, the internal table and the page table are modified: the entry now holds the frame number and the bit is set to valid.' },
+    { title: 'Restart the instruction', actor: 'OS + hardware', detail: 'The process state is restored and the instruction that trapped is executed again. This time the page is there, and the process never knows anything happened.' },
+  ]}
+/>
+
+In the extreme, a process can start with **no pages in memory at all**. The very first instruction faults, then each new page faults as it is first touched, until everything the process actually needs has been brought in. This is **pure demand paging**.
+
+<Question client:visible q={checks.validBit} />
+
+### What the hardware and software must provide
+
+The hardware needs are the same as for paging and swapping: a **page table** with a valid-invalid bit, and **secondary memory** (a high-speed disk, the swap space) to hold the pages that are not in memory.
+
+The subtle requirement is in the last step: being able to **restart any instruction** after a page fault. A fault can occur at any memory reference within an instruction. Consider `C = A + B`: fetch and decode the instruction, fetch A, fetch B, add, store into C. If storing to C faults, the instruction is simply redone from the start. A little work is repeated, and that is all.
+
+The difficulty comes when one instruction **modifies several locations**:
+
+- The IBM 360/370 **MVC** (move character) instruction moves up to 256 bytes, and the source and destination may overlap. If a fault occurs after part of the move, the source has already been changed and the instruction cannot be redone.
+  - *Fix 1:* microcode touches both ends of both blocks before moving anything. If a fault is going to happen, it happens before any change.
+  - *Fix 2:* temporary registers hold the old values of overwritten locations, so memory can be restored to its state before the instruction.
+- **Auto-increment and auto-decrement** addressing modes, as in `MOV (R2)+, -(R3)`, change registers as a side effect. If the store faults, R2 and R3 must be put back. A status register records which register was changed and by how much, so the OS can undo it.
+
+<Callout type="key">
+All of this exists for one purpose: paging must be **completely transparent** to the user process. The process sees a large memory in which every reference just works.
+</Callout>
+
+### The price of a fault
+
+Let *p* be the probability that a memory reference causes a page fault (0 ≤ *p* ≤ 1). Then
+
+$$
+\text{EAT} = (1 - p) \times \text{memory access time} + p \times \text{page-fault service time}
+$$
+
+Servicing a fault involves trapping to the OS, saving the registers and process state, issuing a disk read, waiting for the disk, waiting for the CPU again, and restoring the process. The disk dominates everything else.
+
+With a 100 ns memory access and a 25 ms fault service time:
+
+$$
+\text{EAT} = (1-p) \times 100 + p \times 25{,}000{,}000 = 100 + 24{,}999{,}900\,p \ \text{ns}
+$$
+
+The effective access time is directly proportional to the page-fault rate, and the constant is enormous.
+
+<DemandPagingCost client:visible />
+
+<Question client:visible q={checks.eat} />
+
+## Two bonuses: copy-on-write and memory-mapped files
+
+Once pages can be mapped lazily, two more tricks fall out almost for free.
+
+**Copy-on-write (COW).** When a process is created with `fork()`, the traditional approach copies the parent's whole address space, even though many children immediately call `exec()` and discard it. With copy-on-write, parent and child initially **share the same pages**, marked copy-on-write. Only when either one tries to *modify* a shared page is that page copied. Process creation becomes fast, because only modified pages are ever duplicated. The free pages used for the copies come from a pool of zeroed-out pages.
+
+**Memory-mapped files.** A file can be mapped into the address space, so that a disk block corresponds to a page in memory. The first access to each page-sized portion of the file takes a page fault, which reads that portion into a physical page. After that, reads and writes to the file are **ordinary memory accesses**, with no `read()` or `write()` system call each time. Several processes can map the same file and share its pages in memory.
+
+## Page replacement
+
+Demand paging lets the system **over-allocate** memory. If each of ten processes uses only half of its pages, twice as many can be kept in memory. But now a process can fault when there is **no free frame**.
+
+The page-fault routine is extended:
+
+1. Find the location of the desired page on disk.
+2. Find a free frame. If there is one, use it. If not, use a **page-replacement algorithm** to select a **victim frame**, write the victim to disk, and update the tables.
+3. Read the desired page into the newly freed frame and update the page and frame tables.
+4. Restart the process.
+
+That could mean *two* page transfers per fault: one out, one in. The **modify bit** (or **dirty bit**) halves this in many cases. The hardware sets it whenever a page is written to. When choosing a victim:
+
+- If the modify bit is **set**, the page has changed since it was read in and must be written to disk.
+- If it is **not set**, the copy on disk is still good, and the page can simply be discarded.
+
+Page replacement completes the separation of logical from physical memory: an enormous virtual memory can be provided on a much smaller physical one. Two questions must be answered to implement it:
+
+- **Frame allocation:** how many frames does each process get?
+- **Page replacement:** when a page must go, which one?
+
+### How algorithms are compared
+
+We want the lowest page-fault rate. An algorithm is evaluated by running it on a **reference string**, a sequence of page numbers, and counting the faults. A reference string is obtained from a trace of addresses by dividing each address by the page size: with 100-byte pages, address 0432 is a reference to page 4.
+
+In general, the more frames a process has, the fewer faults it takes. One of the algorithms below breaks that expectation.
+
+This lesson uses the string **1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5** throughout. It is loaded into the simulator, where you can step through every algorithm and change the number of frames.
+
+<PageReplacement client:visible />
+
+### FIFO
+
+**Replace the oldest page.** Keep the pages in a queue in order of arrival and evict from the head.
+
+FIFO is simple, but the oldest page is not necessarily a useless one; it might be a heavily used variable initialised long ago. On the lesson's string:
+
+- with **3 frames**: 9 page faults
+- with **4 frames**: **10** page faults
+
+More memory, more faults. This is **Belady's anomaly**: for some algorithms the page-fault rate can *increase* as the number of frames increases. Set the simulator to FIFO and look at the bar chart of faults against frames.
+
+<Question client:visible q={checks.belady} />
+
+### Optimal (OPT)
+
+**Replace the page that will not be used for the longest period of time.** This gives the lowest possible fault rate for any fixed number of frames, and it never suffers from Belady's anomaly. On the lesson's string with 4 frames it takes only 6 faults.
+
+The catch is obvious once stated: it needs to know the **future** of the reference string. OPT cannot be implemented in a real system. Its use is as a **yardstick**: if a new algorithm comes within a few percent of OPT on real traces, it is good.
+
+### Least recently used (LRU)
+
+If the future is unavailable, use the recent past as a guess at it. **Replace the page that has not been used for the longest period of time.** LRU is OPT looking backwards instead of forwards.
+
+On the lesson's string with 4 frames, LRU takes 8 faults: worse than OPT's 6, better than FIFO's 10. LRU does not suffer from Belady's anomaly. Like OPT, it is a **stack algorithm**: the pages in memory with *n* frames are always a subset of the pages that would be in memory with *n* + 1.
+
+The performance is good. The problem is implementing it.
+
+- **Counters.** Every page-table entry gets a time-of-use field. On every reference the clock is copied into it. To replace a page, search for the smallest value. This costs a search of the page table, a write on every memory access, and care with clock overflow.
+- **Stack.** Keep a stack of page numbers as a doubly linked list. On every reference, move that page to the top, which changes up to six pointers. There is no search on replacement (the bottom of the stack is the LRU page), but every update is expensive.
+
+Either way, the bookkeeping must happen on **every memory reference**. If it were done by interrupting to software each time, every reference would be slowed by a factor of about ten. Few systems could tolerate that, so real systems **approximate** LRU with a little hardware help.
+
+<Question client:visible q={checks.lruImpl} />
+
+### Approximating LRU with reference bits
+
+The help is one bit per page, the **reference bit**. It starts at 0, and the hardware sets it to 1 whenever the page is referenced. The OS can see *which* pages have been used, though not in what *order*.
+
+**Additional reference bits.** Keep a byte of history per page. At regular intervals (say every 100 ms) a timer interrupt shifts each byte right by one and moves the reference bit into the high-order position. A page with history `11000100` has been used more recently than one with `01110111`. Read as an unsigned number, the smallest value is the LRU page.
+
+**Second chance (the clock algorithm).** This is FIFO with one amendment. Arrange the pages in a circle with a hand pointing at the oldest. When a victim is needed, look at the page under the hand:
+
+- If its reference bit is **0**, replace it.
+- If its reference bit is **1**, give it a second chance: clear the bit to 0, leave the page in memory, and move the hand on to the next page.
+
+A page that is used often enough keeps its bit set and is never replaced. If *all* bits are set, the hand goes all the way round, clearing each one, and the algorithm degenerates to FIFO. Select "Second chance" in the simulator to see the bits and the hand.
+
+**Enhanced second chance.** Use the reference bit and the modify bit together as an ordered pair, giving four classes:
+
+| (reference, modify) | Meaning | As a victim |
+|---|---|---|
+| (0, 0) | neither recently used nor modified | **Best** choice |
+| (0, 1) | not recently used, but modified | Not quite as good: must be written out first |
+| (1, 0) | recently used, but clean | Will probably be used again soon |
+| (1, 1) | recently used and modified | Worst: probably needed again, and must be written out |
+
+The algorithm replaces the first page it finds in the lowest non-empty class. Preferring clean pages reduces the amount of I/O.
+
+### Counting algorithms
+
+Keep a count of the references made to each page.
+
+- **LFU** (least frequently used) replaces the page with the smallest count. A page used heavily long ago keeps a large count and lingers.
+- **MFU** (most frequently used) argues the opposite: the page with the smallest count was probably just brought in and has yet to be used.
+
+Neither is common. They are expensive to implement and do not approximate OPT well.
+
+## Allocating frames
+
+How many frames should each process get?
+
+### The minimum
+
+Every process needs a **minimum number of frames**, and the minimum is set by the **computer architecture**: there must be enough frames to hold all the pages that a single instruction can reference, because if an instruction faults part-way it must be restarted with everything it needs present.
+
+- An instruction with one memory operand needs a frame for the instruction and one for the operand; one level of indirection adds another.
+- The IBM 370 MVC instruction is the worst case: the 6-byte instruction can straddle two pages, and its source and destination blocks can each straddle two, for a minimum of **6 frames**.
+- Unlimited indirection could in principle touch every page, so architectures cap it with a counter.
+
+### Sharing out the rest
+
+**Equal allocation.** Split *m* frames among *n* processes equally: 100 frames and 5 processes gives 20 each. Simple, but a tiny process gets as much as a large one.
+
+**Proportional allocation.** Allocate according to size. If process *p<sub>i</sub>* has size *s<sub>i</sub>*, and *S* is the sum of all sizes:
+
+$$
+a_i = \frac{s_i}{S} \times m
+$$
+
+With *m* = 64 frames and two processes of 10 and 127 pages, *S* = 137. The small one gets 10/137 × 64 ≈ **5** frames and the large one 127/137 × 64 ≈ **59**.
+
+**Priority allocation.** Use the same proportional scheme with priorities in place of (or combined with) sizes, so that high-priority processes get more memory and run faster. When such a process faults, it can take a frame from a lower-priority process.
+
+### Global or local replacement
+
+- **Global replacement:** a process selects a victim from the set of **all** frames. One process can take a frame from another.
+- **Local replacement:** a process selects only from **its own** allocated frames. Its number of frames never changes.
+
+| | Global | Local |
+|---|---|---|
+| Frames of a process | Can grow and shrink | Fixed |
+| Its fault rate depends on | Its own behaviour **and everyone else's** | Only its own behaviour |
+| Unused frames elsewhere | Can be put to use | May sit idle while another process starves |
+| Throughput | Generally better | Generally worse |
+
+Global replacement generally gives greater system throughput and is what is used in practice. Its weakness is that a process cannot control its own page-fault rate, which is the opening for the problem in the next section.
+
+## Thrashing
+
+If a process does not have "enough" frames, the number it needs for the pages in active use, it faults almost immediately. It replaces a page that it will need again right away, so it faults again, and again. The process is now spending **more time paging than executing**. This high paging activity is called **thrashing**.
+
+### How a system talks itself into it
+
+1. The OS monitors CPU utilisation. If it is low, the OS **increases the degree of multiprogramming** by admitting a new process.
+2. Some process enters a new phase of execution and needs more frames. It starts faulting and, under global replacement, **takes frames from other processes**.
+3. Those processes needed those frames. They fault too, and take frames from still others.
+4. Faulting processes queue up for the **paging device**. The ready queue empties.
+5. **CPU utilisation falls.** The OS sees low utilisation and admits *more* processes, which take more frames.
+
+Throughput plunges. To recover, the degree of multiprogramming has to be **decreased**.
+
+<Thrashing client:visible />
+
+<Callout type="exam">
+A complete answer on thrashing has three parts: the **cause** (not enough frames for the active locality, usually from over-committing memory), **detection** (CPU utilisation falling as multiprogramming rises, together with a high page-fault rate), and the **cure** (reduce the degree of multiprogramming; prevent with the working-set model or page-fault frequency).
+</Callout>
+
+### Why paging works at all: locality
+
+The cure is to give each process as many frames as it needs. But how many is that? The answer comes from the **locality model**.
+
+A **locality** is a set of pages that are actively used together. A program is made of several localities, which may overlap, and as it executes it **moves from locality to locality**. Calling a function, for example, defines a new locality: that function's instructions, its local variables and a subset of the globals.
+
+Locality is the reason both caching and virtual memory work. It also explains thrashing precisely:
+
+- Give a process enough frames for its **current locality**, and it faults until those pages are in memory, then runs without faulting until it changes locality.
+- Give it fewer frames than its current locality needs, and it thrashes.
+
+Thrashing occurs when the **total size of the localities exceeds the size of memory**.
+
+<Question client:visible q={checks.loops} />
+
+### The working-set model
+
+The working-set model turns locality into something measurable. Choose a parameter **Δ**, the **working-set window**: a fixed number of the most recent page references (for example 10,000). The **working set** of a process is the set of pages referenced in the most recent Δ references, and its size is **WSS<sub>i</sub>**.
+
+- If Δ is **too small**, the window will not cover the whole locality.
+- If Δ is **too large**, it will span several localities.
+- If Δ is **infinite**, the working set is every page the program has ever touched.
+
+<WorkingSet client:visible />
+
+The total demand for frames is
+
+$$
+D = \sum_i WSS_i
+$$
+
+If *D* exceeds the number of available frames *m*, thrashing will occur, because some process will not have enough. The policy follows directly:
+
+- The OS monitors the working set of each process and allocates it that many frames.
+- If frames are left over, another process can be started.
+- **If D > m, suspend one of the processes**, and give its frames to the others. It can be restarted later.
+
+This prevents thrashing while keeping the degree of multiprogramming as high as it can safely be.
+
+<Question client:visible q={checks.workingSet} />
+
+**Keeping track of it.** A true moving window would have to be updated on every reference. It is approximated with an **interval timer and reference bits**. With Δ = 10,000, interrupt every 5,000 references and keep two history bits per page in memory. On each interrupt, copy the reference bits into the history and clear them. If any of a page's bits is 1, the page was used within the last 10,000 to 15,000 references and counts as part of the working set. This is not exact, since we cannot tell *where* in the interval a reference occurred. More history bits and more frequent interrupts improve accuracy and raise the cost.
+
+### Page-fault frequency
+
+The working-set model is rather indirect. Thrashing *is* a high page-fault rate, so control that directly. Establish an acceptable range for each process's **page-fault frequency (PFF)**:
+
+- If the rate goes **above the upper bound**, the process needs more: give it a frame.
+- If the rate falls **below the lower bound**, the process has more than it needs: take a frame away.
+
+If a process needs a frame and none is free, a process is suspended and its frames are distributed among those with high fault rates.
+
+## Other considerations
+
+Choosing the replacement algorithm and the allocation policy are the big decisions, but several others matter.
+
+**Prepaging.** Pure demand paging causes a burst of faults when a process starts or is swapped back in. Prepaging brings in the whole working set at once to avoid that. It pays off only if most of the prepaged pages are actually used.
+
+**Page size.** There is no single best size; the factors pull in different directions.
+
+| Factor | Favours |
+|---|---|
+| Internal fragmentation (pages are the unit of allocation) | **Small** pages |
+| Locality: bring in only what is really needed | **Small** pages |
+| Page-table size | **Large** pages |
+| I/O time, dominated by seek and rotation, not transfer | **Large** pages |
+
+**TLB reach.** The amount of memory accessible through the TLB:
+
+$$
+\text{TLB reach} = \text{TLB size} \times \text{page size}
+$$
+
+Ideally the working set of each process fits within the TLB reach; otherwise the process spends much of its time resolving references through the page table. Reach can be increased by enlarging the page size, at the cost of fragmentation for applications that do not need large pages, or better by supporting **multiple page sizes** so that only the applications that benefit use them.
+
+**Program structure.** Paging is meant to be invisible, but a programmer who knows about it can do much better. Take a 1024 × 1024 array stored row by row with one row per page. Zeroing it column by column touches a different page on every assignment, up to 1024 × 1024 page faults. Zeroing it row by row finishes each page before moving on: 1024 faults. Careful choice of data structures and loop order increases locality and lowers both the fault rate and the working-set size. A stack has good locality; a hash table scatters references by design.
+
+**I/O interlock.** Suppose a process issues an I/O request and waits. Meanwhile another process faults, and global replacement picks the page containing the first process's I/O buffer. When the I/O finally happens, it writes into a frame now used by someone else. Pages involved in I/O must be **locked into memory** with a lock bit, or the I/O must be done through system buffers. This is the same pending-I/O problem as in swapping.
+
+**Kernel memory.** Kernel data structures are often smaller than a page and sometimes must be physically contiguous, so the kernel uses its own allocators. The **buddy system** allocates from a fixed-size segment in power-of-two blocks, and adjacent free "buddies" are joined to satisfy bigger requests. **Slab allocation** keeps a cache for each kind of kernel data structure, each backed by slabs of one or more contiguous pages, so objects are handed out and returned without fragmentation.
+
+## How real systems do it
+
+**Windows** uses demand paging with **clustering**: a fault brings in the faulting page and the pages around it. Each process has a **working-set minimum**, the number of pages it is guaranteed in memory, and a **working-set maximum**. When free memory falls below a threshold, **automatic working-set trimming** removes pages from processes that hold more than their minimum.
+
+**Solaris** keeps a list of free pages for faulting processes. A parameter **lotsfree** is the threshold below which paging begins. The work is done by the **pageout** process, which scans pages with a modified clock algorithm. The **scanrate** varies from *slowscan* to *fastscan* depending on how little free memory remains, and pageout is run more often as memory gets scarce.
+
+## Summary
+
+- **Virtual memory** lets a process run with only part of itself in memory, so programs can be bigger than memory and more of them fit.
+- **Demand paging** brings in a page only when it is referenced. The **valid-invalid bit** triggers a **page fault**, and the OS fetches the page and **restarts the instruction**.
+- **EAT = (1 − p) × memory access + p × fault service time.** Faults cost millions of times more than a memory access, so *p* must be tiny.
+- **Copy-on-write** and **memory-mapped files** are further benefits.
+- When no frame is free, a **page-replacement algorithm** picks a victim; the **modify bit** avoids writing clean pages.
+
+| Algorithm | Evicts | Belady's anomaly | Practical? |
+|---|---|---|---|
+| FIFO | Oldest page in memory | **Yes** | Yes, but poor |
+| OPT | Page used farthest in the future | No | No: needs the future. A yardstick only |
+| LRU | Page unused for longest | No | Costly to do exactly |
+| Second chance | Oldest page whose reference bit is 0 | Possible | Yes: the usual approximation of LRU |
+
+- **Frame allocation** can be equal, proportional or by priority; replacement can be **global** (better throughput) or **local** (isolation).
+- **Thrashing** is paging so heavy that little work gets done. It happens when the active localities do not fit in memory. It is prevented with the **working-set model** (suspend a process when D > m) or **page-fault frequency** control.
+
+## Exam-style practice
+
+<Question client:visible q={practice.pageSize} label="Written practice" />
+
+<Question client:visible q={practice.restart} label="Written practice" />
+
+<Checkpoint client:visible lessonId="virtual-memory" questions={checkpoint} />

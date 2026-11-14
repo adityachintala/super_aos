@@ -1,0 +1,31 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '@/layouts/Base.astro';
+import { Badge } from '@/components/starwind/badge';
+import Icon from '@/components/Icon.astro';
+import CourseMap from '@/components/learn/CourseMap.svelte';
+
+const available = (await getCollection('lessons')).map((l) => l.id);
+---
+
+<Base>
+  <main class="mx-auto max-w-6xl px-4 pb-10">
+    <section class="py-12 sm:py-16">
+      <Badge tone="primary" appearance="soft" eyebrow>Advanced Operating Systems</Badge>
+      <h1 class="mt-4 max-w-3xl text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">
+        Learn how operating systems really work, by playing with them.
+      </h1>
+      <p class="text-muted-foreground mt-4 max-w-2xl text-lg">
+        Every lesson pairs clear explanations with simulators you can poke at, quick checks as you read, and a checkpoint at the end. Earn
+        mastery lesson by lesson, from a single CPU up to clusters of thousands of machines.
+      </p>
+      <ul class="mt-6 flex flex-wrap gap-2">
+        <li><Badge variant="outline"><Icon name="gamepad" class="size-3.5" />Interactive simulators</Badge></li>
+        <li><Badge variant="outline"><Icon name="flag" class="size-3.5" />Mastery checkpoints</Badge></li>
+        <li><Badge variant="outline"><Icon name="pencil" class="size-3.5" />Exam-style written practice</Badge></li>
+      </ul>
+    </section>
+
+    <CourseMap client:load available={available} />
+  </main>
+</Base>

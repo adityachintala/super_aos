@@ -1,0 +1,285 @@
+---
+title: MapReduce
+summary: A programming model that lets ordinary code process enormous data sets on thousands of machines, with the hard parts of distribution handled by a library.
+minutes: 45
+prerequisites: [hdfs]
+objectives:
+  - Explain the map and reduce functions and express a simple computation with them
+  - Trace a job through splitting, mapping, shuffling, sorting and reducing
+  - Describe the roles of the master and the workers in executing a job
+  - Explain how MapReduce tolerates worker failures and why map and reduce tasks are treated differently
+  - Describe the refinements - locality, backup tasks, combiners and partitioning
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import MapReduceFlow from '../../components/viz/MapReduceFlow.svelte';
+import WorkerFailure from '../../components/viz/WorkerFailure.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/mapreduce';
+
+## The problem
+
+HDFS solves the problem of *storing* a petabyte. Now suppose you want to do something with it: count how often each word appears in every web page, or find every log line that mentions an error.
+
+The computation itself is usually simple. What is hard is everything around it. The data is so large that the work must be **distributed across hundreds or thousands of machines** to finish in a reasonable time, and then you have to deal with:
+
+- how to **parallelise** the computation;
+- how to **distribute** the data;
+- how to **schedule** the work and balance the load;
+- what to do when machines **fail**, which at this scale happens constantly.
+
+Before MapReduce, every team wrote that machinery again, and the simple computation was buried under it.
+
+**MapReduce**, introduced by Jeffrey Dean and Sanjay Ghemawat at Google in 2004, is both a **programming model** and a library that implements it. The programmer expresses the simple computation; the library supplies:
+
+- automatic parallelisation and distribution;
+- fault tolerance;
+- I/O scheduling;
+- monitoring and status updates.
+
+Programmers with no experience of parallel and distributed systems can use the resources of a large cluster.
+
+## The programming model
+
+The idea is borrowed from **Lisp** and other functional languages, which have two primitives called `map` and `reduce`.
+
+- `map` applies a function to every element of a list: `(map square '(1 2 3 4))` gives `(1 4 9 16)`.
+- `reduce` combines the elements of a list with a binary operation: `(reduce + '(1 4 9 16))` gives `30`.
+
+Two properties make this attractive for a cluster. Each application of the mapped function is **independent** of the others, so they can run anywhere, in any order, at the same time. And because the function has no side effects, a piece that fails can simply be **run again**.
+
+### Map and reduce, as MapReduce defines them
+
+The computation takes a set of **input key/value pairs** and produces a set of **output key/value pairs**. The user expresses it as two functions.
+
+- **Map**, written by the user, takes one input pair and produces a set of **intermediate key/value pairs**.
+- The library then **groups together all intermediate values associated with the same intermediate key** and passes them to reduce.
+- **Reduce**, also written by the user, accepts an intermediate key and the set of values for that key, and merges them into a possibly smaller set of values. Typically each call produces zero or one output value.
+
+In terms of types:
+
+```
+map     (k1, v1)        →  list(k2, v2)
+reduce  (k2, list(v2))  →  list(v2)
+```
+
+<Flow
+  steps={[
+    { label: 'Input pairs', note: '(k1, v1)' },
+    { label: 'map', note: 'run on every input pair' },
+    { label: 'Intermediate pairs', note: '(k2, v2)' },
+    { label: 'Group by key', note: 'done by the library' },
+    { label: 'reduce', note: 'run once per unique key' },
+    { label: 'Output' },
+  ]}
+/>
+
+### The standard example: counting words
+
+Count the number of occurrences of each word in a large collection of documents. The input is a set of (document name, contents) pairs.
+
+```
+map(String key, String value):
+  // key: document name
+  // value: document contents
+  for each word w in value:
+    EmitIntermediate(w, "1");
+
+reduce(String key, Iterator values):
+  // key: a word
+  // values: a list of counts
+  int result = 0;
+  for each v in values:
+    result += ParseInt(v);
+  Emit(key, AsString(result));
+```
+
+For the two documents "see bob throw" and "see spot run":
+
+| Stage | Data |
+|---|---|
+| Map emits | (see, 1) (bob, 1) (throw, 1) (see, 1) (spot, 1) (run, 1) |
+| After grouping | bob → [1], run → [1], see → [1, 1], spot → [1], throw → [1] |
+| Reduce emits | (bob, 1) (run, 1) (see, 2) (spot, 1) (throw, 1) |
+
+Notice what the programmer did *not* write: any code about machines, files, networks or failures.
+
+<Question client:visible q={checks.signature} />
+
+Run it yourself. Change the text, the number of map and reduce tasks, and the job, and step through the four stages.
+
+<MapReduceFlow client:visible />
+
+### More things that fit the model
+
+Many real computations can be phrased this way.
+
+| Job | Map emits | Reduce does |
+|---|---|---|
+| **Distributed grep** | The line, if it matches the pattern | Nothing: copies the data through to the output |
+| **Count of URL access frequency** | (URL, 1) for each request in a web log | Adds the values: (URL, total count) |
+| **Reverse web-link graph** | (target, source) for each link found in page *source* | Concatenates the sources: (target, list of sources) |
+| **Inverted index** | (word, document ID) for each word in a document | Sorts the document IDs: (word, list of document IDs) |
+| **Distributed sort** | (key, record) | Emits all pairs unchanged, relying on the ordering guarantee |
+
+The **inverted index** is the heart of a search engine: for each word, the list of documents that contain it. Within Google, MapReduce was used for large-scale machine learning, clustering, statistical machine translation, graph computations and the production web-search index.
+
+## How a job is executed
+
+The model says nothing about machines. The implementation described here targets the environment it was built for: clusters of hundreds or thousands of commodity PCs, each with a few gigabytes of memory and inexpensive disks attached directly, connected by ordinary Ethernet. Storage is a distributed file system (GFS at Google, HDFS in Hadoop) that uses replication to provide availability and reliability on top of unreliable hardware.
+
+<Callout type="analogy">
+A national census. Each enumerator goes through one district and fills in a tally sheet: that is **map**, done by many people at once who never need to talk to each other. The sheets are then **sorted into piles** by category. Finally a clerk takes one pile and adds it up: that is **reduce**. If an enumerator falls ill, someone else redoes that one district, and nobody else's work is affected.
+</Callout>
+
+<Stepper
+  client:visible
+  title="What happens when a program calls MapReduce"
+  steps={[
+    { title: 'Split the input and start the program', actor: 'Library', detail: 'The input files are split into M pieces, typically 16 to 64 MB each. Many copies of the program are started on a cluster of machines.' },
+    { title: 'One master, many workers', actor: 'Master', detail: 'One copy is special: the master. The rest are workers. There are M map tasks and R reduce tasks to assign, and the master picks idle workers and gives each one a task.' },
+    { title: 'Map', actor: 'Map worker', detail: 'A worker with a map task reads its input split, parses key/value pairs out of it, and passes each pair to the user’s Map function. The intermediate pairs it produces are buffered in memory.' },
+    { title: 'Partition to local disk', actor: 'Map worker', detail: 'Periodically the buffered pairs are written to local disk, partitioned into R regions by the partitioning function. The locations of these regions are passed back to the master, which forwards them to the reduce workers.' },
+    { title: 'Shuffle and sort', actor: 'Reduce worker', detail: 'A reduce worker uses remote procedure calls to read the buffered data from the map workers’ local disks. When it has all of it, it sorts by intermediate key so that all occurrences of the same key are together.' },
+    { title: 'Reduce', actor: 'Reduce worker', detail: 'It iterates over the sorted data. For each unique key it passes the key and its values to the user’s Reduce function, and appends the output to a final output file for this reduce partition.' },
+    { title: 'Return', actor: 'Master', detail: 'When all map and reduce tasks are complete, the master wakes up the user program. The result is available in R output files, one per reduce task.' },
+  ]}
+/>
+
+### The partitioning function
+
+Intermediate keys are divided among the *R* reduce tasks by a **partitioning function**. The default is
+
+$$
+\text{hash}(key) \bmod R
+$$
+
+which tends to give fairly well-balanced partitions. The property that matters is that it is **deterministic**: every pair with a given key lands in the same partition, whichever map task produced it. Users can supply their own function; for example, partitioning on the host name of a URL puts all pages from one site in the same output file.
+
+<Question client:visible q={checks.partition} />
+
+### What the master keeps
+
+For each map task and each reduce task, the master stores its **state** (*idle*, *in-progress* or *completed*) and the identity of the worker machine running it. For each completed map task it also stores the **locations and sizes of the R intermediate file regions** that task produced. The master is the conduit through which that information travels from map tasks to reduce tasks.
+
+In Hadoop's implementation the master is called the **JobTracker** and the daemon on each worker machine is a **TaskTracker**. A client submits a job, naming the code and the input files; the JobTracker breaks the input into chunks and assigns the work; the TaskTrackers run the tasks and exchange map output to build the input for the reduce phase.
+
+### Task granularity
+
+The map phase is divided into *M* pieces and the reduce phase into *R* pieces. Ideally **M and R are much larger than the number of worker machines**.
+
+- Having each worker perform many different tasks improves **dynamic load balancing**.
+- It **speeds up recovery** when a worker fails: the many map tasks it had completed can be spread out across all the other machines.
+- Shuffling can be pipelined with map execution.
+
+There are practical bounds. The master must make **O(M + R)** scheduling decisions and keep **O(M × R)** state in memory. *R* is also often constrained by users, because each reduce task produces a separate output file. In practice *M* is chosen so that each task handles roughly 16 to 64 MB of input (which makes the locality optimisation below most effective), and *R* is a small multiple of the number of machines. A typical computation used **M = 200,000 and R = 5,000 on 2,000 worker machines**.
+
+## Fault tolerance
+
+Since the library is designed to process very large amounts of data on hundreds or thousands of machines, it must tolerate machine failures gracefully. Its one tool is **re-execution**.
+
+### Worker failure
+
+The master **pings every worker periodically**. If no response is received from a worker within a certain time, the master marks the worker as failed. Then:
+
+- Any map or reduce task **in progress** on that worker is reset to *idle* and becomes eligible for rescheduling on other workers.
+- Any **map** task **completed** by that worker is *also* reset to idle and re-executed.
+- **Completed reduce** tasks are left alone.
+
+The asymmetry has a simple cause: **where the output is stored**.
+
+| | Output stored on | After the worker fails |
+|---|---|---|
+| Completed **map** task | The **local disk** of the worker | Output is inaccessible, so the task must be **re-executed** |
+| Completed **reduce** task | The **global file system**, replicated | Output is safe, so **no re-execution** is needed |
+
+When a map task is executed first by worker A and later re-executed by worker B because A failed, all workers executing reduce tasks are notified. Any reduce task that has not already read the data from A will read it from B.
+
+<WorkerFailure client:visible />
+
+The approach is resilient to large-scale failures. During one job, network maintenance made 80 machines at a time unreachable for several minutes; the master simply re-executed their work and the job completed. In another incident **1,600 of 1,800 machines** were lost, and the job still finished correctly.
+
+<Question client:visible q={checks.redo} />
+
+### Master failure
+
+There is only **one master**, so its failure is unlikely. It would be easy to make the master write periodic **checkpoints** of its data structures so that a new copy could start from the last checkpointed state. The original implementation did not rely on this: if the master fails, the computation is **aborted**, and clients can check for this condition and retry the operation.
+
+### Why re-execution is safe
+
+Re-running a task is only acceptable if it gives the same answer. When the user's map and reduce functions are **deterministic** functions of their inputs, the distributed implementation produces the same output as a non-faulting sequential execution of the whole program. This relies on **atomic commits** of task output: a reduce task writes to a private temporary file and renames it to the final name when it finishes, and an atomic rename guarantees that the final file contains the data of just one execution of that task.
+
+## Refinements
+
+A handful of extensions make a large practical difference.
+
+### Locality
+
+Network bandwidth is a relatively scarce resource in such a cluster. The input data is stored in the distributed file system, which divides each file into 64 MB blocks and keeps several replicas of each block on different machines.
+
+The master takes the **location of the input files** into account. It asks the file system where the replicas of each input block are, and attempts to schedule a map task **on a machine that contains a replica** of its input. Failing that, it tries a machine **near** a replica, for example on the same rack. Hence the choice of 64 MB for a map task's input: one task, one block, one machine.
+
+The effect is that most input data is **read locally** and consumes no network bandwidth. In one test, 1,800 machines read 1 TB at a peak of about 31 GB/s; without the optimisation the rack switches would have limited the rate to about 10 GB/s.
+
+### Backup tasks
+
+One of the common causes of a long total job time is a **straggler**: a machine that takes an unusually long time to complete one of the last few map or reduce tasks. Stragglers arise for many reasons: a bad disk that suffers frequent correctable errors and so reads slowly, other jobs competing for the machine's CPU, memory or network, or a configuration bug (in one case, processor caches had been disabled).
+
+The remedy is general. When a MapReduce operation is **close to completion**, the master schedules **backup executions** of the remaining in-progress tasks. The task is marked completed when either the primary or the backup finishes: whichever finishes first wins.
+
+This typically increases the computational resources used by no more than a few percent, and it **significantly reduces** the time to complete large operations. A sort benchmark took 44% longer with backup tasks disabled.
+
+### Combiner
+
+In some jobs there is significant repetition in the intermediate keys produced by each map task. Word count is the obvious case: every map task will emit hundreds or thousands of pairs of the form (the, 1), all of which are sent over the network to a single reduce task to be added up.
+
+An optional **combiner function** does **partial merging of this data before it is sent over the network**. It is executed on each machine that performs a map task, and typically the same code is used for the combiner and the reduce function. The only difference is where the output goes: a reduce function's output is written to the final output file, while a combiner's is written to an intermediate file that will be sent to a reduce task. It is valid when the reduce operation is **commutative and associative**, as addition is.
+
+Tick "Use a combiner" in the simulator above and watch the number of pairs crossing the network fall.
+
+<Question client:visible q={checks.pairs} />
+
+<Question client:visible q={checks.combiner} />
+
+### Other refinements
+
+- **Ordering guarantees.** Within a given partition, the intermediate pairs are processed in increasing key order. This makes it easy to produce a sorted output file per partition, which helps when the output needs efficient lookups by key.
+- **Skipping bad records.** Sometimes a bug in user code makes map or reduce crash deterministically on certain records. The best fix is to repair the bug, but that is not always possible, for instance when it is in a third-party library. Each worker installs a signal handler; on a crash it sends a "last gasp" UDP packet to the master containing the sequence number of the record being processed. When the master has seen **more than one failure on the same record**, it tells the next re-execution to **skip** it.
+- **Compression** of intermediate data.
+- **Local execution.** An alternative implementation runs the whole job sequentially on one machine, for debugging, profiling and small-scale testing.
+- **Counters.** A facility for counting occurrences of events, such as the number of words processed; values are propagated to the master with the ping responses and are useful for sanity-checking a job.
+
+## Did it work?
+
+Two benchmarks were run on a cluster of about 1,800 machines, each with two 2 GHz processors, 4 GB of memory, two 160 GB disks and gigabit Ethernet.
+
+- **Grep** scanned 10<sup>10</sup> 100-byte records (about 1 TB) for a rare three-character pattern. It completed in about 150 seconds, of which about a minute was **start-up overhead**: propagating the program to all the workers and interacting with the file system to open the input files and gather locality information. Start-up overhead matters for short jobs.
+- **Sort** sorted the same 10<sup>10</sup> records in 891 seconds. Without backup tasks it took 1,283 seconds. With 200 worker processes deliberately killed part-way through, it still finished in 933 seconds, an increase of only 5%.
+
+The most significant use was a complete rewrite of Google's **production indexing system**, which builds the data structures behind web search. The benefits reported were:
+
+- **Simpler code.** One phase of the computation dropped from approximately **3,800 lines of C++ to approximately 700**, because the code dealing with fault tolerance, distribution and parallelisation was hidden in the library.
+- **Easier to change.** Conceptually unrelated computations could be kept separate rather than mixed together to avoid extra passes over the data.
+- **Easier to operate.** Machine failures, slow machines and networking hiccups are dealt with automatically, and performance can be improved simply by **adding more machines**.
+
+By August 2004 Google was running about 29,000 MapReduce jobs a month, averaging 157 worker machines and 1.2 worker deaths per job.
+
+## Summary
+
+- MapReduce is a **programming model** and a library. The user writes **map** (one input pair → intermediate pairs) and **reduce** (one key and all its values → output); the library does the rest.
+- A job is **split** into M pieces, **mapped** in parallel, **partitioned** by hash(key) mod R, **shuffled and sorted** so each key's values are together, and **reduced** into R output files.
+- One **master** tracks the state of every task and assigns tasks to **workers**. M and R should be much larger than the number of machines.
+- **Fault tolerance is re-execution.** The master pings workers; a dead worker's in-progress tasks and its **completed map tasks** are redone (their output was on its local disk), but **completed reduce tasks** are not (their output is in the global file system). A master failure aborts the job.
+- **Refinements**: **locality** (run a map task where its data is), **backup tasks** (duplicate the last slow tasks), **combiners** (merge locally before sending), custom **partitioning**, **ordering guarantees** and **skipping bad records**.
+- The restricted model is what makes all of this possible: independent, deterministic tasks are easy to parallelise and safe to repeat.
+
+## Exam-style practice
+
+<Question client:visible q={practice.wordcount} label="Written practice" />
+
+<Question client:visible q={practice.refinements} label="Written practice" />
+
+<Checkpoint client:visible lessonId="mapreduce" questions={checkpoint} />

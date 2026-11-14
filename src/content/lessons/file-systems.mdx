@@ -1,0 +1,326 @@
+---
+title: File Systems
+summary: How files and directories are laid out on a disk, what an inode holds, and how many disk I/Os hide behind a single open, read or write.
+minutes: 50
+prerequisites: [storage-and-raid]
+objectives:
+  - Describe the on-disk structures of a simple UNIX-like file system - superblock, bitmaps, inode table and data region
+  - Calculate where an inode lives on disk from its number
+  - Explain how multi-level indexes and extents support large files, and compute the maximum file size
+  - Trace the disk I/Os performed by open, read, create and write
+  - Explain caching and write buffering, and compare UNIX and session consistency semantics
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import VsfsLayout from '../../components/viz/VsfsLayout.svelte';
+import InodePointers from '../../components/viz/InodePointers.svelte';
+import AccessPath from '../../components/viz/AccessPath.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/file-systems';
+
+## From blocks to files
+
+The previous lesson left us with a device that offers a very plain service: a long array of numbered blocks that can be read and written. Nobody wants to use storage that way. People and programs want **files** with names, organised into **directories**, that keep their contents until deleted.
+
+A **file system** is the pure software that builds one from the other. Unlike CPU or memory virtualisation, it needs no special hardware support. That freedom is why so many different file systems exist. This lesson studies a deliberately simple one, a cut-down version of a typical UNIX file system, because its structures appear in almost every file system in use today.
+
+There are two things to understand about any file system, and they organise this lesson:
+
+1. **Its data structures.** What does it keep on disk to organise its data and its metadata?
+2. **Its access methods.** How does it map the calls a process makes, such as `open()`, `read()` and `write()`, onto those structures? Which structures are read, which are written, and how efficiently?
+
+### What the user sees
+
+A **file** is a linear array of bytes. Each file has a human-readable name, and also a **low-level name**: a number, called its **inode number** (or *inumber*). The OS knows nothing about the structure of the contents; it just stores the bytes.
+
+A **directory** also has an inode number, but its contents are specific: a list of (user-readable name, low-level name) pairs. Since an entry can refer to another directory, directories form a **tree** starting at the root, `/`.
+
+Along with its contents, every file has **metadata**: its size, owner, permissions, time stamps and so on. Keeping track of all of this is the file system's job.
+
+## The overall organisation
+
+First, divide the disk into **blocks** of a fixed size. We will use 4 KB blocks and a tiny disk of just **64 blocks**, numbered 0 to 63.
+
+What goes in those blocks?
+
+- **User data.** Most of the disk should hold what users actually store. Call this the **data region**; give it the last **56 blocks** (8 to 63).
+- **Inodes.** The file system must track information about each file: which data blocks make it up, how big it is, who owns it, its permissions and times. This is stored in a structure called an **inode**. The part of the disk reserved for them is the **inode table**; give it **5 blocks** (3 to 7).
+- **Allocation structures.** Something must record whether each inode and each data block is free or in use. We use two **bitmaps**, one for the inode table and one for the data region, in which each bit says whether the corresponding object is free (0) or in use (1). Each gets one block (1 and 2).
+- **The superblock.** One block, block 0, describes the file system as a whole.
+
+<VsfsLayout client:visible />
+
+Inodes are not large, typically 128 or 256 bytes. With 256-byte inodes, a 4 KB block holds **16** of them, so five blocks hold **80 inodes**. That number is the maximum number of files this file system can have. A bigger disk would simply have a bigger inode table.
+
+Giving each bitmap a whole 4 KB block is overkill for this disk: one block has 32,768 bits and could track that many objects. It keeps the design simple.
+
+### The superblock and mounting
+
+The **superblock** contains information about this particular file system: how many inodes and data blocks it has (80 and 56 here), where the inode table begins (block 3), and usually a **magic number** identifying the file-system type.
+
+When the file system is **mounted**, the OS reads the superblock first, initialises its parameters, and attaches the volume to the file-system tree. From then on, when files in the volume are accessed, the system knows exactly where to look for the on-disk structures it needs.
+
+<Question client:visible q={checks.inodeCount} />
+
+## The inode
+
+**Inode** is short for **index node**, the name it was given in early UNIX because the nodes were arranged in an array that was *indexed into* to find a particular one. It is the generic name for the structure that holds a file's metadata.
+
+Each inode is referred to implicitly by its number. In a simple file system, **given an inode number you can calculate directly where on disk that inode is**. No search is needed.
+
+Take inode number 32, with the inode table starting at 12 KB (block 3):
+
+1. Offset into the inode table: 32 × sizeof(inode) = 32 × 256 = **8192 bytes**.
+2. Add the start address of the inode table: 12 KB + 8192 = **20 KB**.
+3. Disks are not byte-addressable; they consist of addressable **sectors**, usually 512 bytes. So the file system reads sector 20 × 1024 / 512 = **40**.
+
+In general:
+
+```c
+blk    = (inumber * sizeof(inode_t)) / blockSize;
+sector = ((blk * blockSize) + inodeStartAddr) / sectorSize;
+```
+
+Move the inode-number slider in the widget above to see the arithmetic for any inode.
+
+### What is inside
+
+Inside each inode is virtually everything the system knows about a file:
+
+| Field | Meaning |
+|---|---|
+| Type | Regular file, directory, and so on |
+| Size | Number of bytes in the file |
+| Blocks | How many blocks are allocated to it |
+| Owner and group | Who owns it |
+| Permissions | Who may read, write or execute it |
+| Times | When it was created, last modified and last accessed |
+| Link count | How many directory entries (hard links) refer to it |
+| Block pointers | Where its data blocks are on disk |
+
+All of this is **metadata**: information about the file that is not the user's data itself.
+
+One thing is conspicuously absent: the file's **name**. Names live in directories, as we will see.
+
+<Question client:visible q={checks.inodeName} />
+
+## Supporting big files
+
+The most important design decision in the inode is how it refers to the data blocks. The simplest approach is to put one or more **direct pointers** (disk addresses) in the inode, each pointing at one block of the file. But the inode has a fixed size. With, say, 12 direct pointers and 4 KB blocks, a file could be at most 48 KB.
+
+### The multi-level index
+
+The common solution is a special pointer called an **indirect pointer**. Instead of pointing at a block of user data, it points at a block that contains **more pointers**, each of which points at user data.
+
+With 4 KB blocks and 4-byte disk addresses, one such block holds 1024 pointers. An inode with 12 direct pointers and one single indirect pointer can therefore describe
+
+$$
+(12 + 1024) \times 4\ \text{KB} = 4144\ \text{KB}
+$$
+
+For still larger files, add a **double indirect pointer**: it points at a block of pointers to indirect blocks, each of which holds pointers to data blocks. That adds 1024 × 1024 more blocks, taking the limit past 4 GB. A **triple indirect pointer** goes further again.
+
+The result is an **imbalanced tree**, and this is deliberate. Why not make everything indirect? Because of what files are actually like:
+
+- **Most files are small**; roughly 2 KB is the most common size.
+- Most of the bytes on a disk, however, are in a few big files.
+- Directories are typically small too, with 20 or fewer entries.
+
+So the design is optimised for the common case. A small file is reached directly from its inode, with no extra disk read, and only large files pay for one, two or three levels of indirection.
+
+<InodePointers client:visible />
+
+<Question client:visible q={checks.imbalanced} />
+
+### Extents
+
+A different approach is to use **extents** instead of pointers. An extent is simply **a disk pointer plus a length** (in blocks). Instead of needing a pointer for every block of a file, a pointer and a length are enough to specify a whole run of contiguous blocks.
+
+A single extent is limiting, since it may be hard to find one contiguous free chunk large enough, so extent-based file systems allow a file several extents.
+
+| | Pointer-based | Extent-based |
+|---|---|---|
+| Flexibility | High: any block can go anywhere | Lower: needs contiguous free space |
+| Metadata per file | Large for big files | Compact |
+| Works best when | Free space is fragmented | There is enough free space and files can be laid out contiguously |
+
+Linux ext2 and ext3 use multi-level indexes. ext4, XFS and others use extents. If the idea feels familiar, it should: extents are to pointers roughly what segments are to pages in memory management.
+
+### Linked approaches
+
+Yet another design uses a **linked list**. The inode needs only one pointer, to the first block of the file; each block then says where the next one is. Storing the "next" pointers inside the data blocks themselves makes random access terribly slow, since reaching the last block means reading every block before it.
+
+To fix that, the links are taken out of the data blocks and kept together in an in-memory table indexed by block address, where each entry holds the address of the next block of the same file (or a marker for end-of-file or free). The file system can then follow the chain in memory and go straight to the wanted block. This is the **file allocation table**, the basis of the classic **FAT** file system.
+
+## Directory organisation
+
+A directory has a simple organisation: it is a **list of (entry name, inode number) pairs**. For each file or subdirectory there is a string and a number in the directory's data blocks. A directory `dir` (inode 5) containing three files might hold:
+
+| inum | name |
+|---|---|
+| 5 | `.` |
+| 2 | `..` |
+| 12 | `foo` |
+| 13 | `bar` |
+| 24 | `foobar_is_a_pretty_longname` |
+
+Every directory has two extra entries: `.` ("dot"), the directory itself, and `..` ("dot-dot"), its parent. Real entries also record the length of the name and of the whole record, which is what lets a deleted entry leave a reusable gap in the middle of the list.
+
+The important point is that file systems treat a directory as **a special type of file**. A directory has an inode somewhere in the inode table, with its type field marked "directory" instead of "regular file". Its data blocks, pointed to by that inode, live in the data region and contain the list above. The on-disk structures are exactly the same ones used for ordinary files.
+
+A plain list is not the only option. Any data structure will do; XFS, for instance, stores directories as B-trees, which makes creating a file in a large directory much faster than scanning a list to check that the name is not already used.
+
+## Free-space management
+
+The file system must know which inodes and data blocks are free, so that it can find space for a new file or directory. In our file system that is the job of the two **bitmaps**.
+
+When a file is created, the file system searches the inode bitmap for a free inode, allocates it to the file, marks it as used (with a 1), and eventually updates the on-disk bitmap. A similar sequence happens when a data block is allocated.
+
+Other schemes exist. Some early file systems used a **free list**: a single pointer in the superblock pointed to the first free block, which held a pointer to the next, and so on. Modern systems may use more elaborate structures such as B-trees.
+
+Allocation policy matters too. Some file systems, when a file is created, look for a *sequence* of free blocks (say eight) and reserve them for it. This **pre-allocation** makes it likely that a part of the file will be contiguous on disk, which improves performance.
+
+## Access paths: reading and writing
+
+Now the second aspect: what actually happens on disk when a process uses a file. Understanding this flow is the key to understanding how a file system works. Assume the file system is mounted, so the superblock is in memory, and that **everything else is still on disk**.
+
+Use the simulator to step through each operation on the file `/foo/bar`, then read the explanations below.
+
+<AccessPath client:visible />
+
+### Opening a file
+
+To open `/foo/bar`, the file system must find the inode for `bar`. All it has is the full pathname, so it must **traverse** it, starting at the root.
+
+1. **Read the root inode.** To read an inode you need its number, which you normally find in the parent directory. The root has no parent, so its inode number must be "well known"; in most UNIX file systems it is **2**.
+2. **Read the root directory's data**, found through the pointers in that inode, and look for the entry `foo`. This gives foo's inode number.
+3. **Read foo's inode.**
+4. **Read foo's directory data** and look for `bar`.
+5. **Read bar's inode** into memory. The file system checks permissions, allocates a file descriptor in the per-process open-file table, and returns it.
+
+That is **five reads**, for a path only two levels deep. The amount of I/O generated by open is proportional to the length of the pathname: every extra directory on the path costs two more reads, its inode and its data.
+
+<Question client:visible q={checks.openCost} />
+
+### Reading the file
+
+Once open, a `read()` of the first block:
+
+1. **Reads bar's inode**, to find the location of the block.
+2. **Reads the data block.**
+3. **Writes bar's inode**, to update the last-accessed time.
+
+It also updates the in-memory open-file table so that the file offset moves on and the next read gets the next block.
+
+Notice that neither opening nor reading touched the **bitmaps**. Allocation structures are consulted only when allocation is needed.
+
+### Writing to the file
+
+Writing is harder, because a write may have to **allocate** a block. Each write that adds a new block logically generates **five I/Os**:
+
+1. Read the inode.
+2. **Read the data bitmap**, to find a free block.
+3. **Write the data bitmap**, to mark it allocated.
+4. **Write the data block** itself.
+5. **Write the inode**, updated with the new block's location, the new size and the times.
+
+### Creating a file
+
+File creation is worse still. The file system must allocate an inode *and* add an entry to the directory that contains the new file. For `/foo/bar`:
+
+- four reads to walk the path (root inode, root data, foo inode, foo data);
+- one read of the **inode bitmap** to find a free inode, and one write to mark it allocated;
+- one write to **foo's directory data**, to add the new entry;
+- one read and one write to the **new inode**, to initialise it;
+- one write to **foo's inode**, to update the directory.
+
+That is **ten I/Os** to create one empty file, and more if the directory has to grow into a new block.
+
+| Operation on `/foo/bar` | Reads | Writes | Total |
+|---|---|---|---|
+| Open | 5 | 0 | 5 |
+| Read one block | 2 | 1 | 3 |
+| Write one new block | 2 | 3 | 5 |
+| Create | 6 | 4 | 10 |
+
+<Callout type="exam">
+Questions here usually ask you to *list the I/Os in order* for an operation. Three habits help: walk the path one directory at a time (**inode, then data**, for each); remember that the **bitmaps appear only when something is allocated**; and remember that an update is a **read followed by a write** of the same structure.
+</Callout>
+
+## Caching and buffering
+
+Reading and writing files is clearly expensive: many I/Os to a slow disk for every operation. Left as it is, every open would need at least two reads per directory level. To remedy what would otherwise be a serious performance problem, file systems use system memory (DRAM) aggressively to **cache** important blocks.
+
+**Caching for reads.** Early file systems used a **fixed-size cache**, allocated at boot time and typically about 10% of memory, holding popular blocks and choosing what to keep with a strategy such as LRU. Such **static partitioning** is wasteful: if the file system does not need 10% of memory at some moment, the unused pages cannot be put to other use.
+
+Modern systems instead use **dynamic partitioning**. Virtual-memory pages and file-system pages are integrated in a **unified page cache**, and memory is allocated between them flexibly, according to which needs more at the time.
+
+With caching, the first open of a file generates a lot of read traffic to read the directory inodes and data. Later opens of the same file, or of other files in the same directory, will mostly **hit the cache** and need no I/O at all.
+
+**Buffering for writes.** Read I/O can be avoided altogether with a big enough cache. Write traffic cannot: it has to go to disk to become persistent. But delaying writes, called **write buffering**, has real benefits:
+
+- **Batching.** If several updates touch the same structure, for example the inode bitmap when two files are created one after another, they can be written as one I/O.
+- **Scheduling.** With a number of writes buffered in memory, the system can schedule them in an order that performs well.
+- **Avoidance.** Some writes never need to happen. If an application creates a file and deletes it soon after, delaying the writes means the creation never reaches the disk.
+
+Most modern file systems buffer writes in memory for between five and thirty seconds. That is a trade-off: if the system **crashes** before the updates reach the disk, they are lost. Keeping writes in memory longer improves performance through batching, scheduling and avoidance; it reduces **durability**.
+
+Some applications, databases above all, will not accept that risk. To avoid unexpected data loss they force writes to disk by calling `fsync()`, use **direct I/O** interfaces that bypass the cache, or use the **raw disk** and avoid the file system entirely.
+
+<Question client:visible q={checks.buffering} />
+
+## Sharing files
+
+When several users can reach the same file, two more questions arise: what do they see of each other's changes, and who is allowed to do what?
+
+### Consistency semantics
+
+**Consistency semantics** specify how multiple users are to access a shared file simultaneously, and in particular *when* modifications made by one user become observable by the others. A series of accesses between an `open()` and a `close()` is a **file session**.
+
+**UNIX semantics**
+
+- Writes to an open file are **visible immediately** to other users who have the file open.
+- One mode of sharing lets users share the **pointer to the current location** in the file, so one user advancing the pointer affects all who share it.
+- The file has a **single image** that interleaves all accesses, whatever their origin.
+
+The benefit is that everyone always sees current data. The cost is that the file is associated with a single physical image accessed as an **exclusive resource**, and contention for it **delays** user processes.
+
+**Session semantics** (used by the Andrew file system, AFS)
+
+- Writes to an open file are **not visible** immediately to other users who have the same file open.
+- Once the file is closed, the changes are visible only in **sessions starting later**. Instances that are already open do not reflect them.
+- A file may be associated temporarily with **several, possibly different, images** at the same time.
+
+The benefit is that multiple users can read and write their own images **concurrently, without delay**, with almost no constraints on the scheduling of accesses. That suits distributed systems, where each client works on a locally cached copy. The cost is that users may be looking at stale contents, and simultaneous writers can overwrite one another on close.
+
+A third model, **immutable shared files**, sidesteps the problem: once a file is declared shared by its creator it cannot be modified. Its name may not be reused and its contents may not change, so sharing is trivially consistent.
+
+<Question client:visible q={checks.semantics} />
+
+### Protection
+
+The owner of a file should control what can be done with it and by whom. UNIX stores, in the inode, three sets of **read, write and execute** permission bits: for the file's **owner**, for its **group**, and for **everyone else**. A more general mechanism is the **access-control list**, which names individual users and the access each is allowed.
+
+Protection ultimately rests on knowing who the user is, and that rests on passwords. UNIX does **not store passwords**. It stores the result of running each password through a **one-way hash function**, combined with a random *salt*. At login, the system hashes what the user types and compares the result with the stored value. The function is easy to compute and infeasible to invert, so even someone who can read the stored hashes, the administrator included, cannot recover the passwords from them. The administrator can *reset* a password, which is a different thing from knowing it.
+
+## Summary
+
+- A file system needs two things understood: its **on-disk data structures** and its **access methods**.
+- The disk is divided into blocks: a **superblock**, an **inode bitmap**, a **data bitmap**, an **inode table** and a **data region**. Mounting starts by reading the superblock.
+- An **inode** holds all of a file's metadata and the pointers to its data, but **not its name**. Its disk location is computed from its number.
+- **Multi-level indexes** (direct, then single, double and triple indirect pointers) support large files while keeping small files fast. **Extents** (pointer plus length) are more compact; **FAT** uses a linked table.
+- A **directory** is a special file containing (name, inode number) pairs.
+- **Free space** is tracked with bitmaps (or free lists), and **pre-allocation** keeps files contiguous.
+- Operations are costly: **open** reads two blocks per directory level plus the file's inode; an allocating **write** is 5 I/Os; a **create** is about 10.
+- **Caching** (a unified page cache) removes most read I/O; **write buffering** batches, schedules and avoids writes at the cost of durability.
+- **UNIX semantics** make writes visible immediately; **session semantics** make them visible only to later sessions.
+
+## Exam-style practice
+
+<Question client:visible q={practice.structures} label="Written practice" />
+
+<Question client:visible q={practice.append} label="Written practice" />
+
+<Checkpoint client:visible lessonId="file-systems" questions={checkpoint} />

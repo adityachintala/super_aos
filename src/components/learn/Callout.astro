@@ -1,0 +1,46 @@
+---
+import { Alert, AlertDescription, AlertTitle } from '@/components/starwind/alert';
+import Icon from '@/components/Icon.astro';
+import type { IconName } from '@/lib/icons';
+
+interface Props {
+  type?: 'key' | 'exam' | 'pitfall' | 'analogy' | 'history';
+  title?: string;
+}
+type Variant = 'default' | 'primary' | 'info' | 'warning';
+const kinds: Record<NonNullable<Props['type']>, { icon: IconName; label: string; variant: Variant }> = {
+  key: { icon: 'key', label: 'Key idea', variant: 'primary' },
+  exam: { icon: 'target', label: 'Often asked', variant: 'info' },
+  pitfall: { icon: 'alert', label: 'Common mistake', variant: 'warning' },
+  analogy: { icon: 'bulb', label: 'Think of it like this', variant: 'default' },
+  history: { icon: 'history', label: 'A bit of history', variant: 'default' },
+};
+const { type = 'key', title } = Astro.props;
+const k = kinds[type];
+---
+
+<Alert variant={k.variant} role="note" class="not-sw-prose my-6">
+  <AlertTitle class="text-base"><Icon name={k.icon} class="size-4.5" />{title ?? k.label}</AlertTitle>
+  <AlertDescription class="callout-body"><slot /></AlertDescription>
+</Alert>
+
+<style is:global>
+  .callout-body > :first-child {
+    margin-top: 0;
+  }
+  .callout-body > * + * {
+    margin-top: 0.6rem;
+  }
+  .callout-body :is(ol, ul) {
+    padding-left: 1.4rem;
+  }
+  .callout-body ol {
+    list-style: decimal;
+  }
+  .callout-body ul {
+    list-style: disc;
+  }
+  .callout-body strong {
+    font-weight: 600;
+  }
+</style>

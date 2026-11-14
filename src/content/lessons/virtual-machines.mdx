@@ -1,0 +1,336 @@
+---
+title: Virtual Machines
+summary: How one physical computer is made to look like several, what a hypervisor has to do to pull that off, and what it means for scheduling, memory, I/O and moving running systems around.
+minutes: 50
+prerequisites: [system-structures, memory-management, cloud-and-distributed]
+objectives:
+  - Define host, guest and virtual machine manager, and state the requirements for virtualization
+  - Distinguish Type 0, Type 1 and Type 2 hypervisors, paravirtualization, emulation, containers and language VMs
+  - Explain trap-and-emulate, why early x86 needed binary translation, and what hardware assistance adds
+  - Describe how a VMM handles CPU scheduling, memory over-commitment, I/O and storage
+  - Trace the steps of live migration
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import HypervisorTypes from '../../components/viz/HypervisorTypes.svelte';
+import LiveMigration from '../../components/viz/LiveMigration.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/virtual-machines';
+
+## One machine pretending to be many
+
+An operating system gives each *process* the illusion that it has a processor and a memory of its own. Virtualization applies the same trick one level down: it gives each *operating system* the illusion that it has a whole computer of its own.
+
+The fundamental idea of a **virtual machine** is to abstract the hardware of a single computer (CPU, memory, disk drives, network interface cards and so on) into several different execution environments, creating the illusion that each environment is running on its own private computer. It is similar to the layered approach to operating-system design, except that the layer creates a **virtual system** on which operating systems or applications can run. A single physical machine can then run **multiple operating systems concurrently**, each in its own virtual machine.
+
+Three terms are used throughout:
+
+- The **host** is the underlying hardware system that runs the virtual machines.
+- The **virtual machine manager (VMM)**, also called the **hypervisor**, creates and runs virtual machines by providing an interface that is *identical* to the host (except in the case of paravirtualization, discussed later).
+- A **guest** is the process provided with a virtual copy of the host. Usually the guest is an operating system.
+
+### A short history
+
+Virtual machines first appeared commercially on **IBM mainframes in 1972**. They allowed multiple users to share a batch-oriented system, each with what looked like a private machine.
+
+A formal definition of virtualization helped the idea move beyond IBM. A VMM must satisfy three requirements:
+
+1. **Fidelity.** A VMM provides an environment for programs that is essentially identical to the original machine.
+2. **Performance.** Programs running within that environment show only minor decreases in performance.
+3. **Safety.** The VMM is in complete control of system resources.
+
+By the late 1990s Intel CPUs had become fast enough for researchers to try virtualizing general-purpose PCs. **Xen** and **VMware** created technologies that are still in use, and virtualization has since spread to many operating systems, CPUs and VMMs.
+
+## What virtualization buys
+
+- **Protection and isolation.** The host is protected from the virtual machines, and the virtual machines are protected from each other. A virus inside one guest is unlikely to spread to the host or to another guest. Sharing is still possible where wanted, through a shared file-system volume or network communication.
+- **Suspend, snapshot and clone.** A running VM can be frozen (suspended) and later resumed, perhaps after being moved or copied elsewhere. A **snapshot** records the state at a point in time so that the guest can be restored to it; some VMMs allow several snapshots per VM. A **clone** is a copy that runs alongside the original.
+- **A laboratory for systems work.** Changing an operating system is risky and normally needs the machine to itself. In a VM it can be developed and tested while the host carries on. Several different operating systems can run on one developer's machine.
+- **Consolidation.** Two or more lightly used systems can be run as VMs on one machine, turning many under-used servers into a few well-used ones.
+- **Templating.** An OS and an application are installed and configured once as a standard VM image, which is then handed to customers or used to create many running instances.
+- **Live migration.** A *running* guest can be moved from one physical host to another with no interruption of user access.
+
+<Callout type="key">
+Taken together, these features are what make **cloud computing** possible. Using APIs, a program can tell the cloud infrastructure (servers, networking, storage) to create new guests, virtual machines and virtual desktops, and they are ready in seconds.
+</Callout>
+
+## Kinds of virtual machine
+
+Virtualization is implemented in many ways. Explore where the virtualization layer sits in each before reading the details.
+
+<HypervisorTypes client:visible />
+
+Whatever the type, a virtual machine has a **life cycle**. It is created by the VMM and given resources: a number of cores, an amount of memory, networking details and storage details. In a Type 0 hypervisor those resources are usually dedicated; other types dedicate them, share them, or mix the two. When the VM is no longer needed it is deleted and its resources are freed. These steps are far simpler and faster than installing a physical machine, which is a blessing and a curse: it can lead to **virtual machine sprawl**, where there are so many VMs that their use, history and state are hard to track.
+
+### Type 0 hypervisors
+
+An old idea that manufacturers have sold under many names, such as "partitions" and "domains". A Type 0 hypervisor is a **hardware feature implemented in firmware**. The operating system needs to do nothing special, because the VMM is encoded in the firmware and loads at boot time.
+
+- The feature set is smaller than in other types.
+- **Each guest has dedicated hardware**, so the guest believes, correctly, that it owns it.
+- **I/O is a challenge**, since it is hard to have enough devices and controllers to dedicate one to each guest. Sometimes the VMM implements a *control partition* that runs daemons other guests talk to for shared I/O.
+- It can provide **virtualization within virtualization**: a guest can itself be a VMM with its own guests, which other types find difficult.
+
+Examples: IBM LPARs and Oracle LDOMs.
+
+### Type 1 hypervisors
+
+Commonly found in company data centres, where they are in a sense becoming the **data-centre operating system**. They are special-purpose operating systems that run **natively on the hardware**. Rather than providing a system-call interface for running programs, they create, run and manage **guest operating systems**.
+
+- They run in **kernel mode** and implement **device drivers** for the host hardware, because no other component can.
+- They provide traditional services such as CPU scheduling and memory management.
+- Guests generally **do not know** they are running in a VM.
+- Data-centre managers use them to consolidate operating systems and applications onto less hardware, to move guests between systems to balance load, and to take snapshots and clones.
+
+Examples: VMware ESX, Joyent SmartOS and Citrix XenServer.
+
+A variation is a **general-purpose operating system that also provides VMM functions**: Red Hat Enterprise Linux with KVM, Windows Server with Hyper-V, Oracle Solaris. These perform their normal duties as well as their VMM duties, are typically less feature-rich than dedicated Type 1 hypervisors, and in many ways treat a guest operating system as just another process, with special handling when the guest tries to execute special instructions.
+
+### Type 2 hypervisors
+
+Less interesting from an operating-system perspective, because there is very little operating-system involvement. The VMM is **simply another process**, run and managed by the host; even the host does not know that it is a VMM running guests.
+
+- They tend to have **poorer overall performance**, because they cannot take advantage of some hardware features.
+- That is also their benefit: they **require no changes to the host operating system**. A student can install one on a laptop and run several guests on a standard Windows, Linux or macOS host.
+
+Examples: VMware Workstation and Fusion, Parallels Desktop and Oracle VirtualBox.
+
+<Question client:visible q={checks.type} />
+
+### Paravirtualization
+
+Paravirtualization does not fit the definition of virtualization, because the VMM does **not** present an exact duplicate of the underlying hardware. Instead it presents something *similar*, offers services, and the **guest must be modified** to use them. The reward is more efficient use of resources and a thinner virtualization layer.
+
+**Xen** was the leader in this space and introduced several techniques:
+
+- **Clean and simple device abstractions** that allow efficient I/O and good communication between guest and VMM. For each device there is a **circular buffer shared by the guest and the VMM** through shared memory; requests and responses are placed in it without a trap for every operation.
+- **Memory management without nested page tables.** Each guest has its own set of page tables, set to **read-only**. When a page-table change is needed, the guest makes a **hypercall**, a call from the guest to the hypervisor, and the VMM applies the change.
+
+Paravirtualization allowed older x86 CPUs to be virtualized without binary translation. It is needed less as hardware support for virtual machines has grown: on modern CPUs Xen no longer requires guests to be modified, at which point it is no longer paravirtualization.
+
+### Programming-environment virtualization
+
+Not really virtualization, but it uses similar techniques and provides similar features. A programming language is designed to run within a custom-built virtualized environment. Here "virtualization" means providing **APIs that define a set of features** made available to a language and its programs.
+
+The **Java virtual machine (JVM)** is the standard example. Java, introduced by Sun Microsystems in 1995, consists of a language specification, an API library and the JVM specification.
+
+- Each Java class is compiled into architecture-neutral **bytecode** (a `.class` file).
+- The JVM's **class loader** loads the bytecode, which is verified and then executed.
+- The JVM is compiled for each architecture, so the same program runs anywhere: "write once, run anywhere".
+- It includes **garbage collection** to reclaim memory no longer in use, and is made faster by a **just-in-time (JIT) compiler** that turns bytecode into native code and caches it.
+
+### Emulation
+
+Virtualization requires the underlying CPU to be the same as the one the guest was compiled for. **Emulation** is the older, different technique for when it is not: it allows an application or system written for one hardware environment to run on a very different one, such as a different type of CPU.
+
+Every guest instruction must be **translated** from the guest's instruction set to the native one. This is useful when a company replaces outdated servers with a new architecture but wants to keep running old applications. The challenge is performance: emulated code can run an **order of magnitude slower** than native code, although the newer machine is often so much faster that the slowdown is tolerable. Emulation is very popular in gaming, where old consoles are emulated on new hardware.
+
+### Application containment
+
+Some goals of virtualization are to segregate applications, manage their performance and resources, and make them easy to start, stop, move and manage. If the applications are all compiled for the same operating system, those goals can be met **without full virtualization**.
+
+**Containers**, or **zones** in Oracle Solaris, create a virtual layer between the operating system and the applications.
+
+- **Only one kernel is running**: the host operating system.
+- The OS and its devices are virtualized, so the processes in a zone have the impression that they are the only processes on the system.
+- Each zone has its own applications, network stack, network addresses and ports, user accounts and so on.
+- CPU and memory are divided between the zones, and each zone can even have its own scheduler.
+
+Containers are much lighter than virtual machines, since no guest kernel has to be booted or kept in memory. BSD Jails, IBM AIX WPARs and Linux containers follow the same idea.
+
+## The building blocks
+
+It is generally difficult to provide an exact duplicate of the underlying machine, especially when the CPU offers only dual-mode operation. It has become easier as CPUs add features to support VMMs.
+
+Most VMMs implement a **virtual CPU (VCPU)** to represent the state of the CPU as the guest machine believes it to be. When the VMM context-switches a guest onto a real CPU, information from the VCPU is loaded, just as a process control block is used when an ordinary operating system switches processes.
+
+### Trap-and-emulate
+
+On a typical dual-mode system, a kernel runs in kernel mode. It is **not safe to let a guest kernel run in kernel mode**, because it would then have control of the real machine. So the guest, kernel and all, runs in **user mode**.
+
+But the guest operating system still expects to have two modes. The VM therefore has a **virtual user mode** and a **virtual kernel mode**, **both of which run in physical user mode**. Actions in the guest that would normally cause a switch from user to kernel mode, such as a system call, an interrupt or an attempt to execute a privileged instruction, must cause a switch from virtual user mode to virtual kernel mode.
+
+<Stepper
+  client:visible
+  title="A guest kernel executes a privileged instruction"
+  steps={[
+    { title: 'The guest kernel issues the instruction', actor: 'Guest', detail: 'The guest believes it is in kernel mode, so it executes a privileged instruction, for example one that disables interrupts or loads a control register.' },
+    { title: 'The real CPU objects', actor: 'Hardware', detail: 'The physical CPU is in user mode. Attempting a privileged instruction in user mode is an error, so the CPU raises a trap.' },
+    { title: 'The VMM gains control', actor: 'VMM', detail: 'The trap transfers control to the VMM, which is the only software running in real kernel mode. It analyses what the guest was trying to do.' },
+    { title: 'Emulate', actor: 'VMM', detail: 'The VMM performs the action on behalf of the guest. Usually that means changing the state recorded in the guest’s VCPU, not the state of the real machine.' },
+    { title: 'Return to the guest', actor: 'VMM', detail: 'Control goes back to the guest, in real user mode, at the instruction after the one that trapped. The guest cannot tell that anything unusual happened.' },
+  ]}
+/>
+
+This is **trap-and-emulate**, and most virtualization products use it at least in part. Its performance profile follows directly:
+
+- **User-mode code** in the guest runs natively, at the same speed as if it were not in a guest.
+- **Privileged, kernel-mode code** runs more slowly because of the trap and the emulation. The problem compounds when several guests are running, each needing trap-and-emulate.
+
+CPUs have since added hardware support, including more CPU modes, to improve this.
+
+<Question client:visible q={checks.mode} />
+
+### Binary translation
+
+Trap-and-emulate rests on an assumption: **every instruction that matters traps when executed in user mode**. Some CPUs do not have a clean separation between privileged and non-privileged instructions, and the early Intel x86 line is among them. (Its ancestor was designed for a calculator, and backward compatibility made the instruction set hard to clean up.)
+
+Consider the x86 **`popf`** instruction, which loads the flags register from the contents of the stack.
+
+- If the CPU is in **privileged mode**, all the flags are replaced.
+- If the CPU is in **user mode**, only *some* flags are replaced and the others are ignored.
+- In neither case is a **trap** generated.
+
+A guest kernel that executes `popf` in (real) user mode simply gets the wrong behaviour, silently, and the VMM is never told. Instructions like this are called **special instructions**. As recently as 1998, they made trap-and-emulate on x86 look impossible.
+
+**Binary translation** solved the problem. The idea is simple, though the implementation is very complex:
+
+1. If the guest VCPU is in **user mode**, the guest can run its instructions natively on the physical CPU.
+2. If the guest VCPU is in **kernel mode** (the guest believes it is in kernel mode), the VMM **examines every instruction** the guest is about to execute, by reading the next few instructions ahead of the program counter.
+   - Instructions that are **not** special are run natively.
+   - **Special instructions are translated** into a new set of instructions that perform the equivalent task, for example changing the flags in the VCPU.
+
+The translation is done by code inside the VMM. It reads native binary instructions dynamically from the guest, on demand, and generates native binary code that executes in place of the original.
+
+Doing this for every instruction would be slow, so products such as VMware use **caching**: the replacement code for each translated block is cached, and later executions of that block use the cached translation without translating again. In one test, booting Windows XP as a guest caused about **950,000 translations at about 3 microseconds each**, a total of roughly 3 seconds, or a 5% slowdown over native execution.
+
+<Question client:visible q={checks.popf} />
+
+### Nested page tables
+
+Memory management is the other general challenge. Each guest believes it controls the page tables, but it is the VMM that really controls the machine's memory. How can the VMM keep page-table state for both?
+
+A common method, used with both trap-and-emulate and binary translation, is **nested page tables (NPTs)**.
+
+<Flow
+  steps={[
+    { label: 'Guest virtual address', note: 'used by a process inside the guest' },
+    { label: 'Guest page table', note: 'maintained by the guest OS' },
+    { label: 'Guest "physical" address', note: 'what the guest believes is real memory' },
+    { label: 'Nested page table', note: 'maintained by the VMM, one per guest' },
+    { label: 'Machine address', note: 'the real frame' },
+  ]}
+/>
+
+- Each guest maintains page tables to translate virtual to physical addresses, as it would on bare hardware.
+- The VMM maintains **per-guest NPTs** to represent the guest's page-table state, just as it uses a VCPU to represent the guest's CPU state.
+- When a guest is on the CPU, the VMM makes that guest's NPTs the **active system page tables**.
+- When the guest tries to change its page table, the VMM makes the equivalent change to the NPTs and to its own page tables.
+
+The cost is that NPTs can cause **many more TLB misses**, and a miss is expensive because translation now goes through two sets of tables. Performance can be much slower, which is why hardware support was added.
+
+### Hardware assistance
+
+All virtualization needs some hardware support, and the more there is, the more feature-rich and stable the VMM can be and the better guests perform.
+
+Intel added the **VT-x** instructions in **2005**, and AMD the **AMD-V** instructions in **2006**. CPUs with these features **remove the need for binary translation**.
+
+- They define more CPU modes: **host** and **guest**.
+- The VMM enables host mode, defines the characteristics of each guest virtual machine, then switches the system to guest mode and passes control to a guest operating system.
+- In guest mode, the guest OS thinks it is running natively and sees whatever devices the host has defined for it.
+- If the guest tries to access a virtualized resource or execute a privileged operation, control passes to the VMM.
+- The CPU itself **maintains the VCPU** and context-switches it as needed.
+
+Hardware support for **nested page tables**, for DMA and for interrupts followed, removing most of the remaining overhead.
+
+## Virtualization and the operating system
+
+Virtualization changes how the familiar components of an operating system have to work, because every guest has been configured as though it owned resources that it is in fact sharing.
+
+### CPU scheduling
+
+A system with virtualization acts like a multiprocessor even if it has only one CPU. Each guest is configured with a number of **virtual CPUs (VCPUs)**, which can be adjusted during the life of the VM. The VMM has a number of physical CPUs and must schedule the VCPUs onto them.
+
+- If there are **enough CPUs** for all the guests, the VMM can treat them as dedicated, and each guest behaves much like a native operating system managing its own CPUs.
+- Usually there are not. This is **CPU over-commitment**: the guests are configured for more CPUs than physically exist. The VMM can then use standard scheduling algorithms to make progress on each thread, perhaps adding a fairness aspect so that each guest gets a share proportional to its VCPUs.
+
+Even with a fair scheduler, guests suffer. A VMM also uses CPU cycles for itself (**cycle stealing**). Consider a time-sharing operating system in a guest that tries to give each process a time slice of **100 ms**. On an over-committed host, the guest's VCPU may get only part of a physical CPU, so that 100 ms of virtual time takes much more real time: 100 ms, one second, or longer. Two things follow:
+
+- **Poor response times** for users logged in to that guest.
+- **Incorrect time-of-day clocks** in the guest, because its timers take longer to trigger than they would on a dedicated CPU.
+
+Some VMMs supply an application to run in each guest that corrects the clock drift and provides other integration features.
+
+### Memory management
+
+Memory suffers from over-subscription too. In a virtualized environment there are more users of memory (the guests and their applications, as well as the VMM), so pressure on it is greater, and the total memory configured for the guests commonly **exceeds the physical memory** of the machine. Extra efficiency must come from the VMM.
+
+VMware ESX, for example, gives each guest a configured amount of "physical" memory and then uses three methods to reclaim memory from guests.
+
+| Method | How it works |
+|---|---|
+| **Double paging** | The VMM has its own page-replacement algorithm and moves some guest pages to its backing store. The guest's page table still says those pages are in physical frames. It is a last resort, since the VMM knows less than the guest about which pages matter. |
+| **Ballooning** | A **pseudo-device driver** is installed in each guest. It looks like a device driver to the guest kernel but really just adds kernel-mode code. This **balloon memory manager** communicates with the VMM and is told to allocate or deallocate memory. Allocating ("inflating") makes the guest think memory is scarce, so the guest frees pages by its own choice, and the VMM reuses the frames. Deallocating ("deflating") gives memory back. |
+| **Deduplication** | The VMM determines whether the same page has been loaded more than once, as happens when many guests run the same operating system, and maps the single copy into all of them. |
+
+<Question client:visible q={checks.balloon} />
+
+### I/O
+
+I/O is the area where a VMM has the most freedom, because operating systems already cope with a wide variety of devices through the **device-driver** mechanism. A VMM can present new virtual devices to a guest, with drivers to match.
+
+All the same, I/O is complicated for a VMM. Standard operating systems have many short, carefully optimised paths for I/O, and the less the hypervisor has to do on a guest's behalf, the better. The possibilities include **direct device access** (a device dedicated to a guest), **DMA pass-through** and **direct interrupt delivery**. These need hardware support.
+
+**Networking** is also complex, because the VMM and every guest need network access. A VMM can:
+
+- **bridge** a guest to the network, so that the guest has its own address and direct access; and/or
+- provide **network address translation (NAT)**: the guest has an address local to the machine it runs on, and the VMM translates it, hiding the guest's address.
+
+### Storage management
+
+Both a boot disk and general data access have to be provided to every guest, and a host may have dozens of guests, so standard disk partitioning is not sufficient.
+
+- A **Type 1** hypervisor stores each guest's root disk and configuration information in one or more files within a file system provided by the VMM. The guest's whole disk is a **disk image**.
+- A **Type 2** hypervisor stores the same data as ordinary files in the host operating system's file system.
+
+A disk image is convenient: **duplicate the file to create a new guest**, and **move the file to another system to move the guest**.
+
+Two conversions connect the physical and virtual worlds. **Physical-to-virtual (P-to-V)** takes the disk blocks of a physical system's disks and stores them in files in the VMM's format, turning a real machine into a guest. **Virtual-to-physical (V-to-P)** goes the other way, which is useful for debugging. The VMM also has to give guests access to network-attached storage and to other disks and partitions.
+
+### Live migration
+
+One feature not found in general-purpose operating systems, but found in Type 0 and Type 1 hypervisors, is the **live migration** of a running guest from one system to another. A running guest is moved between hosts **without interrupting user access** to the guest or its applications. It is extremely useful for resource management and for hardware maintenance: a host can be emptied of guests, serviced, and filled again.
+
+The steps are:
+
+1. The source VMM **establishes a connection** with the target VMM and confirms that it is allowed to send a guest.
+2. The target **creates a new guest** by creating a new VCPU, new nested page table and other state storage.
+3. The source sends all **read-only** guest memory pages to the target.
+4. The source sends all **read-write** pages to the target, marking them as clean.
+5. The source **repeats step 4**, because during that step some pages were probably modified by the guest and are now dirty. These pages must be sent again and marked clean again.
+6. When the cycle of steps 4 and 5 becomes **very short**, the source VMM **freezes the guest**, sends the VCPU's final state and other state details, sends the final dirty pages, and tells the target to start running the guest.
+7. Once the target acknowledges that the guest is running, the source **terminates** the guest.
+
+The guest runs throughout the bulk of the copying. It is stopped only for the last, small set of dirty pages, which is why users see no interruption.
+
+<LiveMigration client:visible />
+
+<Question client:visible q={checks.migration} />
+
+Two practical points. Disk state is normally **not** migrated, because the guest's disk is on network storage reachable from both hosts; only the network connection to it has to be re-established. And networking survives because the guest's network identity moves with it: the network simply learns that the guest's address is now reachable through the new host.
+
+## Two examples
+
+**VMware Workstation** is a popular commercial application that abstracts Intel x86 and compatible hardware into isolated virtual machines. It runs as an **application on a host operating system** such as Windows or Linux, which makes it a **Type 2** hypervisor. Several guests, such as Windows and Linux, can run concurrently as independent virtual machines, as far as resources allow. The virtualization layer abstracts the physical hardware into virtual machines, each with its own virtual CPU, memory, disk drives and network interfaces. A guest's disk can be a physical disk or, more usually, a file within the host's file system, so copying the file copies the whole guest.
+
+**The Java virtual machine** is the leading example of programming-environment virtualization. A Java program is one or more classes; each is compiled to bytecode, loaded by the class loader, verified, and executed by the interpreter or by code from the JIT compiler. The JVM manages memory automatically through garbage collection. Because the JVM, rather than the program, is what is built for each architecture, the same compiled program runs on any system that has one.
+
+## Summary
+
+- A **virtual machine** abstracts one computer's hardware into several execution environments. The **host** is the hardware, the **VMM** (hypervisor) creates and runs the VMs, and the **guest** is usually an operating system.
+- Virtualization requires **fidelity**, **performance** and **safety**. Its benefits are isolation, snapshots and cloning, consolidation, templating and **live migration**, which together enable cloud computing.
+- **Type 0** is in firmware with dedicated hardware; **Type 1** runs natively on the hardware; **Type 2** is an application on a host OS. **Paravirtualization** modifies the guest; **emulation** translates a different CPU's instructions; **containers** share one kernel; a **language VM** such as the JVM virtualizes a programming environment.
+- **Trap-and-emulate**: the guest runs in real user mode, and privileged instructions trap to the VMM, which emulates them. **Binary translation** handles x86 special instructions such as `popf` that do not trap. **VT-x** and **AMD-V** add guest and host modes and remove the need for it. **Nested page tables** map guest "physical" memory to real memory.
+- **CPU over-commitment** stretches guest time slices and skews clocks. **Memory over-commitment** is managed by double paging, **ballooning** and deduplication. I/O uses virtual devices, bridging or NAT; storage uses disk images.
+- **Live migration** copies memory repeatedly while the guest runs, then freezes it briefly to send the last dirty pages and the CPU state.
+
+## Exam-style practice
+
+<Question client:visible q={practice.compare} label="Written practice" />
+
+<Question client:visible q={practice.memory} label="Written practice" />
+
+<Checkpoint client:visible lessonId="virtual-machines" questions={checkpoint} />

@@ -1,0 +1,732 @@
+---
+title: Synchronization
+summary: Why concurrent processes that share data can silently corrupt it, and the tools - from Peterson's algorithm to semaphores and monitors - that make sharing safe.
+minutes: 65
+prerequisites: [processes-and-ipc, threads]
+objectives:
+  - Explain what a race condition is and state the critical-section problem with its three requirements
+  - Analyse two-process software solutions, Peterson's algorithm and the bakery algorithm
+  - Explain hardware support - disabling interrupts, TestAndSet, Swap - and mutex locks
+  - Use semaphores for mutual exclusion and ordering, and explain how they are implemented
+  - Solve the bounded-buffer, readers-writers and dining-philosophers problems, and describe monitors
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import RaceCondition from '../../components/viz/RaceCondition.svelte';
+import CriticalSectionLab from '../../components/viz/CriticalSectionLab.svelte';
+import SemaphorePlayground from '../../components/viz/SemaphorePlayground.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/synchronization';
+
+## When sharing goes wrong
+
+Cooperating processes and threads share data. That is what makes them useful, and it is also dangerous: **concurrent access to shared data may result in data inconsistency**. Maintaining consistency requires mechanisms to ensure the **orderly execution** of cooperating processes. This lesson is about those mechanisms.
+
+### The bounded buffer, revisited
+
+The shared-memory solution to the producer-consumer problem in the Processes lesson could use only BUFFER_SIZE − 1 slots. An obvious improvement uses all of them by adding an integer **`counter`**, initialised to 0, that is incremented each time an item is added to the buffer and decremented each time one is removed.
+
+```c
+/* Producer */
+while (true) {
+    /* produce an item in nextProduced */
+    while (counter == BUFFER_SIZE)
+        ;   /* do nothing */
+    buffer[in] = nextProduced;
+    in = (in + 1) % BUFFER_SIZE;
+    counter++;
+}
+```
+
+```c
+/* Consumer */
+while (true) {
+    while (counter == 0)
+        ;   /* do nothing */
+    nextConsumed = buffer[out];
+    out = (out + 1) % BUFFER_SIZE;
+    counter--;
+    /* consume the item in nextConsumed */
+}
+```
+
+Each routine is correct by itself. Run **concurrently**, they may not work.
+
+The reason is that `counter++` is not one step. In machine language it is typically three:
+
+```
+register1 = counter
+register1 = register1 + 1
+counter   = register1
+```
+
+and `counter--` is likewise:
+
+```
+register2 = counter
+register2 = register2 - 1
+counter   = register2
+```
+
+If both the producer and the consumer attempt to update the buffer concurrently, these machine instructions may be **interleaved**, and the result depends on how the processes happen to be scheduled.
+
+<RaceCondition client:visible />
+
+Suppose `counter` is 5. One possible interleaving is:
+
+| Step | Process | Instruction | Result |
+|---|---|---|---|
+| T0 | producer | `register1 = counter` | register1 = 5 |
+| T1 | producer | `register1 = register1 + 1` | register1 = 6 |
+| T2 | consumer | `register2 = counter` | register2 = 5 |
+| T3 | consumer | `register2 = register2 - 1` | register2 = 4 |
+| T4 | producer | `counter = register1` | counter = 6 |
+| T5 | consumer | `counter = register2` | counter = 4 |
+
+The value of `counter` may end up as 4 or 6, where the correct result is 5.
+
+<Callout type="key">
+A **race condition** is a situation where several processes access and manipulate shared data concurrently, and the final value of the shared data depends on **which process finishes last**. To prevent race conditions, concurrent processes must be **synchronised**: the statements `counter++` and `counter--` must each be performed **atomically**, that is, as an operation that completes in its entirety without interruption.
+</Callout>
+
+<Question client:visible q={checks.race} />
+
+## The critical-section problem
+
+Consider a system of *n* processes, all competing to use some shared data. Each process has a segment of code, called its **critical section**, in which the shared data is accessed.
+
+The problem is to ensure that **when one process is executing in its critical section, no other process is allowed to execute in its critical section**. The processes must cooperate by following a protocol. Each must request permission to enter its critical section, in an **entry section**; the critical section may be followed by an **exit section**; and the remaining code is the **remainder section**.
+
+```c
+do {
+    /* entry section */
+        critical section
+    /* exit section */
+        remainder section
+} while (true);
+```
+
+A solution must satisfy three requirements.
+
+1. **Mutual exclusion.** If process P<sub>i</sub> is executing in its critical section, then no other processes can be executing in their critical sections.
+2. **Progress.** If no process is executing in its critical section and there exist some processes that wish to enter theirs, then only those processes that are **not executing in their remainder sections** can participate in deciding which will enter next, and this selection **cannot be postponed indefinitely**.
+3. **Bounded waiting.** A bound must exist on the number of times that other processes are allowed to enter their critical sections after a process has made a request to enter its critical section and before that request is granted.
+
+We assume that each process executes at a non-zero speed, and make no assumption about the relative speeds of the processes.
+
+<Question client:visible q={checks.requirements} />
+
+There are two broad approaches to a solution: **software** approaches, where the responsibility lies with the processes themselves, and **hardware** approaches, which use special machine instructions.
+
+## Software solutions for two processes
+
+Start with only two processes, P<sub>0</sub> and P<sub>1</sub>. When discussing P<sub>i</sub>, the other is P<sub>j</sub>, with *j* = 1 − *i*. The three attempts below are worth studying because each of the first two fails in a different, instructive way. Try to break each one yourself.
+
+<CriticalSectionLab client:visible />
+
+### Algorithm 1: taking turns
+
+The processes share an integer `turn`, initialised to 0. If `turn == i`, then P<sub>i</sub> is allowed to enter.
+
+```c
+do {
+    while (turn != i) ;      /* wait */
+        critical section
+    turn = j;
+        remainder section
+} while (true);
+```
+
+This satisfies **mutual exclusion**: only the process whose turn it is can enter. It does **not** satisfy **progress**, because it requires **strict alternation**. If `turn == 0` and P<sub>1</sub> is ready to enter, it cannot, even though P<sub>0</sub> may be in its remainder section. A process that is not competing is deciding who may enter.
+
+<Question client:visible q={checks.strict} />
+
+### Algorithm 2: raising a flag
+
+The problem with algorithm 1 is that it does not keep enough information about the state of each process. Replace `turn` with a boolean array `flag[2]`, initialised to false. `flag[i] == true` means that P<sub>i</sub> is ready to enter its critical section.
+
+```c
+do {
+    flag[i] = true;
+    while (flag[j]) ;        /* wait */
+        critical section
+    flag[i] = false;
+        remainder section
+} while (true);
+```
+
+Mutual exclusion is satisfied. But consider this sequence: P<sub>0</sub> sets `flag[0] = true`; then P<sub>1</sub> sets `flag[1] = true`. Now each loops for ever in its while statement, waiting for the other to lower its flag. **Progress is not met**.
+
+Reversing the two statements, testing the other's flag first and then raising your own, is worse: both processes can pass the test before either has set its flag, and then both are in the critical section. That violates mutual exclusion.
+
+### Algorithm 3: Peterson's solution
+
+Combine the two ideas. The processes share both variables:
+
+```c
+int turn;
+boolean flag[2];    /* initially false */
+```
+
+```c
+do {
+    flag[i] = true;
+    turn = j;
+    while (flag[j] && turn == j) ;   /* wait */
+        critical section
+    flag[i] = false;
+        remainder section
+} while (true);
+```
+
+To enter, P<sub>i</sub> first sets `flag[i]` to true and then sets `turn` to *j*, asserting that if the other process wishes to enter, it can do so. If both try to enter at the same time, `turn` is set to both *i* and *j* at roughly the same moment, but only one of those assignments lasts; the other is overwritten immediately. The final value of `turn` decides which of the two is allowed in first.
+
+**Mutual exclusion.** P<sub>i</sub> enters only if `flag[j] == false` or `turn == i`. If both were in their critical sections, both flags would be true, so each would have had to find `turn` equal to its own number, which is impossible since `turn` has one value.
+
+**Progress.** P<sub>i</sub> can be prevented from entering only if it is stuck in the while loop with `flag[j] == true` and `turn == j`. If P<sub>j</sub> is not ready to enter, `flag[j]` is false and P<sub>i</sub> enters. If P<sub>j</sub> is also waiting, `turn` names one of the two, and that one enters.
+
+**Bounded waiting.** When P<sub>j</sub> leaves, it sets `flag[j]` to false, allowing P<sub>i</sub> in. If P<sub>j</sub> then wants to enter again, it sets `turn = i`. So P<sub>i</sub> enters after **at most one entry** by P<sub>j</sub>.
+
+## Many processes: the bakery algorithm
+
+For *n* processes, the classic software solution is Lamport's **bakery algorithm**, based on the scheme used in bakeries and banks.
+
+- Before entering its critical section, a process receives a **number**. The holder of the **smallest number** enters next.
+- The numbering scheme always generates numbers in non-decreasing order, such as 1, 2, 3, 3, 3, 3, 4, 5. It cannot guarantee that two processes do not receive the same number.
+- If processes P<sub>i</sub> and P<sub>j</sub> receive the same number, the process with the **lower process number** is served first: if *i* is less than *j*, P<sub>i</sub> goes first.
+
+The shared data are `boolean choosing[n]` and `int number[n]`, initialised to false and 0. The notation (a, b) &lt; (c, d) means a &lt; c, or a = c and b &lt; d.
+
+```c
+do {
+    choosing[i] = true;
+    number[i] = max(number[0], number[1], ..., number[n - 1]) + 1;
+    choosing[i] = false;
+    for (j = 0; j < n; j++) {
+        while (choosing[j]) ;
+        while ((number[j] != 0) && ((number[j], j) < (number[i], i))) ;
+    }
+        critical section
+    number[i] = 0;
+        remainder section
+} while (true);
+```
+
+A process waits for each other process in turn: first until that process has finished choosing its number, and then while that process holds a smaller ticket.
+
+### A caution about modern hardware
+
+These software solutions are important for what they teach, but they are **not guaranteed to work on modern computer architectures**. To improve performance, processors and compilers may **reorder** read and write operations that have no dependencies. In Peterson's solution, if the two assignments `flag[i] = true` and `turn = j` are reordered, both processes can end up in their critical sections at the same time.
+
+Machine architectures therefore provide **memory barrier** (or memory fence) instructions. A memory barrier is a low-level instruction that forces any changes in memory to be propagated to all other processors, ensuring that loads and stores performed before the barrier are completed before any performed after it. Such instructions are used by kernel developers writing specialised code that ensures mutual exclusion.
+
+## Hardware solutions
+
+### Disabling interrupts
+
+In a **uniprocessor** environment, the critical-section problem could be solved simply by **preventing interrupts from occurring while a shared variable is being modified**. The current sequence of instructions would then execute in order without preemption, so no unexpected modification could be made. Non-preemptive kernels take this approach.
+
+It is not a general solution. On a **multiprocessor**, disabling interrupts is time-consuming, since the message must be passed to all processors, and it does not stop a process on another CPU. It affects any system whose clock is kept updated by interrupts. And it would be unwise to give **user** processes the power to turn interrupts off.
+
+### TestAndSet
+
+Many machines provide special hardware instructions that either **test and modify the content of a word**, or **swap the contents of two words**, **atomically**: as one uninterruptible unit.
+
+The `TestAndSet` instruction can be defined as:
+
+```c
+boolean TestAndSet(boolean *target) {
+    boolean rv = *target;
+    *target = true;
+    return rv;
+}
+```
+
+The important characteristic is that it is executed atomically. If two `TestAndSet` instructions are executed simultaneously, each on a different CPU, they will be executed sequentially in some arbitrary order.
+
+Mutual exclusion follows with a single shared boolean `lock`, initialised to false:
+
+```c
+do {
+    while (TestAndSet(&lock)) ;   /* wait */
+        critical section
+    lock = false;
+        remainder section
+} while (true);
+```
+
+The first process to execute `TestAndSet` finds `lock` false, sets it to true and enters. Every other process finds it true and keeps looping until the first sets it back to false.
+
+<Question client:visible q={checks.tas} />
+
+### Swap
+
+The `Swap` instruction atomically exchanges the contents of two words:
+
+```c
+void Swap(boolean *a, boolean *b) {
+    boolean temp = *a;
+    *a = *b;
+    *b = temp;
+}
+```
+
+With a shared boolean `lock` initialised to false, and a local boolean `key` in each process:
+
+```c
+do {
+    key = true;
+    while (key == true)
+        Swap(&lock, &key);
+        critical section
+    lock = false;
+        remainder section
+} while (true);
+```
+
+A process keeps swapping until it pulls a false out of `lock`, at the same instant putting a true in.
+
+### Getting bounded waiting
+
+Both algorithms give mutual exclusion and progress, but **not bounded waiting**: when a process leaves, which waiting process gets in next is arbitrary, so some process could wait indefinitely. Bounded waiting can be added with a shared `boolean waiting[n]` alongside `lock`:
+
+```c
+do {
+    waiting[i] = true;
+    key = true;
+    while (waiting[i] && key)
+        key = TestAndSet(&lock);
+    waiting[i] = false;
+        critical section
+    j = (i + 1) % n;
+    while ((j != i) && !waiting[j])
+        j = (j + 1) % n;
+    if (j == i)
+        lock = false;
+    else
+        waiting[j] = false;
+        remainder section
+} while (true);
+```
+
+When a process leaves its critical section it scans the array `waiting` in the cyclic order *i* + 1, *i* + 2, …, and hands the critical section directly to the **first process in this order** that is waiting. Any process waiting to enter will thus do so within *n* − 1 turns.
+
+### Properties of the machine-instruction approach
+
+**Advantages**
+
+- It is applicable to any number of processes, on either a single processor or multiple processors sharing main memory.
+- It is simple, and therefore easy to verify.
+- It can support multiple critical sections, each defined by its own variable.
+
+**Disadvantages**
+
+- **Busy waiting** is employed: a process waiting to enter consumes processor time.
+- **Starvation** is possible: when a process leaves, the selection of the next is arbitrary.
+- **Deadlock** is possible: a low-priority process holding the lock can be preempted by a high-priority process that then busy-waits for the same lock, which the low-priority process never gets the CPU to release.
+
+### Mutex locks
+
+The hardware solutions are complicated and generally inaccessible to application programmers. Operating-system designers build software tools on top of them. The simplest is the **mutex lock** (short for *mutual exclusion*). A process must **acquire** the lock before entering a critical section and **release** it on leaving.
+
+```c
+acquire() {
+    while (!available) ;   /* busy wait */
+    available = false;
+}
+
+release() {
+    available = true;
+}
+```
+
+Calls to `acquire()` and `release()` must be atomic, and are usually implemented with the hardware instructions above.
+
+This implementation requires **busy waiting**: while a process is in its critical section, any other process that tries to enter must loop continuously in the call to `acquire()`. Such a lock is called a **spinlock**, because the process "spins" while waiting. Busy waiting wastes CPU cycles that some other process might use productively. Spinlocks do have one advantage: **no context switch is required** when a process must wait on a lock, and a context switch may take considerable time. When locks are expected to be held for **short times**, spinlocks are useful. They are often employed on **multiprocessor** systems, where one thread can spin on one processor while another thread performs its critical section on another.
+
+## Semaphores
+
+A more robust tool was introduced by Dijkstra in 1965. A **semaphore** *S* is an integer variable that, apart from initialisation, is accessed only through **two standard atomic operations**: `wait()` and `signal()`. They were originally called *P* (from the Dutch *proberen*, to test) and *V* (from *verhogen*, to increment).
+
+```c
+wait(S) {
+    while (S <= 0) ;   /* busy wait */
+    S--;
+}
+
+signal(S) {
+    S++;
+}
+```
+
+All modifications to the integer value of the semaphore must be executed **indivisibly**: when one process modifies the semaphore value, no other process can simultaneously modify it. In `wait(S)`, the testing of the value and its possible decrement must also be executed without interruption.
+
+### Two uses
+
+**Mutual exclusion for *n* processes.** The processes share a semaphore `mutex`, initialised to 1.
+
+```c
+do {
+    wait(mutex);
+        critical section
+    signal(mutex);
+        remainder section
+} while (true);
+```
+
+**Forcing an order.** Suppose statement S1 in process P1 must execute before statement S2 in process P2. Let them share a semaphore `synch`, initialised to **0**.
+
+```c
+/* P1 */            /* P2 */
+S1;                 wait(synch);
+signal(synch);      S2;
+```
+
+Because `synch` starts at 0, P2 will execute S2 only after P1 has invoked `signal(synch)`, which is after S1.
+
+Semaphores come in two kinds. A **counting semaphore** can range over an unrestricted domain, and can control access to a resource with a finite number of instances: it is initialised to the number available, each `wait()` takes one, each `signal()` returns one, and at zero all are in use. A **binary semaphore** can range only between 0 and 1, and behaves like a mutex lock. A counting semaphore can be implemented using binary semaphores.
+
+The playground below runs small programs built from `wait` and `signal`. You are the scheduler. Start with mutual exclusion, then try the others as they come up in the lesson.
+
+<SemaphorePlayground client:visible start="mutex" />
+
+<Question client:visible q={checks.semvalue} />
+
+### Implementation without busy waiting
+
+The definition above has the same disadvantage as a spinlock: busy waiting. To overcome it, `wait()` and `signal()` are modified. When a process executes `wait()` and finds that the semaphore value is not positive, it must wait; but rather than busy-wait, it **blocks itself**. The block operation places the process in a **waiting queue associated with the semaphore** and switches its state to waiting. Control then passes to the CPU scheduler, which selects another process to execute.
+
+A blocked process is restarted when some other process executes `signal()`. It is restarted by a **wakeup** operation, which changes it from the waiting state to the ready state and places it in the ready queue.
+
+```c
+typedef struct {
+    int value;
+    struct process *list;
+} semaphore;
+
+wait(semaphore *S) {
+    S->value--;
+    if (S->value < 0) {
+        /* add this process to S->list */
+        block();
+    }
+}
+
+signal(semaphore *S) {
+    S->value++;
+    if (S->value <= 0) {
+        /* remove a process P from S->list */
+        wakeup(P);
+    }
+}
+```
+
+`block()` suspends the process that invokes it, and `wakeup(P)` resumes a blocked process P. Both are provided by the operating system as basic system calls.
+
+In this implementation the semaphore value may be **negative**, whereas it never is under the busy-waiting definition. If it is negative, **its magnitude is the number of processes waiting** on that semaphore.
+
+`wait()` and `signal()` must themselves be atomic: they are short critical sections. On a single processor this is done by inhibiting interrupts while they execute. On a multiprocessor, a spinlock is used to protect them. Busy waiting has not been eliminated completely; it has been **moved** from the entry section of the application's critical sections, which may be long or almost always occupied, to the critical sections of `wait()` and `signal()`, which are about ten instructions long and almost never occupied.
+
+| | Busy-waiting (spinlock) | Blocking |
+|---|---|---|
+| A waiting process | Loops, using the CPU | Sleeps in a queue |
+| Cost of waiting | CPU cycles | Two context switches |
+| Value can be negative | No | Yes: the magnitude is the number waiting |
+| Good when | The wait is short, on a multiprocessor | The wait may be long |
+
+### Deadlock and starvation
+
+A semaphore with a waiting queue can produce a situation where two or more processes are **waiting indefinitely for an event that can be caused only by one of the waiting processes**. Those processes are **deadlocked**.
+
+Let S and Q be two semaphores initialised to 1.
+
+```c
+/* P0 */            /* P1 */
+wait(S);            wait(Q);
+wait(Q);            wait(S);
+  ...                 ...
+signal(S);          signal(Q);
+signal(Q);          signal(S);
+```
+
+Suppose P0 executes `wait(S)` and then P1 executes `wait(Q)`. When P0 executes `wait(Q)` it must wait until P1 executes `signal(Q)`. Similarly, when P1 executes `wait(S)` it must wait until P0 executes `signal(S)`. Neither signal can ever be executed. Select "Two semaphores, wrong order" in the playground to see it.
+
+A related problem is **indefinite blocking**, or **starvation**: a process may never be removed from the semaphore queue in which it is suspended. It can occur if processes are removed from the list in last-in, first-out order.
+
+## Classical problems of synchronization
+
+Three problems are used to test nearly every newly proposed synchronisation scheme.
+
+### The bounded-buffer problem
+
+The producer and consumer share a pool of *n* buffers, each capable of holding one item, and three semaphores:
+
+| Semaphore | Initial value | Purpose |
+|---|---|---|
+| `mutex` | 1 | Mutual exclusion for accesses to the buffer pool |
+| `empty` | *n* | Counts the empty buffers |
+| `full` | 0 | Counts the full buffers |
+
+```c
+/* Producer */                      /* Consumer */
+do {                                do {
+    /* produce an item */               wait(full);
+    wait(empty);                        wait(mutex);
+    wait(mutex);                        /* remove an item from buffer */
+    /* add the item to buffer */        signal(mutex);
+    signal(mutex);                      signal(empty);
+    signal(full);                       /* consume the item */
+} while (true);                     } while (true);
+```
+
+The code is symmetric: the producer produces full buffers for the consumer, and the consumer produces empty buffers for the producer. The race on `counter` is gone, and so is the busy waiting.
+
+<Question client:visible q={checks.order} />
+
+### The readers-writers problem
+
+A data set is shared among several concurrent processes. Some only want to read it: **readers**. Others want to update it: **writers**. If two readers access the shared data simultaneously, no adverse effects result. If a writer and some other process, reader or writer, access it simultaneously, chaos may ensue. So **writers must have exclusive access** to the shared data.
+
+There are variations, all involving priorities. In the **first** readers-writers problem, no reader is kept waiting unless a writer has already obtained permission to use the shared object. In the **second**, once a writer is ready, it performs its write as soon as possible. Either may result in **starvation**: of writers in the first case, of readers in the second.
+
+A solution to the first problem shares:
+
+```c
+semaphore mutex = 1;    /* protects readcount */
+semaphore wrt = 1;      /* mutual exclusion for writers */
+int readcount = 0;      /* how many processes are currently reading */
+```
+
+```c
+/* Writer */
+do {
+    wait(wrt);
+        /* writing is performed */
+    signal(wrt);
+} while (true);
+```
+
+```c
+/* Reader */
+do {
+    wait(mutex);
+    readcount++;
+    if (readcount == 1)
+        wait(wrt);       /* the first reader locks out writers */
+    signal(mutex);
+        /* reading is performed */
+    wait(mutex);
+    readcount--;
+    if (readcount == 0)
+        signal(wrt);     /* the last reader lets writers in */
+    signal(mutex);
+} while (true);
+```
+
+`wrt` is used by the writers, and also by the **first reader to enter and the last reader to leave**. It is not used by readers that enter or leave while other readers are reading. If a writer is in the critical section and *n* readers are waiting, one reader is queued on `wrt` and *n* − 1 are queued on `mutex`.
+
+### The dining-philosophers problem
+
+Five philosophers spend their lives thinking and eating. They share a circular table surrounded by five chairs. In the centre is a bowl of rice, and the table is laid with **five single chopsticks**. When a philosopher gets hungry, she tries to pick up the two chopsticks that are closest to her. She may pick up **only one chopstick at a time**, and cannot pick up one that is already in the hand of a neighbour. When she has both, she eats; when finished, she puts down both and starts thinking again.
+
+It is a simple representation of the need to allocate several resources among several processes in a deadlock-free and starvation-free manner.
+
+One simple solution represents each chopstick with a semaphore, all initialised to 1:
+
+```c
+semaphore chopstick[5];
+
+/* Philosopher i */
+do {
+    wait(chopstick[i]);
+    wait(chopstick[(i + 1) % 5]);
+        /* eat */
+    signal(chopstick[i]);
+    signal(chopstick[(i + 1) % 5]);
+        /* think */
+} while (true);
+```
+
+This guarantees that no two neighbours eat simultaneously, but it must be rejected because it can **deadlock**. Suppose all five philosophers become hungry at the same time and each grabs her left chopstick. All the elements of `chopstick` are now 0. When each philosopher tries to grab her right chopstick, she is delayed for ever.
+
+<SemaphorePlayground client:visible start="philosophers" />
+
+Several remedies exist:
+
+- Allow **at most four** philosophers to be sitting simultaneously at the table.
+- Allow a philosopher to pick up her chopsticks **only if both are available**; to do this she must pick them up in a critical section.
+- Use an **asymmetric** solution: an odd-numbered philosopher picks up first her left chopstick and then her right, whereas an even-numbered philosopher picks up her right chopstick and then her left. Select "Philosophers, asymmetric" in the playground and try to deadlock it.
+
+Any satisfactory solution must also guard against the possibility that one of the philosophers **starves** to death. A deadlock-free solution does not necessarily eliminate the possibility of starvation.
+
+### The barbershop problem
+
+A fuller example exercises semaphores for both mutual exclusion and coordination. A barbershop has three chairs, three barbers, a sofa that seats four, and standing room for additional customers. Fire codes limit the total number of customers in the shop to 20. A customer will not enter if the shop is at capacity. Once inside, the customer takes a seat on the sofa, or stands if the sofa is full. When a barber is free, the customer who has been on the sofa longest is served, and the customer who has been standing longest takes the freed place on the sofa. When a haircut is finished, any barber can accept payment, but there is only one cash register.
+
+Each constraint becomes a semaphore:
+
+| Semaphore | Initial value | What it enforces |
+|---|---|---|
+| `max_capacity` | 20 | At most 20 customers in the shop |
+| `sofa` | 4 | At most 4 seated on the sofa |
+| `barber_chair` | 3 | At most 3 in barber chairs |
+| `cust_ready` | 0 | A barber sleeps until a customer is in a chair |
+| `finished` | 0 | The customer stays in the chair until the cut is done |
+| `leave_b_chair` | 0 | The barber waits for the customer to get up before taking another |
+| `payment` | 0 | The cashier waits for a customer to pay |
+| `receipt` | 0 | The customer waits for the receipt |
+| `coord` | 3 | A barber does one job at a time: cutting hair or taking payment |
+
+The semaphores initialised to a positive number are **counting resources**; those initialised to 0 are **signals** by which one process tells another that an event has happened. Recognising which is which is most of the art of writing semaphore solutions.
+
+## Monitors
+
+Semaphores are effective, but using them correctly is entirely the programmer's responsibility. All processes share `mutex`, and each must execute `wait(mutex)` before entering the critical section and `signal(mutex)` afterwards. If that sequence is not observed, things go wrong in ways that are **difficult to detect**, because they appear only under particular execution sequences.
+
+- A process **interchanges** the operations: `signal(mutex); … wait(mutex);`. Several processes may then be executing in their critical sections simultaneously, violating mutual exclusion.
+- A process replaces `signal(mutex)` with `wait(mutex)`: `wait(mutex); … wait(mutex);`. A deadlock occurs.
+- A process **omits** the `wait(mutex)`, or the `signal(mutex)`, or both. Either mutual exclusion is violated or a deadlock occurs.
+
+To deal with such errors, researchers developed high-level language constructs. The most important is the **monitor**.
+
+A **monitor** is a high-level synchronisation construct that allows the safe sharing of an abstract data type among concurrent processes. It encapsulates **private data** with the **public procedures** that operate on that data. A procedure defined within a monitor can access only the variables declared locally within the monitor and its own parameters, and the local variables of a monitor can be accessed only by its procedures.
+
+```
+monitor monitor-name {
+    /* shared variable declarations */
+
+    procedure P1 (...) { ... }
+    procedure P2 (...) { ... }
+    ...
+    procedure Pn (...) { ... }
+
+    initialization code (...) { ... }
+}
+```
+
+The monitor construct ensures that **only one process at a time can be active within the monitor**. The programmer does not need to code this synchronisation constraint explicitly.
+
+### Condition variables
+
+Mutual exclusion alone is not powerful enough for some synchronisation schemes. A process inside the monitor may need to wait for something. For that purpose the programmer declares **condition variables**:
+
+```
+condition x, y;
+```
+
+The only operations that can be invoked on a condition variable are `wait()` and `signal()`.
+
+- **`x.wait()`** means that the process invoking the operation is **suspended** until another process invokes `x.signal()`.
+- **`x.signal()`** resumes **exactly one** suspended process. If no process is suspended, the signal has **no effect**: the state of x is as though the operation was never executed.
+
+Contrast this with the `signal()` operation on a semaphore, which **always** affects the state of the semaphore.
+
+There are thus two kinds of waiting in a monitor: processes waiting to **enter** the monitor, queued on its entry, and processes waiting on a **condition** inside it, each queued on that condition variable.
+
+One question remains. Suppose process P invokes `x.signal()` and there is a suspended process Q associated with condition x. If Q is allowed to resume, P must wait, or both would be active in the monitor at once. Two possibilities exist: **signal and wait** (P waits until Q leaves the monitor or waits for another condition), or **signal and continue** (Q waits until P leaves or waits). Languages differ in which they choose.
+
+### Dining philosophers with a monitor
+
+The monitor solution imposes the restriction that a philosopher may pick up her chopsticks only if **both** are available.
+
+```
+monitor dp {
+    enum { thinking, hungry, eating } state[5];
+    condition self[5];
+
+    void pickup(int i) {
+        state[i] = hungry;
+        test(i);
+        if (state[i] != eating)
+            self[i].wait();
+    }
+
+    void putdown(int i) {
+        state[i] = thinking;
+        test((i + 4) % 5);      /* left neighbour */
+        test((i + 1) % 5);      /* right neighbour */
+    }
+
+    void test(int i) {
+        if ((state[(i + 4) % 5] != eating) &&
+            (state[i] == hungry) &&
+            (state[(i + 1) % 5] != eating)) {
+            state[i] = eating;
+            self[i].signal();
+        }
+    }
+
+    initialization code() {
+        for (int i = 0; i < 5; i++)
+            state[i] = thinking;
+    }
+}
+```
+
+Philosopher *i* can set `state[i] = eating` only if her two neighbours are not eating. `self[i]` lets her delay herself when she is hungry but unable to obtain the chopsticks she needs. Each philosopher calls `dp.pickup(i)`, eats, and calls `dp.putdown(i)`. This solution ensures that no two neighbours eat simultaneously and that **no deadlock** occurs. It is still possible, however, for a philosopher to **starve**.
+
+### Implementing a monitor with semaphores
+
+For each monitor, a semaphore `mutex`, initialised to 1, is provided. A process must execute `wait(mutex)` before entering the monitor and `signal(mutex)` after leaving it. Under the signal-and-wait scheme, a signalling process must wait until the resumed process leaves or waits, so an additional semaphore `next`, initialised to 0, is introduced on which signalling processes suspend themselves, with an integer `next_count` counting them. Each external procedure F is replaced by:
+
+```c
+wait(mutex);
+    /* body of F */
+if (next_count > 0)
+    signal(next);
+else
+    signal(mutex);
+```
+
+For each condition x there is a semaphore `x_sem` and an integer `x_count`, both initialised to 0.
+
+```c
+/* x.wait() */                     /* x.signal() */
+x_count++;                         if (x_count > 0) {
+if (next_count > 0)                    next_count++;
+    signal(next);                      signal(x_sem);
+else                                   wait(next);
+    signal(mutex);                     next_count--;
+wait(x_sem);                       }
+x_count--;
+```
+
+Mutual exclusion within the monitor is preserved throughout.
+
+## Synchronization in real systems, and beyond
+
+**Solaris** implements a variety of locks to support multitasking, multithreading and multiprocessing. It uses **adaptive mutexes** for efficiency when protecting data from short code segments: on a multiprocessor an adaptive mutex starts as a spinlock, and if the thread holding the lock is not currently running on a CPU, the waiting thread **sleeps** instead of spinning. It uses **condition variables** and **readers-writers locks** when longer sections of code need access to data, and **turnstiles** to order the list of threads waiting to acquire a lock.
+
+**Windows** uses **interrupt masks** to protect access to global resources on uniprocessor systems and **spinlocks** on multiprocessor systems; a thread holding a spinlock is never preempted. For synchronisation outside the kernel it provides **dispatcher objects**, which may act as mutexes, semaphores, events (much like condition variables) or timers.
+
+**Atomic transactions.** Mutual exclusion ensures that a critical section is executed atomically with respect to other processes. Sometimes a stronger property is wanted: that a critical section either performs **all** of its work or **none** of it, even if the system fails part-way. A collection of operations that performs a single logical function is a **transaction**; it ends with **commit** if it completed successfully, or **abort**, in which case its effects are rolled back. This is the central concern of database systems, where it is achieved with write-ahead logging and checkpoints.
+
+**Transactional memory.** As the number of cores grows, designing multithreaded applications free of race conditions and deadlocks with locks becomes increasingly difficult. A **memory transaction** is a sequence of memory read-write operations that is atomic: if all operations in the transaction complete, it is committed; otherwise it is aborted and rolled back. The programmer marks a block as `atomic` and the transactional-memory system, not the programmer, is responsible for guaranteeing atomicity. No locks are involved, so deadlock is not possible, and the system can identify which statements can run concurrently. It may be implemented in software, by compiler-inserted instrumentation, or in hardware, using cache hierarchies and coherency protocols.
+
+## Summary
+
+- A **race condition** arises when several processes manipulate shared data concurrently and the result depends on the order. Even `counter++` is three instructions.
+- The **critical-section problem** asks for a protocol with **mutual exclusion**, **progress** and **bounded waiting**.
+
+| Attempt | Mutual exclusion | Progress | Verdict |
+|---|---|---|---|
+| Algorithm 1 (turn) | Yes | No: strict alternation | Fails |
+| Algorithm 2 (flags) | Yes | No: both can wait for ever | Fails |
+| Algorithm 3 (Peterson) | Yes | Yes, with bounded waiting | Correct |
+
+- The **bakery algorithm** extends this to *n* processes with numbered tickets.
+- **Hardware**: disabling interrupts (uniprocessor only), and the atomic **TestAndSet** and **Swap**. They are simple and general but involve **busy waiting**, and may starve.
+- A **mutex lock** is acquire and release; a **spinlock** busy-waits and suits short waits on multiprocessors.
+- A **semaphore** has atomic **wait** and **signal**. Initialised to 1 it gives mutual exclusion; to 0, ordering; to *n*, a count of resources. The blocking implementation queues waiting processes, and a negative value counts them. Misordered waits cause **deadlock**.
+- **Bounded buffer**: mutex = 1, empty = *n*, full = 0. **Readers-writers**: the first reader in and last reader out handle `wrt`. **Dining philosophers**: the simple solution deadlocks; limit to four, take both chopsticks atomically, or make one asymmetric.
+- A **monitor** enforces mutual exclusion automatically and uses **condition variables**, whose signal is lost if nobody is waiting.
+
+## Exam-style practice
+
+<Question client:visible q={practice.bridge} label="Written practice" />
+
+<Question client:visible q={practice.monitor} label="Written practice" />
+
+<Checkpoint client:visible lessonId="synchronization" questions={checkpoint} />

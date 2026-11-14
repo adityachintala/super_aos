@@ -1,0 +1,79 @@
+---
+import Base from '@/layouts/Base.astro';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/starwind/breadcrumb';
+import Question from '@/components/learn/Question.svelte';
+import { units } from '@/lib/course';
+import { bank } from '@/lib/bank';
+
+const past = bank.filter((x) => x.q.pastPaper);
+const groups = units
+  .map((unit) => ({
+    unit,
+    lessons: unit.lessons.map((lesson) => ({ lesson, items: past.filter((x) => x.lessonId === lesson.id) })).filter((g) => g.items.length > 0),
+  }))
+  .filter((g) => g.lessons.length > 0);
+---
+
+<Base title="Past quiz questions" description="Questions from past Advanced Operating Systems quizzes, grouped by topic, each with a model answer and marking points.">
+  <div class="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[minmax(0,1fr)_15rem]">
+    <main class="min-w-0 pt-8">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem><BreadcrumbLink href="/">Course map</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem><BreadcrumbPage>Past quiz questions</BreadcrumbPage></BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      <h1 class="mt-4 text-3xl leading-tight font-semibold tracking-tight">Past quiz questions</h1>
+      <p class="text-muted-foreground mt-2 max-w-2xl text-lg">
+        {past.length} questions that have been asked in quizzes for this course, grouped by topic. They show the style to expect: explain why,
+        justify, compare, true or false with a correction, and short numerical problems.
+      </p>
+      <p class="text-muted-foreground mt-3 max-w-2xl text-sm">
+        The model answers and marking points were written for this site from the course material. Write your own answer first, then compare.
+        The same questions also appear inside their lessons.
+      </p>
+
+      {
+        groups.map((g) => (
+          <section class="mt-12" id={`unit-${g.unit.id}`}>
+            <p class="text-muted-foreground text-xs font-medium tracking-wider uppercase">Unit {g.unit.id}</p>
+            <h2 class="text-2xl font-semibold tracking-tight">{g.unit.title}</h2>
+            {g.lessons.map(({ lesson, items }) => (
+              <div class="mt-6">
+                <h3 class="flex flex-wrap items-baseline gap-x-3 text-lg font-medium">
+                  {lesson.title}
+                  <a class="text-primary-accent text-sm font-normal underline underline-offset-2" href={`/learn/${lesson.id}`}>
+                    Open the lesson
+                  </a>
+                </h3>
+                {items.map((item) => (
+                  <Question client:visible q={item.q} label="Past quiz" />
+                ))}
+              </div>
+            ))}
+          </section>
+        ))
+      }
+    </main>
+
+    <aside class="hidden lg:block">
+      <nav class="sticky top-20 pt-8 text-sm" aria-label="Units">
+        <p class="text-muted-foreground text-xs font-medium tracking-wider uppercase">Jump to</p>
+        <ol class="mt-3 grid border-l">
+          {
+            groups.map((g) => (
+              <li>
+                <a class="text-muted-foreground hover:text-foreground -ml-px block border-l border-transparent py-1 pl-3" href={`#unit-${g.unit.id}`}>
+                  Unit {g.unit.id}: {g.unit.title}
+                  <span class="text-xs"> ({g.lessons.reduce((n, l) => n + l.items.length, 0)})</span>
+                </a>
+              </li>
+            ))
+          }
+        </ol>
+      </nav>
+    </aside>
+  </div>
+</Base>

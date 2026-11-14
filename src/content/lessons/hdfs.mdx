@@ -1,0 +1,258 @@
+---
+title: Hadoop Distributed File System
+summary: How a file system spreads enormous files over thousands of ordinary machines and keeps the data safe while those machines fail.
+minutes: 45
+prerequisites: [file-systems, storage-and-raid]
+objectives:
+  - Explain what a distributed file system is and why HDFS separates metadata from data
+  - Describe the roles of the NameNode, DataNodes and the HDFS client
+  - Trace how a file is read and how it is written through a pipeline of DataNodes
+  - Explain the image, checkpoint and journal, and how the NameNode recovers after a restart
+  - Describe rack-aware block placement and how HDFS detects and repairs lost replicas
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import HdfsCluster from '../../components/viz/HdfsCluster.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/hdfs';
+
+## When one machine is not enough
+
+The file system of the previous lesson lives on one disk in one computer. That stops working when the data is measured in petabytes: web crawls, logs from millions of users, years of sensor readings. No single machine holds that much, and no single machine survives long enough to be trusted with it.
+
+The answer is to use many machines together.
+
+A **distributed system** is a collection of independent computers that appears to its users as a single coherent system. Such systems are *loosely coupled*: each machine has its own processor, memory and disks, and they cooperate over a network. The illusion of one system is called a **single system image**. Done well, a distributed system offers:
+
+- **Scalability**: add machines to add capacity.
+- **Reliability**: the failure of one machine does not lose data or stop the service.
+- **Availability**: the service stays up while parts of it are broken or being repaired.
+- **Communication** and sharing of computing power and storage among users.
+
+A **cluster** is the usual way to build one: a collection of similar computers (nodes) running similar operating systems, connected by a high-speed LAN. A master node controls storage allocation and job scheduling, the other nodes do the work, and the whole presents a single system image.
+
+A **distributed file system (DFS)** is a file system that manages storage across such a network of machines. It is a client/server application that lets clients access and process data stored on the servers as if it were on their own computer. The common design has two kinds of server:
+
+- a **name server**, holding the global directory: the metadata of files;
+- **data servers**, holding the file data itself, and often running the user programs that process it.
+
+### Where Hadoop came from
+
+In 2003 Google published a paper on the **Google File System** and in 2004 one on **MapReduce**. In 2005 Doug Cutting built open-source versions of both for the Nutch web-search project. In 2006 the work became **Hadoop** at Yahoo!, and in 2008 it became a top-level Apache project. The name is not an acronym: it was the name of a toy elephant belonging to Cutting's son.
+
+**HDFS** is the file-system component of Hadoop. Around it grew a family of tools: **HBase** (a table-oriented database), **Hive** (a data warehouse with an SQL-like language), **Pig** (a language for parallel data-processing programs), **Sqoop** (moving data between Hadoop and other stores) and **ZooKeeper** (configuration and coordination of the cluster).
+
+## The design of HDFS
+
+HDFS is an open-source distributed file system designed to **store very large data sets reliably** and to stream them at high bandwidth to applications. Its interface is patterned after the UNIX file system, though faithfulness to the standard was traded for performance where needed.
+
+The defining decision is this:
+
+<Callout type="key">
+HDFS stores **file-system metadata and application data separately**. Metadata lives on one dedicated server, the **NameNode**. Application data lives on many other servers, the **DataNodes**. All servers are fully connected and talk to each other with TCP-based protocols.
+</Callout>
+
+It is a **master-slave architecture**: a single NameNode is the master, and many DataNodes are the workers. A cluster can have thousands of DataNodes and tens of thousands of clients.
+
+Two other choices follow from the kind of data HDFS is for.
+
+**Very large blocks.** File content is split into blocks of typically **128 MB** (64 MB in early versions; selectable file by file). Compare that with the 4 KB blocks of a local file system. A large block means the time to seek to the start of a block is negligible next to the time to transfer it, so data moves at the disk's full transfer rate, around 100 MB/s. It also keeps the *number* of blocks down, which matters because the NameNode has to remember every one of them.
+
+**Replication instead of RAID.** HDFS does not use RAID to protect data. Each block is **replicated on several DataNodes**, typically **three**, again selectable per file. This gives durability, and it also multiplies the bandwidth for reading and makes it more likely that a computation can run near a copy of its data.
+
+<Question client:visible q={checks.blocks} />
+
+## The NameNode
+
+The HDFS **namespace** is a hierarchy of files and directories. On the NameNode, files and directories are represented by **inodes**, which record attributes such as permissions, modification and access times, and namespace and disk-space quotas.
+
+The NameNode maintains two things:
+
+1. the **namespace tree**; and
+2. the **mapping of file blocks to DataNodes**, that is, the physical location of the file data.
+
+The **entire namespace is kept in RAM**. That makes metadata operations fast, and it is also the reason HDFS prefers a modest number of large files to a vast number of small ones: every file and every block costs NameNode memory.
+
+Because the current design has a **single NameNode per cluster**, it is essential that file data never flows through it. A client asks the NameNode *where* data is, and then deals with the DataNodes directly.
+
+<Question client:visible q={checks.separation} />
+
+### Image, checkpoint and journal
+
+If the NameNode's memory were the only copy of the metadata, a power cut would destroy the file system. Three terms describe how it is protected.
+
+- The **image** is the file-system metadata: the inode data and the list of blocks belonging to each file. It describes how application data is organised into directories and files.
+- A **checkpoint** is a persistent record of the image, written to disk in the NameNode's local native file system.
+- The **journal** is a **write-ahead commit log** of changes to the image. For each client-initiated transaction, the change is recorded in the journal, and the journal file is flushed and synced **before** the change is committed to the client.
+
+On startup the NameNode rebuilds its state from these two files:
+
+<Flow
+  steps={[
+    { label: 'Read the checkpoint', note: 'load the saved image into memory' },
+    { label: 'Replay the journal', note: 'apply every logged change in order' },
+    { label: 'Write a new checkpoint', note: 'and start an empty journal' },
+    { label: 'Receive block reports', note: 'learn where the replicas are' },
+    { label: 'Serve clients' },
+  ]}
+/>
+
+One thing is deliberately **not** in the checkpoint: the **locations of block replicas**. They change over time as nodes come and go, so the NameNode does not try to keep a persistent record. It learns them afresh from the DataNodes every time.
+
+If either the checkpoint or the journal is missing or corrupt, namespace information is lost, partly or entirely. So HDFS can be configured to keep them in **multiple storage directories**. The recommended practice is to put those directories on different volumes, with one of them on a **remote NFS server**.
+
+### CheckpointNode and BackupNode
+
+A journal that grows without limit is a problem: a long journal means a slow restart, and a greater chance that part of it is damaged. A NameNode process can therefore be started in one of two helper roles instead of its primary one.
+
+- A **CheckpointNode** periodically combines the existing checkpoint and journal to create a **new checkpoint and an empty journal**. It runs on a different host from the NameNode, since it needs just as much memory. Once the new checkpoint is uploaded, the NameNode can truncate the tail of its journal.
+- A **BackupNode** can create periodic checkpoints too, and in addition it maintains an **in-memory, up-to-date image** of the namespace that is always synchronised with the state of the NameNode. Because it already has the image in memory, it can make a checkpoint without downloading anything.
+
+## DataNodes
+
+Each block replica on a DataNode is represented by **two files** in the local host's native file system: one contains the **data** itself, and the other the block's **metadata**, including **checksums** for the data and the block's generation stamp. A block that is not full takes up only as much disk space as its actual data.
+
+### Joining the cluster
+
+During startup, each DataNode connects to the NameNode and performs a **handshake**. Its purpose is to verify the **namespace ID** and the **software version** of the DataNode. If either does not match that of the NameNode, the DataNode automatically shuts down. The namespace ID is assigned to the file-system instance when it is formatted, so this check stops a node from one cluster accidentally joining another and corrupting it. A newly initialised DataNode with no namespace ID is allowed to join and receives the cluster's ID.
+
+### Block reports and heartbeats
+
+A DataNode tells the NameNode what it has in two ways.
+
+| Message | Contents | How often | Purpose |
+|---|---|---|---|
+| **Block report** | Block ID, generation stamp and length of every replica the node hosts | On registration, then **every hour** | Gives the NameNode an up-to-date view of where replicas are |
+| **Heartbeat** | Confirmation that the node is alive, plus storage capacity, space in use and transfers in progress | **Every three seconds** | Liveness, and input to the NameNode's space-allocation and load-balancing decisions |
+
+If the NameNode does not receive a heartbeat from a DataNode for **ten minutes**, it considers that DataNode out of service and the block replicas it hosted unavailable. It then **schedules the creation of new replicas** of those blocks on other DataNodes.
+
+### How the NameNode gives orders
+
+The NameNode **does not call DataNodes directly**. Instead it uses its **replies to heartbeats** to send instructions. These include commands to:
+
+- replicate blocks to other nodes;
+- remove local block replicas;
+- re-register, or shut down the node;
+- send an immediate block report.
+
+Heartbeats are therefore the control channel for the whole cluster, and their frequency is part of what keeps the NameNode scalable: it can process thousands of heartbeats per second without affecting other operations.
+
+<Question client:visible q={checks.heartbeat} />
+
+## The HDFS client
+
+User applications reach the file system through the **HDFS client**, a code library that exports the file-system interface. Like most conventional file systems, HDFS supports operations to read, write and delete files, and to create and delete directories. The user refers to files and directories by **paths in the namespace**, and generally does not need to know that metadata and storage are on different servers or that blocks have several replicas.
+
+In one respect HDFS differs from conventional file systems: its API **exposes the locations of a file's blocks**. A framework such as MapReduce uses this to schedule a task on the machine where its data already sits, which improves read performance greatly. The API also lets an application set a file's **replication factor**. The default is three; for critical or very frequently read files, a higher factor improves fault tolerance and increases read bandwidth.
+
+## Reading and writing
+
+### The write-once model
+
+An application adds data to HDFS by creating a new file and writing to it. **After the file is closed, the bytes written cannot be altered or removed**; new data can only be added by reopening the file for **append**.
+
+HDFS implements a **single-writer, multiple-reader** model:
+
+- The client that opens a file for writing is granted a **lease** on it. No other client can write to the file.
+- The writing client **renews the lease** periodically by sending a heartbeat to the NameNode.
+- When the file is closed, the lease is revoked.
+- A lease does not stop other clients from **reading** the file; a file may have many concurrent readers.
+
+<Question client:visible q={checks.writer} />
+
+### Writing through a pipeline
+
+<Stepper
+  client:visible
+  title="Writing a block to HDFS"
+  steps={[
+    { title: 'Ask for a block', actor: 'Client → NameNode', detail: 'When a new block is needed, the NameNode allocates one with a unique block ID and chooses a list of DataNodes (three by default) to host its replicas.' },
+    { title: 'Form a pipeline', actor: 'DataNodes', detail: 'The chosen DataNodes are arranged in a pipeline, ordered so as to minimise the total network distance from the client to the last DataNode.' },
+    { title: 'Buffer at the client', actor: 'Client', detail: 'Bytes the application writes are first buffered on the client side. When a packet buffer fills (typically 64 KB), it is pushed to the pipeline.' },
+    { title: 'Stream packets', actor: 'Client → DN1 → DN2 → DN3', detail: 'Each DataNode stores the packet and forwards it to the next one. The next packet can be sent before the acknowledgement for the previous ones has arrived.' },
+    { title: 'Acknowledge', actor: 'DN3 → DN2 → DN1 → Client', detail: 'Acknowledgements travel back along the pipeline. Checksums are sent with the data, and each DataNode stores them in the block’s metadata file.' },
+    { title: 'Repeat, then close', actor: 'Client → NameNode', detail: 'When the block is full the client asks for a new one, and a new pipeline is chosen. When the file is closed, the lease is released and the data is guaranteed visible to readers.' },
+  ]}
+/>
+
+After data is written to an HDFS file, HDFS gives **no guarantee that it is visible to a new reader until the file is closed**. An application that needs the visibility guarantee earlier can explicitly call the **`hflush`** operation, which pushes the current packet to the pipeline at once and waits until all its DataNodes have acknowledged it.
+
+### Reading
+
+1. When a client opens a file to read, it fetches from the NameNode the **list of blocks** and the **locations of each block's replicas**.
+2. The locations of each block are **ordered by their distance from the reader**.
+3. To read a block, the client tries the **closest replica first**. If that attempt fails, it tries the next replica in the sequence.
+
+A read may fail if the target DataNode is unavailable, if the node no longer hosts a replica of the block, or if the replica is found to be **corrupt** when its checksums are tested. In the last case the client also reports the bad replica to the NameNode.
+
+The design of HDFS I/O is optimised for **batch-processing systems** such as MapReduce, which need high throughput for **sequential** reads and writes. It is not built for low-latency random access.
+
+## Keeping replicas safe
+
+### Racks and block placement
+
+In a large cluster the nodes are not all on one flat network. They are spread across multiple **racks**. Nodes in a rack share a switch, and rack switches are connected by one or more core switches, so communication between nodes in different racks goes through several switches. In most cases the bandwidth between nodes in the same rack is greater than between nodes in different racks.
+
+Where replicas are put therefore affects cost and safety at once. The default HDFS **block placement policy** is a compromise between minimising the write cost and maximising data reliability, availability and aggregate read bandwidth:
+
+- the **first replica** goes on the node where the writer is located;
+- the **second and third replicas** go on **two different nodes in a different rack**;
+- any further replicas go on random nodes, with two restrictions: **no DataNode holds more than one replica** of a block, and **no rack holds more than two replicas** of the same block, provided there are enough racks.
+
+Only one of the three copies has to cross between racks, yet the block ends up on two racks and so survives the loss of an entire rack.
+
+<Question client:visible q={checks.rack} />
+
+Try it. Write a file, fail a DataNode, and let the NameNode repair the damage. Then fail all three nodes of one rack at once and see whether any block is lost.
+
+<HdfsCluster client:visible />
+
+### Replication management
+
+The NameNode endeavours to ensure that each block always has the intended number of replicas. It detects that a block has become **under-** or **over-replicated** when a block report from a DataNode arrives.
+
+- When a block is **over-replicated**, the NameNode chooses a replica to remove. It prefers not to reduce the number of racks hosting replicas, and then prefers to remove a replica from the DataNode with the least free space. The goal is to balance storage utilisation without reducing the block's availability.
+- When a block is **under-replicated**, it is put in a priority queue for replication. A block with only one replica has the highest priority.
+- The NameNode also makes sure that **not all replicas of a block are on one rack**.
+
+### Balancer
+
+The block placement policy does not take DataNode disk utilisation into account, so over time usage becomes uneven, especially when new nodes are added. The **balancer** is a tool that balances disk-space usage across the cluster. It iteratively **moves replicas from DataNodes with higher utilisation to DataNodes with lower utilisation**. A key requirement is to maintain data availability: when choosing a replica to move and its destination, the balancer guarantees that the decision reduces **neither the number of replicas nor the number of racks**.
+
+### Block scanner
+
+Each DataNode runs a **block scanner** that periodically scans its block replicas and verifies that the stored checksums match the block data. Whenever a reading client or a block scanner detects a **corrupt** block, it notifies the NameNode.
+
+The NameNode marks the replica as corrupt but does **not** schedule its deletion immediately. Instead it starts to replicate a good copy of the block, and only when the good-replica count reaches the replication factor is the corrupt replica removed. This policy aims to **preserve data for as long as possible**: even if *all* replicas of a block are corrupt, the user can still retrieve what is left of the data from them.
+
+### Decommissioning
+
+The cluster administrator specifies which nodes may join by listing the host addresses permitted to register and those not permitted. A current member that becomes excluded is marked for **decommissioning**.
+
+Once a DataNode is marked as decommissioning, it is **no longer chosen as a target** for replica placement, but it **continues to serve read requests**. The NameNode schedules replication of its blocks to other DataNodes. When the NameNode detects that all the blocks on that node have been replicated, the node enters the decommissioned state and can be **safely removed** from the cluster without jeopardising data availability.
+
+### Copying between clusters
+
+For very large data sets, copying in and out is itself a big job. HDFS provides a tool called **DistCp** for large inter- and intra-cluster parallel copying. It is a MapReduce job in which each map task copies a portion of the source data into the destination file system, and the MapReduce framework automatically handles parallel scheduling, error detection and recovery. MapReduce is the subject of the next lesson.
+
+## Summary
+
+- A **distributed file system** manages storage across a network of machines and presents it as one. HDFS is the file system of **Hadoop**, modelled on the Google File System.
+- HDFS separates **metadata** (one **NameNode**) from **data** (many **DataNodes**). Data never flows through the NameNode.
+- Files are split into large **blocks** (128 MB) and each block is **replicated** (three times) on different DataNodes.
+- The NameNode keeps the **namespace** and the **block-to-DataNode map** in RAM. A **checkpoint** plus a write-ahead **journal** make the namespace durable; replica locations are rebuilt from **block reports**.
+- DataNodes send **heartbeats** every 3 seconds; after **10 minutes** of silence a node is declared dead and its blocks are re-replicated. The NameNode issues commands only in **replies to heartbeats**.
+- Writes are **single-writer** (a lease), append-only after close, and flow through a **pipeline** of DataNodes. Reads go to the **closest replica**.
+- **Rack-aware placement** puts one replica on the writer's node and two on another rack. The **balancer**, **block scanner** and **decommissioning** keep the cluster healthy.
+
+## Exam-style practice
+
+<Question client:visible q={practice.failure} label="Written practice" />
+
+<Question client:visible q={practice.placement} label="Written practice" />
+
+<Checkpoint client:visible lessonId="hdfs" questions={checkpoint} />

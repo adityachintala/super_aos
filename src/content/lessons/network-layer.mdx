@@ -1,0 +1,449 @@
+---
+title: The Network Layer
+summary: How packets find their way across many routers, what happens when too many arrive at once, and how the Internet's own network layer, IP, is put together.
+minutes: 60
+prerequisites: [networking-intro-datalink]
+objectives:
+  - Compare datagram and virtual-circuit networks
+  - Run shortest-path, distance vector and link state routing, and explain flooding and hierarchical routing
+  - Describe the approaches to congestion control, from provisioning to load shedding
+  - Explain quality of service, traffic shaping with leaky and token buckets, and packet scheduling
+  - Read an IPv4 address with its prefix, and describe NAT, ICMP, ARP, DHCP and IPv6
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import DijkstraSteps from '../../components/viz/DijkstraSteps.svelte';
+import DistanceVector from '../../components/viz/DistanceVector.svelte';
+import BucketShaper from '../../components/viz/BucketShaper.svelte';
+import PacketScheduling from '../../components/viz/PacketScheduling.svelte';
+import SubnetCalc from '../../components/viz/SubnetCalc.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/network-layer';
+
+## From one link to the whole network
+
+The data link layer moves frames between two machines at the ends of a single wire. The **network layer** is responsible for getting packets all the way **from the source to the destination**, which may mean making many hops at **intermediate routers** along the way. It is the lowest layer that deals with **end-to-end** transmission.
+
+To do that job the network layer must:
+
+- **know the topology** of the network, that is, the set of all routers and links, and choose appropriate paths through it;
+- choose routes that **do not overload** some lines and routers while leaving others idle;
+- deal with the differences that arise when source and destination are on **different networks**.
+
+### Store-and-forward packet switching
+
+The setting is a collection of routers connected by transmission lines, operated by an ISP, with hosts at the edges. Some hosts connect directly to an ISP router, for example a home computer through a modem. Others sit on a customer's LAN, which has its own router with a leased line to the ISP.
+
+A host with a packet to send transmits it to the **nearest router**. The packet is **stored** there until it has fully arrived and its checksum has been verified. Then it is **forwarded** to the next router along the path, and so on until it reaches the destination host. This mechanism is **store-and-forward packet switching**.
+
+### What service should the network layer offer?
+
+The services provided to the transport layer were designed with three goals:
+
+1. The services should be **independent of the router technology**.
+2. The transport layer should be **shielded from the number, type and topology** of the routers present.
+3. The network addresses made available to the transport layer should use a **uniform numbering plan**, even across LANs and WANs.
+
+Within those goals, two camps argued for decades.
+
+- The **Internet community** held that the routers' job is to move packets around and nothing else. The network is inherently unreliable, so the hosts should do error control and flow control themselves. The service should be **connectionless**, with primitives SEND PACKET and RECEIVE PACKET and little more, no packet ordering and no flow control, and each packet carrying the full destination address.
+- The **telephone companies** held that the network should provide a **reliable, connection-oriented** service, drawing on a century of experience with the telephone system. In their view, quality of service is the dominant factor, and without connections it is very difficult to achieve, especially for real-time traffic such as voice and video.
+
+Both survive. IP is connectionless, and connection-oriented features such as MPLS and VLANs have been added on top of it.
+
+### Datagrams
+
+In a **connectionless** service, packets are injected into the network individually and routed **independently** of each other. No advance set-up is needed. The packets are called **datagrams**, by analogy with telegrams, and the network is a **datagram network**.
+
+Suppose a process on host H1 has a long message for a process on H2. It hands the message to the transport layer, which prepends a transport header and passes the result to the network layer. The network layer breaks it into packets and sends each to the first router. Every router has an internal table saying where to send packets for each possible destination: each entry is a pair of a **destination** and the **outgoing line** to use for it. Because the tables can change while the message is in transit, **different packets may take different paths**.
+
+The **Internet Protocol (IP)**, the basis of the entire Internet, is the dominant example. Each packet carries a destination IP address, 32 bits in IPv4 and 128 bits in IPv6, which routers use to forward each packet individually.
+
+### Virtual circuits
+
+In a **connection-oriented** service, a path from the source router to the destination router must be established before any data packets are sent. This connection is called a **virtual circuit (VC)**, and the network a **virtual-circuit network**.
+
+The idea is to **avoid having to choose a new route for every packet**. When a connection is established, a route is chosen as part of the set-up and stored in tables inside the routers. That route is used for all traffic flowing over the connection. Each packet carries a short **connection identifier** saying which virtual circuit it belongs to.
+
+There is a wrinkle. If H1 has established connection 1 to H2, and H3 also wants a connection to H2 and also chooses identifier 1, a router that both pass through cannot tell them apart. So routers must be able to **replace the connection identifier** in outgoing packets. This is called **label switching**. An example is **MPLS** (multiprotocol label switching), which wraps IP packets in a header carrying a 20-bit label and is used within ISP networks.
+
+| Issue | Datagram network | Virtual-circuit network |
+|---|---|---|
+| Circuit set-up | Not needed | Required |
+| Addressing | Each packet contains the full source and destination address | Each packet contains a short VC number |
+| State information | Routers do not hold state about connections | Each VC requires router table space per connection |
+| Routing | Each packet is routed independently | Route chosen when the VC is set up; all packets follow it |
+| Effect of router failures | None, except for packets lost during the crash | All VCs that passed through the failed router are terminated |
+| Quality of service | Difficult | Easy if enough resources can be allocated in advance for each VC |
+| Congestion control | Difficult | Easy if enough resources can be allocated in advance for each VC |
+
+<Question client:visible q={checks.vc} />
+
+## Routing algorithms
+
+The **routing algorithm** is the part of the network-layer software responsible for deciding which output line an incoming packet should be transmitted on. In a datagram network this decision must be made anew for every arriving packet, since the best route may have changed since last time.
+
+It helps to separate two processes inside a router:
+
+- **Forwarding** handles each packet as it arrives, looking up the outgoing line to use in the routing tables.
+- **Routing** is responsible for filling in and updating those tables. This is where the routing algorithm comes into play.
+
+<Question client:visible q={checks.forwarding} />
+
+A routing algorithm should have certain properties:
+
+- **Correctness** and **simplicity**.
+- **Robustness.** A major network is expected to run for years without system-wide failures. Hosts fail, routers crash, lines go up and down, software fails. The routing algorithm should cope with changes in topology and traffic without requiring all jobs to be aborted.
+- **Stability.** A stable algorithm reaches equilibrium and stays there. It should also **converge** quickly to a set of paths.
+- **Fairness** and **efficiency**, which often pull against each other.
+
+Algorithms are either **nonadaptive** (static: routes are computed in advance and downloaded to the routers) or **adaptive** (dynamic: routing decisions change to reflect changes in the topology and sometimes in the traffic).
+
+### Shortest path routing
+
+Build a graph of the network with a node for each router and an edge for each link. To choose a route between a pair of routers, find the **shortest path** between them in the graph. "Shortest" depends on the labels on the edges: number of hops, geographic distance, mean delay, bandwidth, cost, or a function of several.
+
+The standard method is **Dijkstra's algorithm** (1959). Each node is labelled with its distance from the source along the best known path. Initially no paths are known, so all nodes are labelled with infinity. As the algorithm proceeds, labels change. A label is either **tentative** or **permanent**; when it is discovered that a label represents the shortest possible path from the source to that node, it is made permanent and never changed again.
+
+<DijkstraSteps client:visible />
+
+### Flooding
+
+A simple local technique is **flooding**: every incoming packet is sent out on **every outgoing line except the one it arrived on**.
+
+Flooding obviously generates vast numbers of duplicate packets, in fact an infinite number unless something damps the process. Two methods are used:
+
+1. **A hop counter** in the header of each packet, decremented at each hop. The packet is discarded when the counter reaches zero. Ideally it is initialised to the length of the path from source to destination; if that is unknown, to the full diameter of the network. The weakness is that the number of duplicates still grows exponentially with the hop count.
+2. **Keeping track of which packets have been flooded**, to avoid sending them out a second time. The source router puts a **sequence number** in each packet it receives from its hosts, and each router keeps a list per source router of the sequence numbers already seen. If an incoming packet is on the list, it is not flooded.
+
+Flooding is not practical for sending most packets, but it has important uses:
+
+- It **ensures that a packet is delivered to every node** in the network, which is exactly what broadcasting needs.
+- It is **tremendously robust**. Even if large numbers of routers are blown to bits, flooding will find a path if one exists.
+- It always chooses the **shortest path**, because it chooses every possible path in parallel. No other algorithm can produce a shorter delay.
+- It therefore serves as a **metric** against which other routing algorithms are compared, and as a building block inside them.
+
+### Distance vector routing
+
+Modern networks use **dynamic** routing algorithms. The first of the two classic ones is **distance vector routing**.
+
+Each router maintains a table (a **vector**) giving the **best known distance to each destination** and which **link** to use to get there. The tables are updated by exchanging information with the neighbours, and eventually every router knows the best link to reach each destination. The shortest-path computation is thus **distributed** across the nodes. This is the Bellman-Ford algorithm; it was the original ARPANET routing algorithm and was used in the Internet under the name RIP.
+
+- Each node knows the distance (delay) of the links to its neighbours.
+- **Once every T milliseconds**, each router sends each neighbour a list of its estimated delays to every destination, and receives a similar list from each neighbour.
+- From the received vectors, the router computes a new routing table.
+
+**Worked example.** Router J has neighbours A, I, H and K, and has measured its delay to them as 8, 10, 12 and 6 ms. A claims a 12 ms delay to B, 25 ms to C, 40 ms to D, and so on. Consider how J computes its new route to router G:
+
+- via A: 8 (J to A) + 18 (A's delay to G) = 26
+- via I: 10 + 31 = 41
+- via H: 12 + 6 = **18**
+- via K: 6 + 31 = 37
+
+The best of these is 18, so J makes an entry in its routing table that the delay to G is 18 ms and that the route to use is via H. The same calculation is done for all the other destinations. Notice that J's *old* routing table is not used in the calculation at all.
+
+<DistanceVector client:visible />
+
+<Question client:visible q={checks.dv} />
+
+### The count-to-infinity problem
+
+Distance vector routing has a serious drawback: it converges to the correct answer, but it may do so slowly. It reacts **rapidly to good news** and **leisurely to bad news**.
+
+Take five routers in a line, A–B–C–D–E, with the metric in hops. Suppose A has been down and comes up. The good news spreads one hop per exchange: after one exchange B knows A is 1 hop away, after two C knows it is 2 hops away, and after four exchanges everyone knows.
+
+Now suppose all routers are up, with distances 1, 2, 3, 4 to A, and A goes down. At the first exchange, B hears nothing from A. But C says "I have a path to A of length 2". B does not know that C's path runs through B itself, so it believes it can reach A via C in 3 hops.
+
+| Exchange | B | C | D | E |
+|---|---|---|---|---|
+| Initially | 1 | 2 | 3 | 4 |
+| After 1 | 3 | 2 | 3 | 4 |
+| After 2 | 3 | 4 | 3 | 4 |
+| After 3 | 5 | 4 | 5 | 4 |
+| After 4 | 5 | 6 | 5 | 6 |
+| After 5 | 7 | 6 | 7 | 6 |
+| After 6 | 7 | 8 | 7 | 8 |
+
+The routers work their way up, one step at a time, towards infinity. For that reason "infinity" must be defined as a small number, the longest path plus one. This is the **count-to-infinity** problem. The core of it is that when X tells Y that it has a path somewhere, Y has no way of knowing whether it itself is on that path.
+
+### Link state routing
+
+Distance vector routing was replaced in the ARPANET in 1979 by **link state routing**, largely because of the count-to-infinity problem. It needs more computation but has simpler dynamics, and variants of it (**OSPF** and IS-IS) are the routing algorithms most widely used inside large networks and the Internet today.
+
+Each router must do five things:
+
+1. **Discover its neighbours** and learn their network addresses. When a router boots, it sends a special HELLO packet on each point-to-point line, and the router at the other end replies with its name.
+2. **Set the distance or cost metric** to each of its neighbours. A common choice makes the cost inversely proportional to the bandwidth of the link; delay can be measured directly with an ECHO packet.
+3. **Construct a packet** telling all it has just learned: the sender's identity, a sequence number, an age, and a list of neighbours with the cost to each.
+4. **Send this packet to, and receive packets from, all other routers.** The packets are distributed by **flooding**, using the sequence numbers to discard duplicates.
+5. **Compute the shortest path** to every other router, by running Dijkstra's algorithm locally on the complete graph it has assembled.
+
+| | Distance vector | Link state |
+|---|---|---|
+| What a router tells | Its distances to **everyone** | The cost to each of its **neighbours** only |
+| Who it tells | Only its **neighbours** | **Every** router, by flooding |
+| Each router knows | Distances and next hops, not the topology | The whole topology |
+| Computation | Simple minimum over neighbours | Dijkstra over the whole graph |
+| Convergence | Slow; count-to-infinity | Fast |
+| Cost | Little memory and CPU | More memory and computation |
+
+### Hierarchical routing
+
+As networks grow, the routers' tables grow proportionally. They consume more memory, more CPU time to scan them, and more bandwidth to send status reports about them. At a certain point it is no longer feasible for every router to have an entry for every other router.
+
+The answer is **hierarchical routing**, as in the telephone network. The routers are divided into **regions**. Each router knows all the details of how to route packets to destinations **within its own region**, but knows nothing about the internal structure of other regions. For huge networks a two-level hierarchy may not be enough, and regions are grouped into clusters, clusters into zones, and so on.
+
+In a network of 17 routers in five regions, a full table has 17 entries. A hierarchical one has entries for the local routers plus one entry for each other region: 7 instead of 17. The saving in table space has a price, **slightly longer paths**, since the best route to one particular router in a distant region may not be the route that is best for that region as a whole.
+
+Other forms of routing serve other delivery patterns. **Broadcast routing** delivers a packet to all destinations, and **multicast routing** to a well-defined group of them.
+
+## Congestion control
+
+When too many packets are present in a part of the network, causing packet delay and loss that degrade performance, the situation is called **congestion**. The network and transport layers **share the responsibility** for handling it. Congestion occurs within the network, so the network layer experiences it directly; but the most effective way to control it is to **reduce the load** that the transport layer places on the network.
+
+As the offered load approaches the carrying capacity, bursts of traffic occasionally fill the buffers inside routers and some packets are lost. Those packets consume capacity without being delivered, so the number delivered falls below the ideal: **goodput**, the rate at which *useful* packets are delivered, trails the offered load. Unless the network is well designed, it may then experience a **congestion collapse**, in which performance plummets as the load increases beyond capacity. Packets are delayed so much that they are no longer useful when they arrive, or have been retransmitted in the meantime.
+
+Would more memory cure it? No. If routers had an **infinite** amount of memory, congestion would get **worse**, not better: by the time packets reach the front of the queue they have already **timed out** and duplicates have been sent. All of them are forwarded dutifully, adding to the load all the way to the destination.
+
+<Question client:visible q={checks.congestion} />
+
+### Approaches
+
+The presence of congestion means that the load is, temporarily, greater than the resources can handle. There are two ways out: increase the resources or decrease the load. The solutions apply on different time scales, from slowest to fastest:
+
+<Flow
+  steps={[
+    { label: 'Network provisioning', note: 'months: build enough capacity' },
+    { label: 'Traffic-aware routing', note: 'hours: route around hot spots' },
+    { label: 'Admission control', note: 'per connection: refuse new traffic' },
+    { label: 'Traffic throttling', note: 'seconds: tell senders to slow down' },
+    { label: 'Load shedding', note: 'now: drop packets' },
+  ]}
+/>
+
+**Traffic-aware routing.** Choose routes depending on traffic, not just topology. The weight of a link is made a function of its fixed bandwidth and propagation delay plus the measured load or average queueing delay, so that least-weight paths favour lightly loaded links. The danger is that routing tables may **oscillate wildly**: traffic shifts to the lightly loaded link, which becomes heavily loaded, so traffic shifts back, leading to erratic routing.
+
+**Admission control.** Widely used in virtual-circuit networks. The idea is simple: **do not set up a new virtual circuit unless the network can carry the added traffic without becoming congested**. Attempts to set up a circuit may therefore fail. This is better than the alternative, since letting more people in when the network is busy only makes matters worse. The telephone system works this way: when a switch is overloaded, you get no dial tone. The difficulty is **bursty traffic**. Video has a describable rate, but web traffic is very bursty, so circuits must be characterised by their rate *and* shape. Admission control can be combined with traffic-aware routing by redrawing the network to leave out the congested routers and finding a route around them.
+
+**Traffic throttling.** When congestion is imminent, the network must tell the senders to throttle back their transmissions and slow down. This is **congestion avoidance**, and it applies to both datagram and virtual-circuit networks. Two problems have to be solved:
+
+1. Routers must determine **when congestion is approaching**, ideally before it has arrived. The **queueing delay** inside routers directly captures any congestion experienced by packets.
+2. Routers must deliver **timely feedback** to the senders that are causing the congestion.
+
+Two feedback mechanisms:
+
+- **Choke packets.** The router selects a congested packet and sends a choke packet back to the source host. When the source gets it, it is required to reduce the traffic sent to that destination, for example by 50%.
+- **Explicit congestion notification (ECN).** Instead of generating additional packets, a router **tags any packet it forwards** by setting a bit in the packet's header to signal that it is experiencing congestion. When the network delivers the packet, the destination notes the mark and informs the sender when it sends its next acknowledgement.
+
+**Load shedding.** When none of the above makes the congestion disappear, routers bring out the heavy artillery. Load shedding is a fancy way of saying that when routers are being inundated by packets they cannot handle, **they just throw them away**. The key question is **which packets to drop**, and the answer depends on the application:
+
+- For a **file transfer**, an old packet is worth more than a new one. Dropping packet 6 and keeping packets 7 to 10 only forces the receiver to buffer data it cannot yet use. This is the **wine** policy: old is better than new.
+- For **real-time media**, a new packet is worth more than an old one, since packets become useless if they are delayed and miss the time at which they must be played. This is the **milk** policy: fresh is better than stale.
+
+More intelligent shedding needs cooperation from senders: applications must **mark the importance** of their packets.
+
+**Random early detection (RED).** Dealing with congestion when it first starts is more effective than letting it gum up the works. Routers maintain a **running average of their queue lengths**. When the average queue length on some link exceeds a threshold, the link is said to be congested and a small fraction of the packets are **dropped at random**. Picking at random makes it more likely that the fastest senders will see a packet drop. The affected sender notices the loss when there is no acknowledgement, and slows down. Dropping early, before all the buffer space is exhausted, gives better performance than dropping only when the buffers are full.
+
+## Quality of service
+
+The techniques so far reduce congestion and improve network performance. Some applications, however, demand **stronger performance guarantees** than "the best that could be done under the circumstances". **Multimedia** applications in particular often need a minimum throughput and maximum latency to work.
+
+An easy solution is **over-provisioning**: build a network with enough capacity for whatever traffic will be thrown at it. The trouble is that it is expensive, since it solves the problem by throwing money at it. With **quality-of-service mechanisms**, the network can honour performance guarantees with less capacity, **at the cost of turning down some requests**.
+
+Four issues must be addressed, and no single technique deals efficiently with all of them:
+
+1. What do applications **need** from the network?
+2. How is the traffic that enters the network **regulated**?
+3. How are **resources reserved** at routers to guarantee performance?
+4. Can the network **safely accept** more traffic?
+
+### What applications need
+
+A stream of packets from a source to a destination is called a **flow**. Its needs are characterised by four primary parameters:
+
+- **Bandwidth** (throughput): the amount of work completed in a given time.
+- **Delay**: the time from when a request is submitted to when the result is produced.
+- **Jitter**: the variation in packet arrival times. Different packets have different delays, which disturbs real-time audio and video.
+- **Loss** (reliability): how errors during transmission are handled.
+
+Together these determine the **quality of service** the flow requires.
+
+| Application | Bandwidth | Delay | Jitter | Loss |
+|---|---|---|---|---|
+| E-mail | Low | Low | Low | Medium |
+| File sharing | High | Low | Low | Medium |
+| Web access | Medium | Medium | Low | Medium |
+| Remote login | Low | Medium | Medium | Medium |
+| Audio on demand | Low | Low | High | Low |
+| Video on demand | High | Low | High | Low |
+| Telephony | Low | High | High | Low |
+| Videoconferencing | High | High | High | Low |
+
+Each entry says how **stringent** the requirement is. Reading the table:
+
+- **Bandwidth.** E-mail, audio and remote login do not need much. File sharing and video in all its forms need a great deal.
+- **Delay.** File transfer, e-mail, and playing audio or video from a server are not delay-sensitive: if every packet is delayed uniformly by a few seconds, no harm is done. Interactive applications such as web surfing and remote login are more sensitive. Telephony and videoconferencing have **strict** delay requirements.
+- **Jitter.** E-mail, file sharing and web access are not sensitive to packets arriving at irregular intervals. Remote login is somewhat sensitive. Video and especially audio are **extremely** sensitive.
+- **Loss.** The first four applications have **more stringent** requirements on loss than audio and video, because all bits must be delivered correctly; this is usually achieved by retransmission at the transport layer. Audio and video applications **can tolerate some lost packets**, because people do not notice short pauses or occasional skipped frames.
+
+Networks may support different **categories of QoS** to match these needs. An influential set comes from ATM networks:
+
+| Category | Behaviour | Example |
+|---|---|---|
+| Constant bit rate | Simulates a wire: uniform bandwidth and uniform delay | Telephony |
+| Real-time variable bit rate | Rate varies (a complex frame needs many bits), with tight delay bounds | Compressed videoconferencing |
+| Non-real-time variable bit rate | Rate varies, but buffering at the receiver is acceptable | Watching a movie on demand |
+| Available bit rate | Uses whatever bandwidth is available | File transfer |
+
+### Traffic shaping
+
+Before the network can make guarantees, it must know what traffic is being guaranteed. Traffic in data networks is **bursty**, and bursts are harder to deal with than constant-rate traffic because they can fill buffers and cause packets to be lost.
+
+**Traffic shaping** regulates the average rate and burstiness of a flow of data that enters the network. The customer and the provider agree on a traffic pattern in a **service level agreement**. As long as the customer sends packets according to the contract, the provider promises to deliver them in a timely fashion. Monitoring a flow to check that it keeps to the agreement is **traffic policing**.
+
+**The leaky bucket.** Picture a bucket with a small hole in the bottom. No matter the rate at which water enters, the outflow is at a **constant rate R** when there is any water in the bucket, and zero when it is empty. Once the bucket is full to its capacity *B*, any additional water spills over the sides and is lost. A host's network interface can contain such a bucket as a finite queue: packets enter in bursts and leave at a constant rate, and a packet that arrives when the bucket is full must be queued at the host or discarded. An uneven flow is turned into an **even** one.
+
+**The token bucket.** A different but equivalent picture: the bucket is being *filled*. A tap runs at rate *R* and the bucket has a capacity of *B*. To send a packet, the host must be able to take water, or **tokens**, out of the bucket. At most *B* tokens can accumulate. So a host that has been idle can save up permission, and then send a **burst of up to B** immediately; without tokens it must wait for more to arrive.
+
+<BucketShaper client:visible />
+
+| | Leaky bucket | Token bucket |
+|---|---|---|
+| Output | Rigid: never faster than the rate | Bursty up to the bucket size, then limited to the rate |
+| An idle host | Gains nothing by having been idle | Saves up tokens, to spend on a later burst |
+| When the bucket is full | Packets are discarded | Tokens are discarded, never packets |
+| Response to a sudden burst | Slow | Fast |
+
+<Question client:visible q={checks.bucket} />
+
+### Packet scheduling
+
+Being able to regulate the shape of the offered traffic is a good start. To give a performance guarantee, sufficient resources must also be **reserved** along the route: **bandwidth**, **buffer space** and **CPU cycles**. Algorithms that allocate router resources among the packets of a flow, and between competing flows, are called **packet scheduling algorithms**.
+
+**FIFO.** Each router buffers packets in a queue for each output line until they can be sent, and they are sent in the same order that they arrived. When the queue is full, newly arriving packets are dropped; this is **tail drop**. FIFO is simple to implement, but it is **not suited to providing good quality of service** when there are multiple flows, because one flow can easily affect the performance of the others. If the first flow is aggressive and sends large bursts of packets, they will lodge in the queue, and processing packets in arrival order means the aggressive sender can **hog most of the capacity** of the routers its packets traverse, starving the other flows.
+
+**Fair queueing.** Routers keep a **separate queue for each flow** for a given output line. When the line becomes idle, the router scans the queues **round robin** and takes the first packet from the next queue. With *n* hosts competing for the line, each gets to send one out of every *n* packets. It is fair in the sense that all flows send packets at the same rate, and sending more packets will not improve that rate.
+
+It has a flaw: it gives **more bandwidth to hosts that use large packets** than to hosts that use small packets. The improvement is to simulate a **byte-by-byte round robin** instead of a packet-by-packet one. Compute a virtual time for each packet, the number of the round at which it would *finish* being sent, where each round drains one byte from every queue that has data:
+
+$$
+F_i = \max(A_i,\, F_{i-1}) + L_i
+$$
+
+where *A<sub>i</sub>* is the arrival time, *F<sub>i</sub>* the finish time and *L<sub>i</sub>* the length of packet *i*. Packets are then sorted in order of their finish times and sent in that order.
+
+**Weighted fair queueing (WFQ).** Plain fair queueing gives all hosts the same priority. Often some should get more, for example a video server over a file server. Giving a flow a weight *W* means it receives *W* bytes per round:
+
+$$
+F_i = \max(A_i,\, F_{i-1}) + \frac{L_i}{W}
+$$
+
+<PacketScheduling client:visible />
+
+### Admission control, again
+
+The pieces now fit together. A user offers a flow, described by its traffic shape, with an accompanying QoS requirement. The network decides whether to **accept or reject** it based on its capacity and the commitments it has already made to other flows. If it accepts, it reserves capacity in advance at the routers along the route, and the packet scheduler honours the reservation. QoS guarantees are established through this process of **admission control**.
+
+<Callout type="exam">
+QoS questions tend to ask for the chain, not one link of it: **what the application needs** (bandwidth, delay, jitter, loss) → **shape the traffic** (leaky or token bucket) → **reserve resources and schedule** (fair queueing, WFQ) → **admit or refuse** (admission control). Mention that the alternative is over-provisioning, which costs money.
+</Callout>
+
+## The network layer in the Internet
+
+The Internet is an interconnected collection of many networks, held together by one protocol: **IP**. Its design was shaped by a set of guiding principles worth knowing:
+
+- Make sure it works.
+- Keep it simple.
+- Make clear choices.
+- Exploit modularity.
+- Expect heterogeneity.
+- Avoid static options and parameters.
+- Look for a good design; it need not be perfect.
+- Be strict when sending and tolerant when receiving.
+- Think about scalability.
+- Consider performance and cost.
+
+### The IPv4 header
+
+An IPv4 datagram consists of a header and a payload. The header has a 20-byte fixed part and a variable-length optional part.
+
+| Field | Purpose |
+|---|---|
+| Version | Which version of the protocol the datagram belongs to |
+| IHL | Header length, in 32-bit words |
+| Differentiated services | Type of service wanted |
+| Total length | Everything in the datagram, header and data |
+| Identification | Lets the destination tell which packet a newly arrived fragment belongs to; all fragments of a packet carry the same value |
+| DF | "Don't fragment": an order to routers not to fragment the packet |
+| MF | "More fragments": set on every fragment except the last, so the destination knows when all have arrived |
+| Fragment offset | Where in the current packet this fragment belongs |
+| Time to live | A counter that limits packet lifetime; decremented at each hop, and the packet is discarded at zero |
+| Protocol | Which transport process to give the packet to: TCP or UDP |
+| Header checksum | Verifies the header only |
+| Source and destination address | The IP addresses of the two ends |
+| Options | Room for later ideas: security, strict source routing, loose source routing, record route, timestamp |
+
+### IP addresses
+
+Every host and router on the Internet has an IP address. A defining feature of IPv4 is its **32-bit** addresses, written in **dotted decimal notation**: each of the four bytes is written in decimal, from 0 to 255, as in `128.208.2.151`.
+
+**Prefixes.** IP addresses are hierarchical. Each address has a variable-length **network portion** in the top bits and a **host portion** in the bottom bits. The network portion has the same value for all hosts on a single network. So a network corresponds to a contiguous block of address space called a **prefix**.
+
+- A prefix is written as the lowest address in the block followed by a slash and the **length in bits of the network portion**, as in `18.0.31.0/24`.
+- A block with a prefix of length *L* contains 2<sup>32−L</sup> addresses, aligned on a boundary of that size.
+- The length can also be given as a **subnet mask**: a run of 1s for the network portion, as in `255.255.255.0`. ANDing an address with the mask extracts the network portion.
+
+The advantage of hierarchy is that routers can forward packets based on **only the network portion** of the address, so routing tables are far smaller than one entry per host.
+
+<SubnetCalc client:visible />
+
+<Question client:visible q={checks.prefix} />
+
+**Subnets.** To avoid needing a new block from outside every time an organisation grows, a block of addresses can be **split into several parts for internal use** as multiple networks, while still acting like a **single network to the outside world**. The parts are **subnets**. An address is then read as (network bits, subnet bits, host bits). The ISP gives the organisation a single prefix, and the organisation divides it internally.
+
+**Aggregation.** The opposite operation. Multiple small prefixes are combined into a **single larger prefix**, so that distant routers need only one table entry for all of them. An ISP whose customers have different prefixes advertises just one. This is **CIDR** (classless inter-domain routing), and the resulting larger prefix is sometimes called a supernet. When several entries match a destination, the router uses the **longest matching prefix**.
+
+**Classful addressing.** Before CIDR, addresses came in fixed-size blocks: class A (a /8 network), class B (/16) and class C (/24). The class was carried in the first bits of the address itself. The scheme lacked flexibility: a class B network was far too large for most organisations and a class C too small, and addresses ran short.
+
+**NAT.** IPv4 addresses are scarce. With **network address translation**, an ISP assigns a home or business a **single external IP address**, and within the customer's network every computer gets a unique address from a private range. Just before a packet leaves the network, a **NAT box** converts the internal source address to the shared external one. To send replies back to the right machine, it uses the **TCP or UDP port**: it replaces the source port with an index into a translation table that records the original internal address and port. NAT is very common in homes and offices. It also **violates layering**, since a network-layer device is reading and rewriting transport-layer fields.
+
+### Control protocols
+
+IP works with the help of several companion protocols.
+
+| Protocol | Job |
+|---|---|
+| **ICMP** (Internet Control Message Protocol) | Reports unexpected events back to the sender: destination unreachable, time exceeded, echo and echo reply. Required, and used in many ways, for example by `ping` and `traceroute` |
+| **ARP** (Address Resolution Protocol) | Finds the Ethernet address that corresponds to a local IP address. A host broadcasts "who owns this IP address?" and the owner replies with its Ethernet address. The glue needed to send any IP packet on a LAN |
+| **DHCP** (Dynamic Host Configuration Protocol) | Assigns a local IP address to a host automatically. The host sends a request to a server, which grants a **lease** on an address |
+
+### MPLS
+
+**Multiprotocol label switching** sends packets along established paths. A label is added in front of each IP packet, and forwarding is based on that label rather than on the destination address. Using the label as an index into an internal table makes finding the output line a matter of a table lookup. ISPs use it to move traffic across their networks and to provide quality of service. It is the virtual-circuit idea, added just below the IP layer.
+
+### IPv6
+
+IPv4 is running out of addresses, even with CIDR and NAT. **IPv6** was designed to support **billions of hosts**, even with inefficient address allocation, and to simplify the protocol so that routers can process packets faster.
+
+- Addresses are **128 bits** long: 16 bytes.
+- They are written as **eight groups of four hexadecimal digits**, separated by colons: `8000:0000:0000:0000:0123:4567:89AB:CDEF`.
+- Two abbreviations are allowed. **Leading zeros** within a group can be omitted, so `0123` becomes `123`. And **one or more groups of 16 zero bits** can be replaced by a pair of colons. The address above becomes `8000::123:4567:89AB:CDEF`.
+- An IPv4 address can be written as a pair of colons followed by the old dotted decimal number: `::192.31.20.46`.
+
+## Summary
+
+- The **network layer** carries packets end to end across many hops by **store-and-forward** switching. It may be **connectionless** (datagrams, each routed independently) or **connection-oriented** (virtual circuits, with a route fixed at set-up and labels in packets).
+- **Forwarding** uses the tables; **routing** builds them. **Dijkstra** finds shortest paths. **Flooding** is robust but wasteful. **Distance vector** exchanges whole vectors with neighbours and suffers **count to infinity**. **Link state** floods information about neighbours and runs Dijkstra locally. **Hierarchical** routing keeps tables small.
+- **Congestion** is too many packets in part of the network. Remedies, slowest to fastest: provisioning, traffic-aware routing, admission control, traffic throttling (choke packets, ECN) and load shedding (wine or milk, RED).
+- **Quality of service** is about bandwidth, delay, jitter and loss. Traffic is **shaped** by a **leaky bucket** (constant output) or **token bucket** (bounded bursts); **scheduled** by FIFO, **fair queueing** or **WFQ**; and accepted by **admission control**.
+- **IPv4** addresses are 32 bits with a **prefix**. **Subnetting** splits a block, **aggregation** joins blocks, **NAT** shares one address among many hosts. **ICMP**, **ARP** and **DHCP** support IP. **IPv6** has 128-bit addresses.
+
+## Exam-style practice
+
+<Question client:visible q={practice.leaky} label="Written practice" />
+
+<Question client:visible q={practice.fifo} label="Written practice" />
+
+<Checkpoint client:visible lessonId="network-layer" questions={checkpoint} />

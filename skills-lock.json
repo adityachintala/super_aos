@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "skills": {
+    "starwind-pro": {
+      "source": "starwind-ui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/starwind-pro/SKILL.md",
+      "computedHash": "6afb034a133e52fb48be192edc569d549423d75b858ffdc9c45c9bd6a3d70c78",
+      "installMode": "copy"
+    },
+    "starwind-ui": {
+      "source": "starwind-ui/skills",
+      "sourceType": "github",
+      "skillPath": "skills/starwind-ui/SKILL.md",
+      "computedHash": "eeea04198489e5d7a8f4f35c86acfa5c98bc593822d65a20279b18bb31ef11ce",
+      "installMode": "copy"
+    }
+  }
+}

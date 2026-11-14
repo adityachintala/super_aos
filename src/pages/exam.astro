@@ -1,0 +1,31 @@
+---
+import Base from '@/layouts/Base.astro';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/starwind/breadcrumb';
+import MockExam from '@/components/learn/MockExam.svelte';
+import { units } from '@/lib/course';
+import { bank } from '@/lib/bank';
+
+const pool = bank.filter((x) => x.q.type === 'written');
+const unitInfo = units.map((u) => ({ id: u.id, title: u.title, lessons: u.lessons.map((l) => ({ id: l.id, title: l.title })) }));
+---
+
+<Base title="Mock exam" description="A timed, written mock exam covering the whole Advanced Operating Systems syllabus, marked against model answers.">
+  <main class="mx-auto max-w-3xl px-4 pt-8">
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem><BreadcrumbLink href="/">Course map</BreadcrumbLink></BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem><BreadcrumbPage>Mock exam</BreadcrumbPage></BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+
+    <h1 class="mt-4 text-3xl leading-tight font-semibold tracking-tight">Mock exam</h1>
+    <p class="text-muted-foreground mt-2 text-lg">
+      Practise the whole syllabus under exam conditions. There are {pool.length} written questions in the bank, so no two papers are alike.
+    </p>
+
+    <div class="mt-8">
+      <MockExam client:load units={unitInfo} pool={pool} />
+    </div>
+  </main>
+</Base>

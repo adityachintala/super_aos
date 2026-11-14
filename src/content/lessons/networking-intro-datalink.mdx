@@ -1,0 +1,382 @@
+---
+title: Networks and the Data Link Layer
+summary: How networks are organised into layers, and how two machines on a single link exchange frames reliably and share one channel without talking over each other.
+minutes: 60
+prerequisites: [processes-and-ipc, synchronization]
+objectives:
+  - Explain protocol layering, services and protocols, and compare the OSI and TCP/IP reference models
+  - Describe framing, error detection and correction, and flow control at the data link layer
+  - Trace stop-and-wait, Go-Back-N and Selective Repeat, and size a sliding window
+  - Compare the CSMA family of medium-access protocols and explain CSMA/CD and binary exponential backoff
+  - Distinguish repeaters, hubs, bridges and switches, and explain how a learning bridge works
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import LayerEncapsulation from '../../components/viz/LayerEncapsulation.svelte';
+import BitStuffing from '../../components/viz/BitStuffing.svelte';
+import SlidingWindowSim from '../../components/viz/SlidingWindowSim.svelte';
+import CsmaSim from '../../components/viz/CsmaSim.svelte';
+import LearningBridge from '../../components/viz/LearningBridge.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/networking-intro-datalink';
+
+## From one computer to many
+
+An operating system takes hardware as its input and produces **system calls** as its output: simple services on which applications are built, designed to improve throughput and response time.
+
+A network can be seen the same way, one level up. Its input is thousands of computers connected by communication channels, spread across the world. Its output is a set of **primitives** for building applications such as the web and e-mail. The objectives gain one item: throughput, response time and **reliability**.
+
+### The producer and consumer, far apart
+
+You have met the **producer-consumer problem**: a producer places items in a buffer and a consumer removes them. The producer waits if the buffer is full, the consumer if it is empty. Normally both are on the same computer.
+
+Now put the producer on one computer and the consumer on another, joined by a channel thousands of kilometres long with intermediate links and junctions. The new difficulties are:
+
+- the links **might not be reliable**;
+- **all the data may not be delivered**.
+
+More mechanisms are needed: **error control** and **flow control**. Those two ideas recur at more than one layer, and most of this unit is about them.
+
+### Networks and distributed systems
+
+A **computer network** is a large number of separate but interconnected computers. A **distributed system** is a collection of independent computers that appears to its users as a single coherent system; it is a layer of software, such as the World Wide Web, presented on top of a network. In a computer network, users are exposed to the actual machines.
+
+People use networks for **resource sharing** in business (making programs, equipment and data available to anyone regardless of location), at home (communication, content, e-commerce), and on the move. Some applications use the **peer-to-peer** model, in which there are no fixed clients and servers.
+
+### Classifying networks
+
+Two dimensions are used: **scale** and **transmission technology**.
+
+| Scale | Type |
+|---|---|
+| Vicinity | PAN (personal area network) |
+| Building | LAN (local area network) |
+| City | MAN (metropolitan area network) |
+| Country | WAN (wide area network) |
+| Planet | The Internet, a network of networks |
+
+There are two types of transmission technology.
+
+- **Point-to-point links** connect individual pairs of machines. To go from source to destination a packet may have to visit one or more intermediate machines.
+- **Broadcast links** are shared by several machines. A packet sent by one is received by all; an address in the packet says who it is for. **Broadcasting** sends to all machines, **multicasting** to a subset.
+
+## Layers, services and protocols
+
+Networks are too complex to design as one piece. The main structuring method is **protocol layering**: divide the problem among layers, build each layer on the one below, and have each lower layer provide **services** to the layer above.
+
+- Each protocol instance talks **virtually to its peer** in the same layer on the other machine.
+- In reality each layer communicates **only by using the one below**.
+- Lower-layer services are reached through an **interface**.
+- At the bottom, messages are carried by the physical **medium**.
+
+<Callout type="analogy" title="The philosopher, the translator and the secretary">
+Two philosophers, one who speaks Urdu and English and one who speaks Chinese and French, want to converse. Each hires a translator, and each translator contacts a secretary. The philosopher passes a message to the translator, who puts it into an agreed common language, say Dutch. The secretary sends it by fax or e-mail. At the far end the message goes up through secretary and translator to the other philosopher. Each pair of peers believes it is talking to its counterpart, and each layer can change its method (Dutch to Finnish, fax to e-mail) without the others noticing.
+</Callout>
+
+As a message goes down the stack, each layer adds its own **header** with control information for its peer, and the receiving side removes it. Layers may also split messages into smaller pieces and join them again.
+
+<LayerEncapsulation client:visible />
+
+Two terms must be kept apart:
+
+- A **service** is a set of operations that a layer provides to the layer **above** it. It says *what* the layer does, not how. This is the **vertical** relationship.
+- A **protocol** is a set of rules governing the format and meaning of the messages exchanged by **peer** entities within a layer. This is the **horizontal** relationship.
+
+A layer is free to change its protocol as long as the service visible to its users does not change.
+
+<Question client:visible q={checks.peers} />
+
+<Question client:visible q={checks.layerK} />
+
+### Connection-oriented and connectionless service
+
+The service a layer provides may be of two kinds.
+
+- **Connection-oriented**: a connection must be set up, used, and then torn down, like a **telephone call**.
+- **Connectionless**: each message is handled separately and carries the full destination address, like **postal delivery**.
+
+A service is specified by its **primitives**, the operations (system calls) offered to the layer above. A simple reliable byte-stream service might offer:
+
+| Primitive | Meaning |
+|---|---|
+| LISTEN | Block waiting for an incoming connection |
+| CONNECT | Establish a connection with a waiting peer |
+| ACCEPT | Accept an incoming connection from a peer |
+| RECEIVE | Block waiting for an incoming message |
+| SEND | Send a message to the peer |
+| DISCONNECT | Terminate a connection |
+
+A server calls LISTEN; a client calls CONNECT; the server ACCEPTs; the two exchange data with SEND and RECEIVE; and each side DISCONNECTs.
+
+### Reference models
+
+**The OSI reference model** (Open Systems Interconnection, from the International Standards Organization) is a principled, international standard with **seven layers**.
+
+| Layer | Job |
+|---|---|
+| 7 Application | Provides the functions users need: file transfer, e-mail, the web (HTTP) |
+| 6 Presentation | Syntax and semantics of the information; lets computers with different data representations communicate |
+| 5 Session | Establishes sessions: dialog control, token management, synchronisation |
+| 4 Transport | End-to-end delivery. Accepts data, splits it if required, passes it to the network layer; isolates the upper layers from changes in hardware technology |
+| 3 Network | Controls the operation of the subnet: how packets are **routed** from source to destination, and congestion |
+| 2 Data link | Turns a raw transmission facility into a line that appears free of undetected errors: frames, acknowledgements, flow control, access to a shared channel |
+| 1 Physical | Transmits **raw bits** over a channel: mechanical, electrical and timing interfaces |
+
+The transport layer is the first true **end-to-end** layer: a program on the source machine converses with a similar program on the destination. In the layers below it, each protocol is between a machine and its immediate neighbour.
+
+**The TCP/IP reference model** has **four layers** and was derived from experience rather than designed first. It omits the session and presentation layers and uses **IP** as its network layer.
+
+| TCP/IP layer | Protocols |
+|---|---|
+| Application | HTTP, SMTP, RTP, DNS |
+| Transport | TCP, UDP |
+| Internet | IP, ICMP |
+| Link | DSL, SONET, 802.11, Ethernet |
+
+The OSI **model** is still a good way to think about networks, though its protocols are not widely used. For TCP/IP the opposite holds: the model is thin, but the **protocols** are everywhere. This course, like most, uses a hybrid of five layers: physical, link, network, transport and application.
+
+### The Internet today
+
+- **ISP networks** serve as the Internet backbone, and ISPs connect ("peer") to exchange traffic at **Internet exchange points (IXPs)**.
+- Within each network, **routers** switch packets. Between networks, traffic exchange is set by business agreements.
+- Customers connect at the edge by many means: cable, DSL, fibre to the home, cellular wireless.
+- **Data centres** concentrate many servers ("the cloud"), and most traffic is now content from data centres, especially video.
+
+## The physical layer in brief
+
+Below the data link layer, bits must become signals. Three ideas from this layer explain a good deal of what follows.
+
+**Bandwidth and Fourier analysis.** Any reasonably behaved periodic signal can be built by adding together sine and cosine waves of different frequencies, called **harmonics**: this is Fourier analysis. A real channel passes only a limited range of frequencies, its **bandwidth**. Analysing a signal into its harmonics shows how many of them a channel must carry for the signal to be recognisable at the other end. A data signal need not be sent with all its harmonics; sending only the first few is enough to reconstruct the bits. So Fourier analysis tells us the **minimum bandwidth** needed for a given data rate, which lets signals be filtered down to a narrow band and lets more of them share a medium.
+
+**Modulation.** Modulation is the process of converting between bits and signals. Raw digital pulses, sent as they are (baseband), contain a wide range of frequencies including very low ones. They suit wires, but not channels that pass only a band of frequencies away from zero, such as radio, where an efficient antenna must be comparable in size to the wavelength. Without modulation, bits could not be sent by radio at all with reasonable antennas and power, would be badly distorted and attenuated over distance, and would all occupy the same low frequencies so that only one signal could use the medium. Modulation shifts the signal onto a **carrier** by varying its amplitude, frequency or phase, which lets it travel far and lets different signals occupy different bands.
+
+**Multiplexing.** Channels are often shared by multiple signals, since it is far cheaper to use one wire or fibre for many conversations than to install a wire for each. **Frequency division multiplexing (FDM)** gives each user a band of the spectrum; **time division multiplexing (TDM)** gives each user the whole bandwidth in turn, for a short slot; **code division multiplexing (CDM)** lets users send across the whole band at once using different codes; **wavelength division multiplexing (WDM)** is FDM for light in a fibre.
+
+**Communication satellites.** A satellite is essentially a big microwave repeater in the sky. It contains **transponders**, each of which listens to a portion of the spectrum, amplifies the incoming signal and rebroadcasts it at another frequency. Its purpose is to provide wide-area coverage: broadcasting to a whole region at once, and reaching places where ground infrastructure is missing or impractical, such as ships, aircraft, remote areas and regions struck by disaster.
+
+## The data link layer
+
+The data link layer answers a narrow question: **how do two adjacent machines exchange information reliably and efficiently?** "Adjacent" means joined by something that behaves conceptually like a wire: a coaxial cable, a telephone line or a wireless channel. Two properties of that wire make the job non-trivial: there is a **non-zero propagation delay**, and the channel **makes errors**.
+
+The layer is responsible for delivering **frames** over a single link. It:
+
+- provides a well-defined service to the network layer;
+- deals with **transmission errors**;
+- **regulates the flow** of data so that a slow receiver is not swamped by a fast sender.
+
+It accepts **packets** from the network layer and **encapsulates** them into frames, each with a header, a payload holding the packet, and a trailer. It is usually implemented in the network interface card and the operating system's device driver.
+
+### Services to the network layer
+
+| Service | What happens | Used where |
+|---|---|---|
+| **Unacknowledged connectionless** | Frames are sent with no connection and no recovery if one is lost | Reliable media and real-time traffic. Ethernet |
+| **Acknowledged connectionless** | No connection, but each frame is individually acknowledged and retransmitted if needed | Unreliable channels. 802.11 (WiFi) |
+| **Acknowledged connection-oriented** | A connection is set up, frames are numbered and each is delivered exactly once and in order, then the connection is released | Long, unreliable links |
+
+### Framing
+
+The physical layer delivers a stream of bits that is not guaranteed to be error-free. To detect errors the data link layer breaks the stream into discrete **frames** and computes a checksum for each. The receiver must be able to find where each frame starts and ends.
+
+A widely used method is **bit stuffing**. Each frame begins and ends with a special **flag** byte, `01111110`. To prevent that pattern from appearing inside the data, whenever the sender's data link layer encounters **five consecutive 1s** in the data it automatically **stuffs a 0** into the outgoing stream. When the receiver sees five consecutive 1s followed by a 0, it deletes the 0. The stuffing is completely transparent to the network layer on both sides.
+
+<BitStuffing client:visible />
+
+<Question client:visible q={checks.stuffing} />
+
+### Detecting and correcting errors
+
+**Error codes** add structured redundancy to the data so that errors can be either detected or corrected.
+
+- **Error-detecting codes** include enough redundancy for the receiver to know that an error has occurred, and then ask for a retransmission. They are used on reliable channels such as fibre, where errors are rare and resending the occasional frame is cheap. Examples: **parity**, **checksums**, and **cyclic redundancy checks (CRC)**.
+- **Error-correcting codes** include enough redundancy for the receiver to work out what the data must have been. They are used on noisy channels such as wireless, where a retransmission is as likely to be damaged as the original. Examples: **Hamming codes**, convolutional codes, Reed-Solomon and low-density parity-check codes.
+
+How much a code can do depends on its **Hamming distance**, the minimum number of bit positions in which any two valid codewords differ. To **detect** *d* errors, a code needs distance *d* + 1. To **correct** *d* errors, it needs distance 2*d* + 1.
+
+**A CRC example.** Treat the bit string as a polynomial and agree on a **generator**. To send the frame `1101011111` with generator `10011` (degree 4):
+
+1. Append four zero bits: `11010111110000`.
+2. Divide by `10011` using modulo-2 arithmetic, where subtraction is XOR. The remainder is `0010`.
+3. Transmit the frame with the remainder in place of the zeros: `11010111110010`.
+
+The transmitted frame is exactly divisible by the generator. The receiver divides what arrives by the same generator, and a non-zero remainder means there has been an error. A well-chosen CRC catches all single and double errors, all errors of odd length, and all bursts no longer than the checksum.
+
+### Error control and flow control
+
+**Error control** answers: how do we make sure all frames are eventually delivered to the network layer, in order?
+
+- The receiver returns **positive or negative acknowledgements**.
+- A frame, or its acknowledgement, may vanish entirely, so the sender starts a **timer**. If it expires, the frame is sent again.
+- When frames may be sent several times, the receiver must not accept duplicates, so frames carry **sequence numbers**.
+
+**Flow control** answers: how do we stop a fast sender from out-pacing a slow receiver?
+
+- **Feedback-based**: the receiver sends back information giving the sender permission to send more.
+- **Rate-based**: the protocol has a built-in mechanism that limits the sending rate.
+
+## Protocols for one link
+
+The classic way to learn these mechanisms is to build up from a protocol that is too simple to work.
+
+**1. Utopia.** Assume no errors and a receiver as fast as the sender. The sender loops, blasting frames; the receiver loops, consuming them. There is no error control and no flow control.
+
+**2. Stop-and-wait on an error-free channel.** To stop the sender outrunning the receiver, the receiver returns a small **acknowledgement** frame when it is ready for more. Only one frame is out at a time. That one change adds flow control.
+
+**3. Stop-and-wait on a noisy channel: ARQ.** Now frames may be damaged or lost. **Automatic repeat request (ARQ)** adds error control: the receiver acknowledges frames that arrive correctly, and the sender sets a timer and resends if no acknowledgement comes.
+
+There is a trap. If the *acknowledgement* is lost, the sender times out and resends a frame that the receiver has already passed to its network layer, which would then receive it twice. For correctness, **frames and acknowledgements must be numbered**. For stop-and-wait, two sequence numbers (one bit) are enough: the receiver only needs to tell "the next frame" from "the one I already have".
+
+<Question client:visible q={checks.seq} />
+
+### Piggybacking
+
+Those protocols carry data in one direction only. In practice data flows both ways, and using a separate channel for acknowledgements wastes almost all of its capacity. Instead, the same link is used in both directions, with data frames and acknowledgement frames intermixed.
+
+An improvement is **piggybacking**: temporarily delay an outgoing acknowledgement so that it can be hooked onto the **next outgoing data frame**, in an *ack* field of the header. The acknowledgement gets a free ride, using a few bits instead of a whole frame.
+
+The difficulty is knowing how long to wait. If the receiver waits longer than the sender's timeout, the frame is retransmitted, which defeats the purpose, and waiting always adds delay. The answer is a hybrid: wait a short fixed time; if a data frame turns up, piggyback; otherwise send a separate acknowledgement frame.
+
+### Sliding windows
+
+Stop-and-wait is inefficient on long links: the sender is idle for a whole round trip per frame. **Sliding window protocols** let several frames be outstanding at once, which is called **pipelining**.
+
+- The sender maintains a **sending window**: the set of sequence numbers it is permitted to send. Frames in the window have been sent but not yet acknowledged, so the sender must keep them in a buffer. With a window of *n* it needs *n* buffers.
+- When a new packet arrives from the network layer, it is given the next sequence number and the **upper edge** of the window advances by one.
+- When an acknowledgement arrives, the **lower edge** advances by one.
+- The receiver maintains a **receiving window**: the set of frames it is permitted to accept.
+
+How big should the window be? It depends on the link's **bandwidth-delay product** *BD*: the bit rate multiplied by the one-way delay, expressed in frames. That is how many frames fit "in flight". To keep the link busy the window should satisfy
+
+$$
+w \ge 2BD + 1
+$$
+
+The 2*BD* covers the frames travelling out and the acknowledgements travelling back; the extra one is the frame being received.
+
+<Question client:visible q={checks.window} />
+
+### Go-Back-N and Selective Repeat
+
+Pipelining raises a question that stop-and-wait never faced. If a frame in the middle of a long stream is damaged or lost, a large number of frames following it will arrive at the receiver before the sender even finds out. What should the receiver do with them? There are two answers.
+
+**Go-Back-N.** The receiver simply **discards all subsequent frames** and sends no acknowledgements for them. This corresponds to a receive window of size 1: it accepts only the next frame it is due to deliver. The sender eventually times out and **retransmits all unacknowledged frames in order**, starting with the damaged or lost one.
+
+**Selective Repeat.** A bad frame is discarded, but any **good frames received after it are accepted and buffered**. When the sender times out, **only the oldest unacknowledged frame is retransmitted**. If that arrives correctly, the receiver can deliver, in sequence, all the frames it has buffered. This corresponds to a receive window larger than 1.
+
+<SlidingWindowSim client:visible />
+
+| | Go-Back-N | Selective Repeat |
+|---|---|---|
+| Receiver window | 1 | Up to the sender's window |
+| Receiver buffer | One frame | A window of frames |
+| On a lost frame | Resend it and everything sent after it | Resend only that frame |
+| Acknowledgements | Cumulative | Individual (often with negative acks) |
+| Sender timers | One, for the oldest frame | One per outstanding frame |
+| Best when | Errors are rare | The error rate is high or the window is large |
+
+The two approaches are a **trade-off between efficient use of bandwidth and data-link-layer buffer space**. Go-Back-N can waste a lot of bandwidth if the error rate is high, since one error costs a whole window. Selective Repeat avoids that, at the cost of large amounts of receiver memory and more complex logic, and its sequence-number space must be at least twice the window size so that old and new windows cannot be confused.
+
+## Sharing a channel: the MAC sublayer
+
+Network links fall into two categories: **point-to-point connections**, and **broadcast channels**, also called multi-access or random-access channels. On a broadcast channel the key question is who gets to use the channel when several want it.
+
+Picture a conference call with six people. When one stops speaking, two others may start at the same time, and the result is chaos. In a face-to-face meeting people raise their hands; on a single shared channel some other rule is needed.
+
+The protocols that decide who goes next belong to the **medium access control (MAC) sublayer**, the bottom part of the data link layer. It matters most in LANs, particularly wireless ones, since wireless is naturally a broadcast channel.
+
+### Carrier sense protocols
+
+The earliest protocols, the ALOHA family, let stations transmit whenever they liked and sorted out the collisions afterwards. A big improvement is to **listen first**. Protocols in which stations listen for a carrier (a transmission) and act accordingly are **carrier sense multiple access (CSMA)** protocols. They differ in what a station does when it finds the channel busy.
+
+**1-persistent CSMA.**
+
+- When a station has data to send, it listens to the channel.
+- If the channel is **idle**, it sends.
+- If the channel is **busy**, it waits until the channel becomes idle and then transmits.
+- If a collision occurs, it waits a random time and starts over.
+
+It is called 1-persistent because the station transmits with a **probability of 1** when it finds the channel idle. Its weakness is greed. If two stations become ready while a third is transmitting, both wait politely until it finishes and then both begin at exactly the same instant: a certain collision.
+
+**Nonpersistent CSMA.** A conscious attempt to be less greedy. If the channel is already in use, the station does **not** continually sense it for the purpose of seizing it the moment it is free. Instead it **waits a random period** and then repeats the algorithm. This leads to **better channel utilisation but longer delays** than 1-persistent CSMA.
+
+**p-persistent CSMA.** For slotted channels. When a station is ready and the channel is idle, it transmits with **probability *p***, and with probability 1 − *p* it defers until the next slot, where the same rule applies.
+
+<CsmaSim client:visible />
+
+### CSMA/CD
+
+Persistent and nonpersistent CSMA improve on ALOHA because no station starts transmitting while the channel is busy. But if two stations sense the channel idle and begin at the same time, their signals still collide, and both carry on sending their now useless frames to the end.
+
+**CSMA with collision detection (CSMA/CD)** has stations **detect the collision quickly and abruptly stop transmitting**, which saves time and bandwidth. A station that detects a collision aborts, waits a random period, and tries again. The channel alternates between **contention periods**, **transmission periods** and **idle periods** when all stations are quiet.
+
+How long does it take to be sure there was no collision? Let *τ* be the signal propagation time between the two farthest stations. A station's signal takes *τ* to reach the far end, and if a station there started just before it arrived, the news of the collision takes another *τ* to travel back. A station therefore cannot be sure it has seized the channel until it has transmitted for **2*τ*** without hearing a collision. On a 1 km coaxial cable, *τ* is about 5 microseconds. Performance is much better when the frame time is far larger than the propagation time.
+
+### Classic Ethernet
+
+Classic Ethernet connected all hosts to **one shared coaxial cable**, at up to 10 Mbps with Manchester encoding. Its MAC protocol is **1-persistent CSMA/CD**.
+
+After a collision, the random delay is chosen by **binary exponential backoff (BEB)**. Time is divided into slots of 2*τ*.
+
+- After the **first** collision, each station waits 0 or 1 slot times.
+- After the **second**, it picks a number from 0 to 3.
+- After ***i*** collisions, it picks a random number between 0 and 2<sup>*i*</sup> − 1.
+- After 10 collisions the range is frozen at 0 to 1023, and after 16 the station gives up and reports failure.
+
+The interval grows exponentially as more and more consecutive collisions occur, so the algorithm **adapts to the number of stations** trying to send. With few contenders the delay is short; with many, the collisions are resolved within a reasonable number of tries.
+
+## Switching in the data link layer
+
+Networks grow by joining LANs together. The devices that do so are named according to the **layer** at which they work.
+
+| Device | Layer | What it does |
+|---|---|---|
+| **Repeater** | Physical | Amplifies the signal on one cable and puts it out on another. Knows nothing of frames or addresses |
+| **Hub** | Physical | Has several input lines joined electrically. A frame arriving on any line is sent out on all the others; two frames arriving together collide. The entire hub forms **a single collision domain** |
+| **Bridge** | Data link | Connects two or more LANs. Examines the **destination address** of each frame and decides which line to send it on. **Each line is its own collision domain** |
+| **Switch** | Data link | Similar to a bridge; the name is used when it connects individual computers |
+| **Router** | Network | Forwards packets using network-layer (IP) addresses |
+| **Gateway** | Transport and above | Connects different kinds of transport or application protocol |
+
+<Question client:visible q={checks.collision} />
+
+### Learning bridges
+
+A bridge operates as a switched LAN, not as a hub. Computers, hubs and other bridges connect to its ports. It decides where to send each frame using a hash table of (address, port) pairs, and the remarkable thing is that nobody has to fill the table in. The bridge uses the **backward learning** algorithm.
+
+1. The bridge operates in promiscuous mode, so it sees every frame sent on each of its ports. By looking at the **source address** of a frame, it learns that the source is reachable through the **port the frame arrived on**, and records that.
+2. To forward, it looks up the **destination address**:
+   - if the port for the destination is the **same** as the arrival port, **discard** the frame (the destination has already received it);
+   - if the port is **different**, **forward** the frame on that port;
+   - if the destination is **unknown**, **flood**: send the frame on all ports except the one it arrived on.
+
+Entries are **aged**: if no frame is seen from an address for a few minutes, its entry is purged. A machine that is moved to another port is therefore relearned automatically.
+
+<LearningBridge client:visible />
+
+Bridges need **no configuration**; they are plug and play. They extend the link layer: they use Ethernet headers and addresses but do not remove them, and they never look at the network-layer header.
+
+### Virtual LANs
+
+Users are often grouped on LANs by department, and departments do not match the layout of the building. **Virtual LANs (VLANs)** split one physical LAN into several logical LANs to ease management. Each port of a VLAN-aware switch is "coloured" according to the VLAN it belongs to, and a frame is only forwarded to ports of the same colour. Changing which LAN a machine is on becomes a configuration change rather than a rewiring job.
+
+## Summary
+
+- Networks are built in **layers**. A layer offers a **service** to the layer above and speaks a **protocol** to its peer. Each layer adds a header on the way down.
+- **OSI** has seven layers; **TCP/IP** has four. Services are **connection-oriented** or **connectionless**.
+- The **data link layer** moves **frames** over one link. It does **framing** (bit stuffing), **error detection and correction** (parity, CRC, Hamming codes), **error control** (acks, timers, sequence numbers) and **flow control**.
+- **Stop-and-wait** sends one frame at a time; **sliding windows** pipeline frames, with w ≥ 2BD + 1. On an error, **Go-Back-N** resends the tail of the window and **Selective Repeat** resends one frame but needs buffers.
+- **Piggybacking** carries acknowledgements on data frames going the other way.
+- The **MAC sublayer** shares a broadcast channel. **1-persistent CSMA** is greedy, **nonpersistent** waits a random time (better utilisation, longer delay), **p-persistent** sends with probability *p*. **CSMA/CD** stops on collision; Ethernet adds **binary exponential backoff**.
+- **Hubs** form one collision domain; **bridges and switches** forward by address, **learn** by looking at source addresses, and **flood** what they do not know. **VLANs** make logical LANs out of one physical one.
+
+## Exam-style practice
+
+<Question client:visible q={practice.producer} label="Written practice" />
+
+<Question client:visible q={practice.piggyback} label="Written practice" />
+
+<Question client:visible q={practice.physical} label="Written practice" />
+
+<Checkpoint client:visible lessonId="networking-intro-datalink" questions={checkpoint} />

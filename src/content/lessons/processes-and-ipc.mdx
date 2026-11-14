@@ -1,0 +1,447 @@
+---
+title: Processes and IPC
+summary: What a process is, how the operating system keeps track of processes and switches between them, how new ones are created, and how they talk to each other.
+minutes: 50
+prerequisites: [system-structures]
+objectives:
+  - Define a process and describe its states and its process control block
+  - Explain scheduling queues, the three schedulers and the context switch
+  - Trace process creation with fork and exec, and process termination
+  - Compare shared memory and message passing, including the bounded-buffer problem
+  - Describe direct and indirect communication, synchronisation, buffering, sockets, RPC and pipes
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import Stepper from '../../components/viz/Stepper.svelte';
+import SequenceDiagram from '../../components/viz/SequenceDiagram.svelte';
+import ProcessStates from '../../components/viz/ProcessStates.svelte';
+import ForkTree from '../../components/viz/ForkTree.svelte';
+import BoundedBuffer from '../../components/viz/BoundedBuffer.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/processes-and-ipc';
+
+## Why processes?
+
+Early computers ran one program at a time, and that program had complete control of the machine. Modern systems load **many programs into memory and execute them concurrently**. Getting from one to the other required firmer control and more compartmentalisation of the various programs, and the result was the notion of a **process**: the unit of work in a modern system.
+
+<Callout type="analogy">
+Picture a workshop with one expensive machine tool and several workers, each following their own set of instructions for some job. Only one worker can use the tool at a time. A worker who has to wait for a delivery of parts should step aside so that someone else can use the tool, and when a worker steps back in they must find everything exactly as they left it, or accidents will happen. The instructions are the program; a worker carrying them out is a process; the tool is the CPU; the supervisor deciding who goes next is the operating system.
+</Callout>
+
+An operating system executes a variety of programs: batch systems run *jobs*, time-shared systems run *user programs* or *tasks*. The terms job and process are used almost interchangeably.
+
+## The process concept
+
+A **process is a program in execution**. Its execution must progress in a **sequential** fashion: at any time, at most one instruction is executed on behalf of the process.
+
+A process is more than the program code. It includes:
+
+- the **text section**: the program code;
+- the current activity, represented by the value of the **program counter** and the contents of the processor's **registers**;
+- the **stack**: temporary data such as function parameters, return addresses and local variables;
+- the **data section**: global variables;
+- the **heap**: memory allocated dynamically while the process runs.
+
+A program by itself is not a process. A **program is a passive entity**, such as a file containing a list of instructions stored on disk. A **process is an active entity**, with a program counter specifying the next instruction and a set of associated resources. A program becomes a process when its executable file is loaded into memory.
+
+Two processes may be associated with the same program and are still **two separate execution sequences**. Several users may be running different copies of the mail program; the text sections are equivalent, but the data, heap and stack sections differ.
+
+<Question client:visible q={checks.program} />
+
+### Process states
+
+As a process executes, it changes **state**. The state is defined in part by the current activity of the process.
+
+| State | Meaning |
+|---|---|
+| **New** | The process is being created |
+| **Running** | Instructions are being executed |
+| **Waiting** | The process is waiting for some event to occur, such as an I/O completion or the reception of a signal |
+| **Ready** | The process is waiting to be assigned to a processor |
+| **Terminated** | The process has finished execution |
+
+Only **one process can be running** on any processor at any instant. Many processes may be **ready** or **waiting**.
+
+<ProcessStates client:visible />
+
+The transitions:
+
+- **New → ready.** The operating system is prepared to take on an additional process and admits it.
+- **Ready → running.** When it is time to select a process to run, the OS chooses one of the processes in the ready state.
+- **Running → ready.** The running process has reached the maximum time allowed for uninterrupted execution (a timer interrupt), or a higher-priority process has become ready.
+- **Running → waiting.** The process requests something for which it must wait, such as I/O.
+- **Waiting → ready.** The event for which the process has been waiting occurs.
+- **Running → terminated.** The process indicates that it has completed, or it aborts.
+
+<Question client:visible q={checks.state} />
+
+### The process control block
+
+Each process is represented in the operating system by a **process control block (PCB)**, also called a task control block. It holds the information associated with that specific process:
+
+| Field | Contents |
+|---|---|
+| Process state | New, ready, running, waiting and so on |
+| Program counter | The address of the next instruction to be executed for this process |
+| CPU registers | Accumulators, index registers, stack pointers and general-purpose registers, plus any condition-code information |
+| CPU-scheduling information | Process priority, pointers to scheduling queues, other scheduling parameters |
+| Memory-management information | The value of the base and limit registers, the page tables or segment tables |
+| Accounting information | The amount of CPU and real time used, time limits, account numbers, job or process numbers |
+| I/O status information | The list of I/O devices allocated to the process, a list of open files |
+
+The PCB is the repository for everything that varies from process to process. It is what makes it possible to **stop a process and later continue it correctly**.
+
+## Process scheduling
+
+The objective of **multiprogramming** is to have some process running at all times, to maximise CPU utilisation. The objective of **time sharing** is to switch the CPU among processes so frequently that users can interact with each program while it is running. A single-processor system can never have more than one running process; the rest must wait until the CPU is free and can be rescheduled.
+
+### Scheduling queues
+
+- The **job queue** is the set of all processes in the system.
+- The **ready queue** is the set of all processes residing in main memory, ready and waiting to execute. It is generally stored as a linked list of PCBs.
+- **Device queues** hold the processes waiting for a particular I/O device. Each device has its own queue.
+
+A process migrates between the queues throughout its life. A new process is put in the ready queue. It waits there until it is selected for execution, or **dispatched**. Once it has the CPU, one of several things can happen:
+
+- it issues an **I/O request** and is placed in an I/O queue;
+- it creates a new child process and **waits** for the child to terminate;
+- it is removed forcibly from the CPU as the result of an **interrupt**, and put back in the ready queue.
+
+In the first two cases the process eventually switches from waiting to ready and goes back to the ready queue. A process continues this cycle until it terminates, at which time it is removed from all queues and its PCB and other resources are deallocated.
+
+### Three schedulers
+
+The selection of processes from these queues is carried out by **schedulers**.
+
+| | Long-term scheduler (job scheduler) | Short-term scheduler (CPU scheduler) |
+|---|---|---|
+| Selects | Which processes are brought into the ready queue from the pool on disk | Which ready process should be executed next, and allocates the CPU to it |
+| Invoked | Infrequently: seconds or minutes | Very frequently: at least every 100 milliseconds or so |
+| Speed | May be slow | **Must be fast** |
+| Controls | The **degree of multiprogramming**: the number of processes in memory | Which process gets the CPU right now |
+
+The short-term scheduler must be fast because of how often it runs. If it takes 10 milliseconds to decide to execute a process for 100 milliseconds, then 10 / (100 + 10), about 9%, of the CPU is being wasted simply on scheduling.
+
+The long-term scheduler must make a careful selection, because most processes can be described as one of two kinds:
+
+- An **I/O-bound process** spends more of its time doing I/O than computing: many short CPU bursts.
+- A **CPU-bound process** generates I/O requests infrequently, using more of its time on computation: a few very long CPU bursts.
+
+The long-term scheduler should select a good **process mix** of the two. If all processes are I/O bound, the ready queue will almost always be empty and the short-term scheduler will have little to do. If all are CPU bound, the I/O waiting queues will almost always be empty and devices will go unused.
+
+Some systems, such as time-sharing systems, introduce an intermediate level, the **medium-term scheduler**. Sometimes it is advantageous to **remove processes from memory** and so reduce the degree of multiprogramming. Later the process can be reintroduced into memory and its execution continued where it left off. This scheme is called **swapping**. It may be needed to improve the process mix, or because a change in memory requirements has over-committed the available memory.
+
+<Question client:visible q={checks.scheduler} />
+
+### The context switch
+
+When the CPU switches to another process, the system must **save the state of the old process** and **load the saved state of the new one**. This task is a **context switch**. The context of a process is represented in its PCB.
+
+<Stepper
+  client:visible
+  title="Switching the CPU from process P0 to process P1"
+  steps={[
+    { title: 'P0 is executing', actor: 'P0', detail: 'P0 runs in user mode. P1 is idle, sitting in the ready queue with its state saved in PCB1.' },
+    { title: 'An interrupt or system call occurs', actor: 'Hardware', detail: 'A timer interrupt, an I/O interrupt or a system call transfers control to the operating system.' },
+    { title: 'Save state into PCB0', actor: 'OS', detail: 'The kernel saves P0’s program counter, registers and other context in PCB0. P0 is now idle.' },
+    { title: 'Choose the next process', actor: 'OS', detail: 'The short-term scheduler selects a process from the ready queue; here, P1.' },
+    { title: 'Reload state from PCB1', actor: 'OS', detail: 'The kernel loads the registers, program counter and memory-management information saved in PCB1.' },
+    { title: 'P1 is executing', actor: 'P1', detail: 'Control returns to user mode at the exact instruction where P1 was last stopped. Later the same steps happen in reverse to give the CPU back to P0.' },
+  ]}
+/>
+
+Context-switch time is **pure overhead**, because the system does no useful work while switching. Its speed depends on the memory speed, the number of registers that must be copied and the existence of special instructions (some processors have several sets of registers, so a switch is just a change of pointer). The more complex the operating system and the PCB, the more work a context switch takes. This cost is one reason for the lighter-weight **threads** of the next lesson.
+
+## Operations on processes
+
+### Process creation
+
+A process may create several new processes during its execution. The creating process is the **parent** and the new processes are its **children**; each of these may in turn create others, forming a **tree of processes**. Most operating systems identify a process by a unique **process identifier (pid)**.
+
+Three design choices arise.
+
+**Resource sharing.** Parent and children may share all resources, children may share a subset of the parent's resources, or parent and child may share nothing. Restricting a child to a subset of the parent's resources prevents any process from overloading the system by creating too many children.
+
+**Execution.** The parent continues to execute concurrently with its children, or the parent waits until some or all of its children have terminated.
+
+**Address space.** The child is a duplicate of the parent (the same program and data), or the child has a new program loaded into it.
+
+### fork and exec in UNIX
+
+In UNIX a new process is created by the **`fork()`** system call. The new process consists of a **copy of the address space of the original process**. This lets the parent communicate easily with its child.
+
+Both processes **continue execution at the instruction after the `fork()`**, with one difference:
+
+- the return code of `fork()` is **zero for the new (child) process**;
+- the **(non-zero) process identifier of the child** is returned to the parent.
+
+Typically, **`exec()`** is used after a `fork()` by one of the two processes to **replace the process's memory space with a new program**: it loads a binary file into memory, destroying the memory image of the program containing the `exec()` call, and starts its execution. The parent can then create more children, or, if it has nothing else to do, issue a **`wait()`** system call to move itself off the ready queue until the child terminates.
+
+```c
+int main(void) {
+    pid_t pid = fork();              /* create a child */
+
+    if (pid < 0) {                   /* error */
+        fprintf(stderr, "Fork failed");
+        return 1;
+    } else if (pid == 0) {           /* child process */
+        execlp("/bin/ls", "ls", NULL);
+    } else {                         /* parent process */
+        wait(NULL);                  /* wait for the child to complete */
+        printf("Child complete");
+    }
+    return 0;
+}
+```
+
+Because every process that reaches a `fork()` executes it, consecutive forks multiply.
+
+<ForkTree client:visible />
+
+<Question client:visible q={checks.fork} />
+
+### The process tree at start-up
+
+A UNIX system builds its whole population of processes this way. At boot, the bootstrap creates **process 0**, the swapper. It forks **process 1**, `init`, the ancestor of all user processes. For each terminal, `init` forks a process that execs `getty`, which waits for someone to log in and then execs `login`, which in turn execs the user's **shell**. The shell forks and execs a process for each command typed. `init` waits until all its children exit, and the system shuts down when `init` itself exits.
+
+### Process termination
+
+A process terminates when it finishes executing its final statement and asks the operating system to delete it with the **`exit()`** system call. At that point it may return a status value to its parent (collected through `wait()`), and all the resources of the process, including physical and virtual memory, open files and I/O buffers, are deallocated by the operating system.
+
+A parent may also terminate the execution of its children with an **abort** system call, for several reasons:
+
+- the child has **exceeded its usage** of the resources it was allocated;
+- the **task assigned to the child is no longer required**;
+- the **parent is exiting**, and the operating system does not allow a child to continue if its parent terminates. On such systems, when a process terminates, all its children must also be terminated. This is **cascading termination**.
+
+## Cooperating processes
+
+Processes executing concurrently may be independent or cooperating.
+
+- An **independent** process cannot affect or be affected by the execution of another process.
+- A **cooperating** process can affect or be affected by the execution of another process. Any process that shares data with others is a cooperating process.
+
+There are good reasons to allow cooperation:
+
+- **Information sharing**: several users may be interested in the same piece of information, such as a shared file.
+- **Computation speed-up**: a task can be broken into subtasks that execute in parallel, if there are multiple processing elements.
+- **Modularity**: a system can be built as separate processes or threads.
+- **Convenience**: an individual user may work on many tasks at the same time, editing, printing and compiling in parallel.
+
+Cooperating processes need an **inter-process communication (IPC)** mechanism that lets them exchange data and information. There are two fundamental models.
+
+| | Shared memory | Message passing |
+|---|---|---|
+| How | A region of memory shared by the cooperating processes is established; they exchange information by reading and writing it | Messages are exchanged between the cooperating processes |
+| Kernel involvement | Only to set up the shared region | Usually a system call for every message |
+| Speed | Fast: memory speed | Slower |
+| Best for | Large amounts of data | Smaller amounts of data; processes on different computers |
+| Synchronisation | The processes' own responsibility | No conflicts to avoid |
+
+## Shared memory and the producer-consumer problem
+
+In a shared-memory system the communicating processes establish a region of shared memory. Normally the operating system tries to prevent one process from accessing another's memory, so shared memory requires that two or more processes **agree to remove this restriction**. The form of the data and its location are determined by the processes and are not under the operating system's control. The processes are also responsible for ensuring that they are **not writing to the same location simultaneously**.
+
+The standard illustration is the **producer-consumer problem**. A **producer** process produces information that is consumed by a **consumer** process: a compiler produces assembly code that an assembler consumes; a web server produces pages that a browser consumes.
+
+To let both run concurrently, there must be a **buffer** of items that the producer can fill and the consumer can empty. The two must be synchronised so that the consumer does not try to consume an item that has not yet been produced.
+
+- An **unbounded buffer** places no practical limit on its size. The consumer may have to wait for new items, but the producer can always produce.
+- A **bounded buffer** assumes a fixed size. The consumer must wait if the buffer is empty, and the producer must wait if the buffer is full.
+
+A bounded buffer can be implemented as a circular array with two logical pointers, in memory shared by the two processes.
+
+```c
+#define BUFFER_SIZE 10
+typedef struct { /* ... */ } item;
+
+item buffer[BUFFER_SIZE];
+int in = 0;     /* next free position */
+int out = 0;    /* first full position */
+```
+
+```c
+/* Producer */
+item nextProduced;
+while (1) {
+    /* produce an item in nextProduced */
+    while (((in + 1) % BUFFER_SIZE) == out)
+        ;   /* buffer full: do nothing */
+    buffer[in] = nextProduced;
+    in = (in + 1) % BUFFER_SIZE;
+}
+```
+
+```c
+/* Consumer */
+item nextConsumed;
+while (1) {
+    while (in == out)
+        ;   /* buffer empty: do nothing */
+    nextConsumed = buffer[out];
+    out = (out + 1) % BUFFER_SIZE;
+    /* consume the item in nextConsumed */
+}
+```
+
+- The buffer is **empty** when `in == out`.
+- The buffer is **full** when `((in + 1) % BUFFER_SIZE) == out`.
+
+<BoundedBuffer client:visible />
+
+<Question client:visible q={checks.buffer} />
+
+This solution is correct but can use only BUFFER_SIZE − 1 slots. The obvious fix, a shared counter of the items in the buffer, uses every slot but turns out to be **incorrect** when the two processes run concurrently. Why, and what to do about it, is the subject of the Synchronization lesson.
+
+## Message passing
+
+Message passing provides a mechanism for processes to **communicate and to synchronise their actions without sharing the same address space**. It is particularly useful in a distributed environment, where the communicating processes may be on different computers connected by a network.
+
+A message-passing facility provides at least two operations:
+
+- **send(message)**
+- **receive(message)**
+
+Messages may be of **fixed or variable size**. Fixed-size messages make the system-level implementation straightforward but the programming harder; variable-size messages do the reverse.
+
+If processes *P* and *Q* want to communicate, they must send messages to and receive messages from each other, so a **communication link** must exist between them. The link may be implemented physically (shared memory, a hardware bus, a network), but what concerns us is its **logical** implementation. There are several methods:
+
+- **direct or indirect** communication;
+- **synchronous or asynchronous** communication;
+- **automatic or explicit buffering**.
+
+### Direct and indirect communication
+
+With **direct communication**, each process that wants to communicate must **explicitly name** the recipient or sender:
+
+- `send(P, message)`: send a message to process *P*
+- `receive(Q, message)`: receive a message from process *Q*
+
+A link is established automatically between every pair of processes that want to communicate; the processes need to know only each other's identity. A link is associated with exactly two processes, and between each pair there is exactly one link. The disadvantage is limited modularity: changing the identifier of a process means examining all the other process definitions that refer to it.
+
+With **indirect communication**, messages are sent to and received from **mailboxes**, also called **ports**. A mailbox can be viewed abstractly as an object into which messages can be placed and from which they can be removed. Each has a unique identification.
+
+- `send(A, message)`: send a message to mailbox *A*
+- `receive(A, message)`: receive a message from mailbox *A*
+
+Two processes can communicate only if they **share a mailbox**. A link may be associated with more than two processes, and a pair of processes may share several links, each corresponding to one mailbox.
+
+That raises a question. Suppose *P1*, *P2* and *P3* all share mailbox *A*, *P1* sends a message, and both *P2* and *P3* execute a receive. Who gets it? The answer depends on the scheme chosen: allow a link to be associated with at most two processes; allow at most one process at a time to execute a receive; or let the system select the receiver arbitrarily and tell the sender who it was.
+
+A mailbox may be owned by a process, in which case it disappears when the process terminates, or by the operating system, which then provides system calls to create and delete mailboxes and to send and receive through them.
+
+### Synchronous or asynchronous
+
+Message passing may be **blocking** (synchronous) or **non-blocking** (asynchronous).
+
+| Primitive | Behaviour |
+|---|---|
+| **Blocking send** | The sending process is blocked until the message is received by the receiving process or by the mailbox |
+| **Non-blocking send** | The sending process sends the message and resumes operation |
+| **Blocking receive** | The receiver blocks until a message is available |
+| **Non-blocking receive** | The receiver retrieves either a valid message or a null |
+
+Different combinations are possible. When both send and receive are blocking, there is a **rendezvous** between the sender and the receiver, and the producer-consumer problem becomes trivial: the producer just sends and waits for the item to be delivered, and the consumer just receives.
+
+<SequenceDiagram
+  client:visible
+  title="Blocking and non-blocking send"
+  left="Sender"
+  right="Receiver"
+  scenarios={[
+    {
+      name: 'Synchronous',
+      messages: [
+        { from: 'L', label: 'send(message)', note: 'The sender executes a blocking send. It stops and waits; it can do nothing else.' },
+        { from: 'R', label: 'receive() completes: delivered', note: 'The receiver executes receive and takes the message. Only now is the sender unblocked. The two have met in time: a rendezvous.' },
+        { from: 'L', label: 'send(next message)', note: 'The sender continues, knowing the first message arrived. No buffer was needed.' },
+      ],
+      outcome: 'Simple and certain, but the sender is held up by a slow receiver.',
+    },
+    {
+      name: 'Asynchronous',
+      messages: [
+        { from: 'L', label: 'send(message 1)', note: 'A non-blocking send. The message is placed in the link’s queue and the sender resumes at once.' },
+        { from: 'L', label: 'send(message 2)', note: 'The sender carries on working and sends again. The receiver has not looked yet: two messages are now queued.' },
+        { from: 'L', label: 'send(message 3)', note: 'A third message is queued. If the queue were bounded and full, the sender would have to block after all.' },
+        { from: 'R', label: 'receive() x 3', note: 'The receiver finally catches up and takes the messages in order. The sender never learned when, or whether, they arrived.' },
+      ],
+      outcome: 'More concurrency, at the price of buffering and uncertainty.',
+    },
+  ]}
+/>
+
+### Buffering
+
+Whether communication is direct or indirect, messages exchanged by communicating processes reside in a **temporary queue**. It can be implemented in three ways.
+
+| Capacity | Behaviour |
+|---|---|
+| **Zero capacity** | The queue has a maximum length of zero; the link cannot have any messages waiting in it. **The sender must wait for the receiver** (rendezvous). Sometimes called a message system with no buffering |
+| **Bounded capacity** | The queue has a finite length *n*. If it is not full, the message is placed in it and the sender continues without waiting. **If the link is full, the sender must block** until space is available |
+| **Unbounded capacity** | The queue's length is potentially infinite; any number of messages can wait in it. **The sender never waits** |
+
+The last two are referred to as systems with **automatic buffering**.
+
+<Question client:visible q={checks.rendezvous} />
+
+With an asynchronous send, the sender cannot know whether its message has arrived. If that matters, the processes must communicate explicitly: the receiver sends back an acknowledgement.
+
+Message systems must also handle **exception conditions**: a process terminates while another is waiting for a message from it; a message is lost in transit; a message is scrambled. These are detected with timeouts and checksums and handled by retransmission, the same tools as in a network.
+
+## Communication in client-server systems
+
+Shared memory and message passing also serve for communication over a network, but three other strategies are common.
+
+### Sockets
+
+A **socket** is defined as an **endpoint for communication**. A pair of processes communicating over a network employs a pair of sockets, one for each process. A socket is identified by an **IP address concatenated with a port number**, as in `146.86.5.20:1625`. In general sockets use a client-server architecture: the server waits for incoming client requests by listening on a specified port, and once a request is received it accepts the connection to complete it. Servers implementing well-known services listen on well-known ports. Communication through sockets is common and efficient, but low-level: it lets the threads exchange only an unstructured stream of bytes, and imposing a structure on the data is the application's job.
+
+### Remote procedure calls
+
+A **remote procedure call (RPC)** abstracts the procedure-call mechanism for use between systems with network connections. The messages exchanged are well structured: each is addressed to an RPC daemon listening on a port on the remote system and contains an identifier of the function to execute and the parameters to pass to it. The function is executed as requested, and any output is sent back in a separate message.
+
+The RPC system hides the details by providing a **stub** on the client side. When the client invokes a remote procedure, it calls the stub, which locates the port on the server and **marshals** the parameters, packaging them into a form that can be transmitted over the network. A similar stub on the server side receives the message and invokes the procedure.
+
+A local procedure call fails only under extreme circumstances. An RPC can fail, or be duplicated and executed more than once, because of common network errors. So its **semantics** have to be defined.
+
+| Semantic | Meaning | How it is achieved |
+|---|---|---|
+| **At most once** | A message is acted on once or not at all; it may be lost but is never duplicated | Attach a timestamp to each message. The server keeps a history of the timestamps it has already processed and ignores any repeat |
+| **At least once** | A message is delivered and may be delivered more than once; it is never lost | The sender retries until it gets an acknowledgement. Suitable only when duplication is acceptable, as in many analytics tasks |
+| **Exactly once** | A message is neither dropped nor duplicated | At-most-once at the server, **plus** the server acknowledges that the call was received and executed, and the client **resends periodically** until it receives that acknowledgement |
+
+Exactly once is what a programmer wants from a procedure call, and it is the most difficult to achieve in practice.
+
+### Pipes
+
+A **pipe** acts as a conduit allowing two processes to communicate. It connects an open file of one process to an open file of another: typically the **standard output of one process to the standard input of another**. The shell command `ls | more` sets one up between two processes.
+
+In implementing a pipe, four issues must be considered: is communication **unidirectional or bidirectional**? If two-way, is it **half duplex** (data can travel one way at a time) or **full duplex**? Must a **relationship**, such as parent-child, exist between the communicating processes? Can the pipe communicate **over a network**, or must the processes be on the same machine?
+
+- **Ordinary pipes** allow communication in standard producer-consumer style: the producer writes to one end (the write end) and the consumer reads from the other (the read end). They are **unidirectional**, and **require a parent-child relationship**: a parent creates the pipe and uses it to communicate with a child it creates with `fork()`, since the child inherits the pipe as an open file. They cannot be accessed from outside the process that created them, and cease to exist when the processes have finished communicating.
+- **Named pipes** are more powerful. Communication can be **bidirectional**, **no parent-child relationship is required**, and once a named pipe is established several processes can use it. They continue to exist after the communicating processes have finished. In UNIX they are called FIFOs and appear as ordinary files in the file system.
+
+Compared with messages, a pipe carries an unstructured **stream of bytes** with no message boundaries, and the processes must agree on how to interpret it.
+
+## Summary
+
+- A **process** is a program in execution: text, program counter and registers, stack, data and heap. A program is passive; a process is active.
+- A process is **new, ready, running, waiting** or **terminated**. Only one can be running per processor. A waiting process becomes ready, never directly running.
+- The **PCB** records everything needed to stop and resume a process.
+- Processes move between the **job queue, ready queue** and **device queues**. The **long-term scheduler** controls the degree of multiprogramming, the **short-term scheduler** picks the next process to run and must be fast, and the **medium-term scheduler** swaps.
+- A **context switch** saves one PCB and loads another. It is pure overhead.
+- UNIX creates processes with **fork()** (returns 0 in the child, the child's pid in the parent), replaces programs with **exec()**, and collects children with **wait()**. *n* consecutive forks give 2<sup>n</sup> processes.
+- **Cooperating processes** communicate by **shared memory** (fast, but synchronisation is their problem) or **message passing** (simpler, works across machines, slower).
+- Message passing can be **direct or indirect** (mailboxes), **blocking or non-blocking**, with **zero, bounded or unbounded** buffering.
+- Across a network: **sockets**, **RPC** (at-most-once, at-least-once, exactly-once) and **pipes** (ordinary and named).
+
+## Exam-style practice
+
+<Question client:visible q={practice.notion} label="Written practice" />
+
+<Question client:visible q={practice.schedulers} label="Written practice" />
+
+<Checkpoint client:visible lessonId="processes-and-ipc" questions={checkpoint} />

@@ -1,0 +1,558 @@
+---
+title: The Transport Layer
+summary: How two processes on different machines get a reliable conversation out of an unreliable network - connections, flow control, congestion control, and how TCP and UDP do it.
+minutes: 60
+prerequisites: [network-layer]
+objectives:
+  - Explain why the transport layer exists and what service primitives and sockets it offers
+  - Describe addressing with ports, connection establishment with the three-way handshake, and connection release
+  - Explain flow control with variable windows, and congestion control with AIMD and max-min fairness
+  - Describe UDP, RPC and RTP, and what a playout buffer is for
+  - Trace TCP - its header, window management, timers, slow start, Tahoe and Reno
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import SequenceDiagram from '../../components/viz/SequenceDiagram.svelte';
+import MaxMinShare from '../../components/viz/MaxMinShare.svelte';
+import AimdFairness from '../../components/viz/AimdFairness.svelte';
+import RtoEstimator from '../../components/viz/RtoEstimator.svelte';
+import TcpCongestion from '../../components/viz/TcpCongestion.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/transport-layer';
+
+## The layer that belongs to the users
+
+The network layer delivers packets from one machine to another. The **transport layer** builds on it to provide data transport **from a process on the source machine to a process on the destination machine**, with the level of reliability the application wants, independent of the physical networks in use. Its goal is an efficient, reliable and cost-effective data transmission service for its users, which are normally processes in the application layer.
+
+Two kinds of service are offered: **connection-oriented** (TCP in the Internet) and **connectionless** (UDP).
+
+### Why a separate layer?
+
+The transport service looks very similar to the network service. If the network layer already offers connections or datagrams, why have two layers?
+
+The answer is about **who runs the code**.
+
+- The transport layer runs **entirely on the users' machines**.
+- The network layer runs mostly on the **routers**, which are operated by the carrier.
+
+What happens if the network layer offers inadequate service? What if it frequently loses packets, or the routers crash from time to time? The users have **no real control** over the network layer. They cannot solve the problem by using better routers or putting more error handling into the data link layer, because they do not own the routers. The only possibility is to put **another layer on top** that improves the quality of the service.
+
+So the essence of the transport layer is that it makes the service **more reliable than the underlying network**. It can detect lost packets and compensate with retransmissions. And because the transport primitives are **independent of the network primitives**, which may differ from one network to the next, application programs can be written against a standard interface and work on a wide variety of networks.
+
+<Question client:visible q={checks.why} />
+
+### Service primitives
+
+Think of two processes on a single machine connected by a pipe. One puts data in, the other takes it out, and the connection is 100% perfect: no acknowledgements, lost packets or congestion. The connection-oriented transport service aims to provide exactly that **across a network**, hiding all the machinery that makes it possible.
+
+A simple transport service might offer five primitives:
+
+| Primitive | Packet sent | Meaning |
+|---|---|---|
+| LISTEN | (none) | Block until some process tries to connect |
+| CONNECT | CONNECTION REQUEST | Actively attempt to establish a connection |
+| SEND | DATA | Send information |
+| RECEIVE | (none) | Block until a DATA packet arrives |
+| DISCONNECT | DISCONNECTION REQUEST | Request a release of the connection |
+
+A server executes LISTEN, typically by calling a library procedure that makes a system call that blocks the server until a client turns up. A client executes CONNECT, which sends a CONNECTION REQUEST segment to the server. That unblocks the server, which sends a CONNECTION ACCEPTED segment back. Data is then exchanged with SEND and RECEIVE, and every data packet is acknowledged, invisibly to the users. When the connection is no longer needed, a transport user issues DISCONNECT; each direction is closed independently.
+
+A word on names. The transport layer exchanges **segments**. Segments are carried inside **packets** exchanged by the network layer, which are carried inside **frames** exchanged by the data link layer.
+
+**Berkeley sockets** are the set of primitives actually used for TCP, first released with Berkeley UNIX and now universal.
+
+| Primitive | Meaning |
+|---|---|
+| SOCKET | Create a new communication endpoint |
+| BIND | Associate a local address with a socket |
+| LISTEN | Announce willingness to accept connections; give the queue size |
+| ACCEPT | Passively establish an incoming connection |
+| CONNECT | Actively attempt to establish a connection |
+| SEND | Send some data over the connection |
+| RECEIVE | Receive some data from the connection |
+| CLOSE | Release the connection |
+
+A server calls SOCKET, BIND, LISTEN and ACCEPT, in that order. A client calls SOCKET and CONNECT.
+
+## Elements of transport protocols
+
+Transport protocols resemble data link protocols: both deal with error control, sequencing and flow control. But the environments differ, and the differences matter.
+
+1. A data link protocol runs over a **direct connection** between two routers. A transport protocol runs across the **entire network**, so explicit addressing of destinations is needed.
+2. Setting up a connection over a wire is simple. Across a network, with **more delay and more failures**, it is not.
+3. The network has **storage capacity**: a packet may be stored for a while and delivered later, possibly after the sender has given up. Delayed and duplicated packets are the source of most of the difficulty.
+4. A host has a **large and varying number of connections**, so dedicating many buffers to each one is unattractive.
+
+### Addressing
+
+When an application process wants to set up a connection to a remote one, it must say which one. The transport layer defines **transport service access points (TSAPs)**: in the Internet these are **ports**. The corresponding end points in the network layer, IP addresses, are **NSAPs**.
+
+Multiple clients and servers can run on a host with a single network address. The IP address gets a segment to the right **machine**; the port gets it to the right **process**.
+
+How does a client know which port the server is listening on? Well-known services have stable, published port numbers. For the many services that are rarely used, it is wasteful to keep a server process listening on each port all day. Instead, each machine can run a special **process server** (`inetd` on UNIX) that listens on a set of ports at once. When a request arrives, it **spawns the requested server**, hands it the connection, and goes back to listening.
+
+<Question client:visible q={checks.port} />
+
+### Connection establishment
+
+Establishing a connection sounds easy. It is surprisingly tricky, because the network can **lose, delay, corrupt and duplicate** packets.
+
+The key problem is **delayed duplicates**. A user sends packets that take a long, congested route. The user's timer expires and the packets are sent again. Later the old copies arrive, and the receiver must not treat them as new. In the worst case the entire exchange of an old connection (for example, one that asked a bank to transfer money) is replayed.
+
+The solution has two parts.
+
+**First, bound how long a packet can live.** This can be done by:
+
+- **restricted network design**, which prevents packets from looping (difficult);
+- putting a **hop counter** in each packet, decremented at each hop, with the packet discarded at zero;
+- **timestamping** each packet, so that older packets are discarded.
+
+In practice we must guarantee not only that a packet is dead but that all **acknowledgements** to it are dead too. So a period *T* is defined, some small multiple of the true maximum packet lifetime. After waiting *T* seconds, we can be sure that all traces of a packet are gone.
+
+**Second, do not reuse sequence numbers within that lifetime.** Each host has a time-of-day clock, and the initial sequence number of a connection is taken from it, so that sequence numbers are not reused within twice the maximum segment lifetime (2*T* = 240 seconds in the Internet). There is a **forbidden region** of sequence numbers that would collide with ones still possibly alive in the network; a host must not send too much data too fast, nor too slowly, or its sequence numbers drift into that region.
+
+That still leaves a gap. The receiver does **not remember** sequence numbers across connections, so it has no way of knowing whether a CONNECTION REQUEST is a fresh one or a delayed duplicate. The **three-way handshake** closes the gap.
+
+1. Host 1 chooses a sequence number *x* and sends a CONNECTION REQUEST containing it.
+2. Host 2 replies with an ACK that acknowledges *x* and announces its own initial sequence number *y*.
+3. Host 1 acknowledges host 2's choice of *y* in the first data segment it sends.
+
+Since no state is kept from previous connections, **both hosts contribute fresh sequence numbers, and each must have its own number echoed back**. Step through the three cases to see why no combination of old segments can do harm.
+
+<SequenceDiagram
+  client:visible
+  title="The three-way handshake, with and without delayed duplicates"
+  left="Host 1"
+  right="Host 2"
+  scenarios={[
+    {
+      name: 'Normal operation',
+      messages: [
+        { from: 'L', label: 'CR (seq = x)', note: 'Host 1 picks a fresh sequence number x and sends a CONNECTION REQUEST.' },
+        { from: 'R', label: 'ACK (seq = y, ACK = x)', note: 'Host 2 acknowledges x and announces its own initial sequence number y.' },
+        { from: 'L', label: 'DATA (seq = x, ACK = y)', note: 'Host 1 acknowledges y in its first data segment. Each side has heard its own number echoed.' },
+      ],
+      outcome: 'The connection is established.',
+    },
+    {
+      name: 'Old duplicate CR',
+      messages: [
+        { from: 'L', label: 'CR (seq = x)  [old duplicate]', kind: 'old', note: 'A delayed duplicate of a CONNECTION REQUEST from a long-closed connection arrives at host 2. Host 1 knows nothing about it.' },
+        { from: 'R', label: 'ACK (seq = y, ACK = x)', note: 'Host 2 cannot tell it is stale, so it reacts normally, asking host 1 to verify that it really is trying to set up a connection.' },
+        { from: 'L', label: 'REJECT (ACK = y)', kind: 'reject', note: 'Host 1 is not trying to open a connection with sequence number x, so it rejects.' },
+      ],
+      outcome: 'Host 2 realises it was tricked by a delayed duplicate and abandons the connection. No damage is done.',
+    },
+    {
+      name: 'Duplicate CR and duplicate ACK',
+      messages: [
+        { from: 'L', label: 'CR (seq = x)  [old duplicate]', kind: 'old', note: 'Again an old CONNECTION REQUEST arrives out of nowhere.' },
+        { from: 'R', label: 'ACK (seq = y, ACK = x)', note: 'Host 2 replies, proposing y as its initial sequence number for traffic from host 2 to host 1.' },
+        { from: 'L', label: 'DATA (seq = x, ACK = z)  [old duplicate]', kind: 'old', note: 'A second stale segment arrives. But it acknowledges z, not y: it was produced during some earlier connection.' },
+        { from: 'L', label: 'REJECT (ACK = y)', kind: 'reject', note: 'Host 2 sees that z was acknowledged rather than y, recognises the segment as an old duplicate, and discards it. Meanwhile host 1 rejects host 2’s unexpected ACK.' },
+      ],
+      outcome: 'Even the worst case, a stale request and stale data together, cannot establish a connection by accident.',
+    },
+  ]}
+/>
+
+TCP uses this three-way handshake to establish connections.
+
+<Question client:visible q={checks.handshake} />
+
+### Connection release
+
+Releasing a connection is easier than establishing one, but it has its own pitfalls. There are two styles.
+
+- **Asymmetric release** is how the telephone system works: when one party hangs up, the connection is broken. It is abrupt and **may result in data loss**. If host 1 sends a segment and host 2 issues a DISCONNECT before the next one arrives, that data is lost.
+- **Symmetric release** treats the connection as two separate unidirectional connections and requires **each one to be released separately**. A host can continue to receive data even after it has sent a DISCONNECT.
+
+Symmetric release works when each process has a fixed amount of data to send and knows when it is done. In general, though, deciding that both sides are finished cannot be solved by the transport layer alone, as a famous puzzle shows.
+
+<Callout type="analogy" title="The two-army problem">
+A white army is encamped in a valley. On both surrounding hillsides are blue armies. The white army is larger than either blue army alone, but together the blue armies are larger. If either blue army attacks by itself it will be defeated; if they attack simultaneously they will win. They must synchronise, and their only means of communication is to send messengers on foot down into the valley, where they might be captured.
+
+Blue army 1 sends "attack at dawn". Did it arrive? It waits for an acknowledgement. But now blue army 2 does not know whether *its* acknowledgement got through. A third message does not help, nor a fourth: **whoever sends the last message can never be sure it arrived**. No protocol exists that works.
+</Callout>
+
+Substitute "disconnect" for "attack". If neither side is prepared to disconnect until it is convinced the other is prepared too, the disconnection will never happen.
+
+In practice we accept a small risk and let each side decide independently. Host 1 sends a DISCONNECTION REQUEST (DR) and starts a timer. Host 2 replies with its own DR and starts a timer. Host 1 acknowledges and releases; host 2 releases when the ACK arrives. **Lost segments are handled with timers and retransmission**: if the final ACK is lost, host 2's timer releases the connection anyway; if a DR is lost, the sender times out and sends it again; after a number of failed retries it gives up and releases.
+
+<Question client:visible q={checks.twoArmy} />
+
+### Error control and flow control
+
+**Error control** ensures that data is delivered with the desired level of reliability, usually that all of it is delivered without errors. **Flow control** keeps a fast transmitter from overrunning a slow receiver. The transport layer uses the same mechanisms as the data link layer:
+
+- A segment carries an **error-detecting code** (a CRC or checksum) to check that it was received correctly.
+- A segment carries a **sequence number** to identify itself and is **retransmitted** by the sender until it receives an acknowledgement of successful receipt. This is **ARQ**.
+- There is a maximum number of segments that the sender will allow to be outstanding. If it is one, the protocol is stop-and-wait. Larger **sliding windows** enable pipelining and bidirectional transfer.
+
+The differences are in degree and in what is protected:
+
+- The link-layer checksum protects a **frame** while it crosses a single link. The transport-layer checksum protects a **segment** while it crosses the entire path: it is an **end-to-end** check.
+- A **larger sliding window** has to be used. A wireless link may have such a small bandwidth-delay product that a window of one frame is fine. A transcontinental path has a large one, and a small window would cripple performance.
+
+A large window means a lot of **buffering**. The sender must hold every unacknowledged segment, since it may need retransmitting. The receiver may or may not dedicate buffers to particular connections. How to organise the buffer pool is then the question:
+
+- **chained fixed-size buffers**: simple, but wasteful if segment sizes vary widely;
+- **chained variable-sized buffers**: better memory use, more complicated management;
+- **one large circular buffer per connection**: simple and uses memory well when connections are heavily loaded.
+
+As connections open and close and traffic patterns change, sender and receiver need to adjust their buffer allocations dynamically. So **buffering is decoupled from acknowledgements**: the receiver tells the sender how much buffer space it has by advertising a **variable-sized window**. The sender may send up to the acknowledged byte plus that window, and must stop when the window reaches zero.
+
+### Multiplexing and crash recovery
+
+**Multiplexing** means several conversations sharing connections, virtual circuits or physical links. If only one network address is available on a host, all transport connections on that machine have to use it, and arriving segments are sorted out by port: that is ordinary multiplexing. **Inverse multiplexing** is the reverse: one transport connection distributes its traffic over several network paths to get more bandwidth or reliability.
+
+**Crash recovery.** If a host crashes and reboots in the middle of a transfer, can the transport layer recover transparently? No. Sending an acknowledgement and writing the data to the application are two separate events that cannot be done at the same instant. A crash can occur between them, and for every order in which they are done there is a failure scenario in which the protocol recovers wrongly. Recovery from a crash at layer *N* can only be done by layer *N* + 1, and only if it keeps enough status information. The application has to help.
+
+## Congestion control
+
+If the transport entities on many machines send too many packets into the network too quickly, the network becomes congested, and performance degrades as packets are delayed and lost. Controlling congestion is the **combined responsibility of the network and transport layers**. Congestion occurs at routers, so it is detected at the network layer. But it is ultimately caused by traffic sent into the network by the transport layer, and the only effective cure is for the transport protocols to **send more slowly**.
+
+### What a good allocation looks like
+
+**Efficiency.** A good allocation uses all the available capacity but avoids congestion. As the offered load approaches the capacity, **goodput** (the rate of useful packets arriving at the receiver) at first rises with the load, then levels off as bursts fill buffers and cause loss. If the transport protocol is poorly designed and retransmits packets that were delayed but not lost, the network can enter **congestion collapse**, with senders furiously sending while less and less useful work gets done. **Delay** stays roughly constant at low load and then climbs steeply as the load nears capacity. Performance begins to degrade at the onset of congestion, so the best operating point is a little *below* capacity.
+
+**Fairness.** How should bandwidth be divided between different senders? The usual answer is **max-min fairness**. An allocation is max-min fair if the bandwidth given to one flow **cannot be increased without decreasing the bandwidth given to another flow whose allocation is no larger**. Trying to give more to one flow only makes the situation worse for flows that are less well off.
+
+<MaxMinShare client:visible />
+
+**Convergence.** Connections are always coming and going, and the bandwidth a connection needs varies. A good algorithm should **converge rapidly** to the ideal operating point and track it as it changes.
+
+### Regulating the sending rate
+
+A sender may need to slow down for two different reasons:
+
+- **Flow control**, when the **receiver** is not fast enough: picture a fast network feeding a low-capacity receiver.
+- **Congestion**, when the **network** is not fast enough: a slow network feeding a high-capacity receiver.
+
+The sender must respect whichever limit is smaller. How it finds out about congestion depends on the **signal** the network uses.
+
+| Protocol | Signal | Explicit? | Precise? |
+|---|---|---|---|
+| XCP | Rate to use | Yes | Yes |
+| TCP with ECN | Congestion warning | Yes | No |
+| FAST TCP | End-to-end delay | No | Yes |
+| Compound TCP | Packet loss and end-to-end delay | No | Yes |
+| CUBIC TCP | Packet loss | No | No |
+| TCP | Packet loss | No | No |
+
+When the signal is precise, the sender simply uses the rate it is told. In the more common case the signal says only "slow down" or "you may speed up", not by how much. Then the transport entities need a rule, a **control law**, for adjusting their rates.
+
+Take two flows competing for one link. Draw the bandwidth of one on the x-axis and the other on the y-axis. The **fairness line** is where they are equal; the **efficiency line** is where their sum equals the capacity. The ideal operating point is where the lines cross.
+
+- If both flows **increase additively** and **decrease additively**, the operating point just moves back and forth along a 45° line. The difference between the flows never changes.
+- If both **increase multiplicatively** and **decrease multiplicatively**, it oscillates along a line through the origin. The ratio never changes.
+
+In neither case do the flows reach the fair point.
+
+### AIMD
+
+The **Additive Increase Multiplicative Decrease (AIMD)** control law does converge:
+
+- In the **absence** of a congestion signal, senders **increase** their rates **additively**, by a fixed amount.
+- In the **presence** of a congestion signal, senders **decrease** their rates **multiplicatively**, for example by half.
+
+A multiplicative cut takes more from the flow that has more, moving the two towards each other; the additive climb then keeps them at the same distance. Step by step the operating point approaches the one that is both **fair and efficient**, whatever the starting point. By the same reasoning, the other combination (multiplicative increase, additive decrease) *diverges* from it. TCP uses AIMD for this reason.
+
+<AimdFairness client:visible />
+
+### Wireless issues
+
+On wired networks and fibre, packet loss almost always means congestion. Wireless links, however, lose packets all the time because of **transmission errors**. A protocol that treats every loss as congestion will slow down every time a wireless link has a bad moment, and the connection will run far below what the network could carry.
+
+The strategy is to **mask** wireless losses from the transport layer: wireless links use their own link-layer **ARQ** (retransmission, on a timescale of milliseconds) so that by the time the transport layer would notice, the frame has already been resent.
+
+## UDP
+
+The Internet has two main transport protocols, one connectionless and one connection-oriented.
+
+The **User Datagram Protocol (UDP)** is a thin "shim" over IP. It lets applications send encapsulated IP datagrams **without having to establish a connection**. Its 8-byte header has four fields:
+
+| Field | Purpose |
+|---|---|
+| Source port | Identifies the sending endpoint, mainly so a reply can be sent back |
+| Destination port | Identifies the receiving endpoint: which process gets the payload |
+| UDP length | Length of header plus data |
+| UDP checksum | Optional end-to-end check |
+
+The **checksum** covers the header, the data, and a conceptual IP **pseudoheader** containing the source and destination IP addresses, the protocol number and the UDP length. Including the pseudoheader helps detect misdelivered packets, at the price of violating the layering, since IP addresses belong to the IP layer.
+
+It is worth being explicit about what UDP does **not** do: **flow control, congestion control, or retransmission** after a bad segment. All that is left to the user processes. What it does provide is an interface to IP with the added feature of **demultiplexing** multiple processes using the ports, plus optional end-to-end error detection.
+
+It is especially suited to client-server interactions where a short request gets a short reply, such as DNS. If either is lost the client can time out and try again; nothing needs setting up or tearing down.
+
+### Remote procedure call
+
+**RPC** connects applications over the network with the familiar abstraction of a **procedure call**. A program on machine 1 calls a procedure on machine 2; the caller is suspended, the procedure runs on machine 2, and the result comes back. No message passing is visible to the programmer.
+
+<Flow
+  steps={[
+    { label: 'Client calls the stub', note: 'an ordinary local call' },
+    { label: 'Client stub marshals', note: 'packs parameters into a message' },
+    { label: 'Message crosses the network', note: 'usually over UDP' },
+    { label: 'Server stub unmarshals', note: 'unpacks, calls the real procedure' },
+    { label: 'Result returns', note: 'the same path in reverse' },
+  ]}
+/>
+
+The **client stub** represents the server procedure in the client's address space, and the **server stub** hides the fact that the call did not come from a local caller. Packing the parameters into a message is called **marshalling**. UDP with retransmissions is a good, low-latency transport for RPC.
+
+### Real-time transport
+
+**RTP**, the Real-time Transport Protocol, supports sending real-time media such as audio and video. It normally runs in user space **over UDP** and is often implemented as part of the application. Its header describes the type of media and carries a **sequence number** and a **timestamp**, so the receiver can detect loss and synchronise several streams. A sister protocol, **RTCP**, handles feedback and management.
+
+RTP does **no retransmission**. For live media a late packet is as useless as a lost one; the application simply skips or interpolates.
+
+The main enemy is **jitter**, variation in delay. The receiver uses a **playout buffer**: packets are stored and playback starts a little later, so that packets arriving irregularly are still played out smoothly. **High jitter needs a larger playout buffer** to avoid playout misses. Note that propagation delay itself does not affect the buffer size; only the *variation* in delay does.
+
+## TCP
+
+The **Transmission Control Protocol (TCP)** was designed to provide a **reliable end-to-end byte stream over an unreliable internetwork**. An internetwork differs from a single network because its parts may have wildly different topologies, bandwidths, delays, packet sizes and other parameters. TCP was designed to adapt dynamically to these properties and to be robust in the face of many kinds of failure.
+
+The sending TCP entity accepts user data streams from local processes, breaks them up into pieces not exceeding 64 KB (in practice often about 1460 bytes, to fit in a single Ethernet frame with the IP and TCP headers), and sends each piece as a separate IP datagram. When datagrams arrive at a machine they are given to the TCP entity, which reconstructs the original byte streams.
+
+The IP layer gives **no guarantee** that datagrams will be delivered properly, nor any indication of how fast they may be sent. It is up to TCP to send fast enough to make use of the capacity but not cause congestion, to **time out and retransmit** datagrams that are not delivered, and to **reassemble** those that arrive in the wrong order into the proper sequence. TCP must furnish good performance with the reliability that most applications want and that IP does not provide.
+
+### The service model
+
+TCP service is obtained by both the sender and the receiver creating end points called **sockets**. Each socket has a socket number consisting of the **IP address** of the host and a 16-bit number local to that host, called a **port** (the TCP name for a TSAP). A connection must be **explicitly established** between a socket on one machine and a socket on another.
+
+- **Port numbers below 1024** are reserved for standard services that can usually only be started by privileged users. They are called **well-known ports**: 25 for SMTP mail, 80 for the web, 443 for secure web.
+- Ports from **1024 to 49151** can be registered for use by unprivileged users.
+
+All TCP connections are **full duplex** (traffic can go in both directions at once) and **point-to-point** (each connection has exactly two end points).
+
+A TCP connection is a **byte stream, not a message stream**. Message boundaries are not preserved end to end. If the sending process does four 512-byte writes, the data may be delivered to the receiving process as four 512-byte chunks, two 1024-byte chunks, one 2048-byte chunk, or some other way. The receiver cannot detect the units in which the data was written.
+
+### The protocol in outline
+
+- Data is exchanged in the form of **segments**. Each has a **20-byte fixed header** (plus an optional part) followed by zero or more data bytes.
+- Each segment, including the TCP header, must fit in the 65,515-byte IP payload, and also within the link's **maximum transfer unit**.
+- The basic protocol is a **sliding window protocol with a dynamic window size**.
+- When a sender transmits a segment, it also **starts a timer**.
+- When the segment arrives, the receiver sends back a segment bearing an **acknowledgement number equal to the next sequence number it expects** and the remaining window size.
+- If the sender's timer goes off before the acknowledgement is received, the sender **transmits the segment again**.
+
+It sounds simple, but segments can arrive out of order, be delayed so long that the sender times out and retransmits, and retransmissions may cover a different range of bytes from the original.
+
+### The segment header
+
+| Field | Purpose |
+|---|---|
+| Source port, destination port | Identify the local end points of the connection |
+| Sequence number | Position of the first data byte of this segment in the stream. **Every byte is numbered** |
+| Acknowledgement number | The next in-order byte expected, not the last one received. It is cumulative |
+| TCP header length | Number of 32-bit words in the header, needed because options vary |
+| Window size | How many bytes may be sent, starting at the byte acknowledged. **Zero is legal** |
+| Checksum | Covers header, data and a pseudoheader, like UDP |
+| Urgent pointer | Offset from the current sequence number at which urgent data is found |
+| Options | Extra facilities |
+
+Eight one-bit flags:
+
+| Flag | Meaning |
+|---|---|
+| CWR, ECE | Used to signal congestion with ECN. **ECE** signals an ECN-Echo to the sender, telling it to slow down. **CWR** (congestion window reduced) is set by the sender to tell the receiver it has slowed down, so the receiver can stop sending ECN-Echo |
+| URG | Set if the urgent pointer is in use |
+| ACK | Set to indicate that the acknowledgement number is valid. This is the case for nearly all packets |
+| PSH | Pushed data: the receiver is asked to deliver the data to the application on arrival and not buffer it until a full buffer is received |
+| RST | Abruptly reset a connection that has become confused |
+| SYN | Used to establish connections |
+| FIN | Used to release a connection: the sender has no more data to transmit |
+
+Widely used options include the **maximum segment size (MSS)** a host is willing to accept (larger segments are more efficient because the 20-byte header is amortised over more data), **window scale**, **timestamps**, and **selective acknowledgement (SACK)**, which lets a receiver tell a sender the ranges of sequence numbers it has received.
+
+### Opening and closing connections
+
+TCP establishes connections with the **three-way handshake**. The server passively waits with LISTEN and ACCEPT. The client executes CONNECT, which sends a segment with **SYN = 1, ACK = 0** and its initial sequence number *x*. If a process is listening on the port, the server replies with **SYN = 1, ACK = 1**, sequence number *y* and acknowledgement *x* + 1. The client completes the handshake with an ACK of *y* + 1. A SYN segment consumes one byte of sequence space so that it can be acknowledged unambiguously. If two hosts try to open a connection to each other simultaneously, the result is one connection, not two.
+
+To **release** a connection, either party can send a segment with the **FIN** bit set. When the FIN is acknowledged, that direction is shut down for new data. Data may continue to flow in the other direction; when both directions have been shut down, the connection is released. Normally four segments are needed, a FIN and an ACK for each direction, though the first ACK and the second FIN can share a segment.
+
+To avoid the two-army problem, **timers** are used. If a response to a FIN is not forthcoming within two maximum packet lifetimes, the sender of the FIN releases the connection. The other side will eventually notice that nobody seems to be listening any more, and will time out as well.
+
+<SequenceDiagram
+  client:visible
+  title="A TCP connection from SYN to FIN"
+  left="Client"
+  right="Server"
+  scenarios={[
+    {
+      name: 'Open, send, close',
+      messages: [
+        { from: 'L', label: 'SYN (seq = x)', note: 'The client calls CONNECT. A SYN segment carries its initial sequence number. The client is now in state SYN SENT.' },
+        { from: 'R', label: 'SYN (seq = y, ACK = x + 1)', note: 'The server, which was in LISTEN, accepts: it sends its own SYN and acknowledges the client’s. It is in SYN RCVD.' },
+        { from: 'L', label: 'ACK = y + 1', note: 'The client acknowledges. Both sides are now ESTABLISHED and data can flow in both directions.' },
+        { from: 'L', label: 'DATA (seq = x + 1), then ACK back', note: 'The client sends a request. The server acknowledges every byte with a cumulative acknowledgement number.' },
+        { from: 'L', label: 'FIN', note: 'The client has no more to send. It goes to FIN WAIT 1. The server enters CLOSE WAIT.' },
+        { from: 'R', label: 'ACK', note: 'The server acknowledges the FIN. The client moves to FIN WAIT 2: one direction is now closed, but the server may still send.' },
+        { from: 'R', label: 'FIN', note: 'The server has finished too, and sends its own FIN, entering LAST ACK.' },
+        { from: 'L', label: 'ACK', note: 'The client acknowledges and enters TIME WAIT, waiting twice the maximum packet lifetime so that all packets from the connection have died off.' },
+      ],
+      outcome: 'Both sides return to CLOSED.',
+    },
+  ]}
+/>
+
+The steps correspond to the states of the TCP connection **finite state machine**:
+
+| State | Description |
+|---|---|
+| CLOSED | No connection is active or pending |
+| LISTEN | The server is waiting for an incoming call |
+| SYN RCVD | A connection request has arrived; wait for ACK |
+| SYN SENT | The application has started to open a connection |
+| ESTABLISHED | The normal data transfer state |
+| FIN WAIT 1 | The application has said it is finished |
+| FIN WAIT 2 | The other side has agreed to release |
+| TIME WAIT | Wait for all packets to die off |
+| CLOSING | Both sides have tried to close simultaneously |
+| CLOSE WAIT | The other side has initiated a release |
+| LAST ACK | Wait for all packets to die off |
+
+### Window management
+
+In TCP, acknowledging the correct receipt of segments and allocating receiver buffer space are **separated**. The acknowledgement number says what has arrived; the window field says how much more may be sent. The sender's limit is ACK + WIN.
+
+Suppose the receiver has a 4096-byte buffer.
+
+<SequenceDiagram
+  client:visible
+  title="TCP flow control with a 4 KB receive buffer"
+  left="Sender"
+  right="Receiver"
+  scenarios={[
+    {
+      name: 'A full buffer',
+      messages: [
+        { from: 'L', label: '2K of data (seq = 0)', note: 'The application writes 2 KB and the sender transmits it. The receiver’s buffer is now half full.' },
+        { from: 'R', label: 'ACK = 2048, WIN = 2048', note: 'The receiver acknowledges the segment and advertises its remaining space: 2048 bytes.' },
+        { from: 'L', label: '2K of data (seq = 2048)', note: 'The application writes another 2 KB, which exactly fills the advertised window. The buffer is now full.' },
+        { from: 'R', label: 'ACK = 4096, WIN = 0', note: 'Everything is acknowledged, but the window is 0. The sender must stop, although it has more data: it is blocked.' },
+        { from: 'R', label: 'ACK = 4096, WIN = 2048', note: 'The receiving application reads 2 KB, freeing space. The receiver sends a window update.' },
+        { from: 'L', label: '1K of data (seq = 4096)', note: 'The sender may transmit again. It sends 1 KB, leaving 1 KB of window unused.' },
+      ],
+      outcome: 'The receiver, not the network, set the pace here: that is flow control.',
+    },
+  ]}
+/>
+
+When the window is 0, the sender may not normally send segments, with two exceptions. Urgent data may be sent. And the sender may send a **1-byte segment** to force the receiver to re-announce the next byte expected and the window size. This is a **window probe**, and it exists to prevent **deadlock** if a window update ever gets lost.
+
+Senders are not required to transmit data as soon as it comes in from the application, and receivers are not required to send acknowledgements as soon as possible. This freedom is used to improve performance.
+
+**The small-packet problem.** Consider a connection to a remote terminal that reacts to every keystroke. In the worst case, each character typed creates a 21-byte TCP segment, which is given to IP to send as a 41-byte datagram. At the receiving side TCP immediately sends a 40-byte acknowledgement. Later, when the application has read the byte, TCP sends a window update. Later still, the application echoes the character. In all, **162 bytes of bandwidth are used and four segments are sent for each character typed**.
+
+- **Delayed acknowledgements.** Delay acknowledgements and window updates for up to 500 ms in the hope of acquiring some data on which to hitch a free ride. This cuts the receiver's share, but a sender that sends many short packets is still operating inefficiently.
+- **Nagle's algorithm.** When data comes into the sender in small pieces, **send the first piece and buffer all the rest until the first piece is acknowledged**. Then send all the buffered data in one TCP segment and start buffering again. It is widely used, but for some applications, such as interactive games, it is better disabled, since they need a rapid stream of short packets.
+
+**Silly window syndrome.** The mirror-image problem: data is passed to the sender in large blocks, but the application on the receiving side reads **one byte at a time**. The buffer is full; the application reads one byte; TCP happily advertises a window of 1; the sender sends one byte; the buffer is full again. This can go on for ever.
+
+- **Clark's solution.** Prevent the receiver from sending a window update for 1 byte. Force it to **wait until it has a decent amount of space available and advertise that instead**: the maximum segment size it advertised when the connection was established, or half its buffer, whichever is smaller.
+
+Nagle's algorithm and Clark's solution are complementary: one stops the sender sending small segments, the other stops the receiver asking for them.
+
+### Timer management
+
+The most important of TCP's timers is the **retransmission timeout (RTO)**. When a segment is sent, a timer is started. If the segment is acknowledged in time, the timer is stopped; if the timer goes off first, the segment is retransmitted. How long should the timeout be?
+
+In the data link layer this is easy: acknowledgements are rarely delayed, because the delay on a single link is predictable, and the absence of an acknowledgement at the expected time means the frame was lost. Across the Internet the round-trip time has a **large variance** and can **change quickly**. Too short a timeout causes unnecessary retransmissions, clogging the network with useless packets. Too long, and performance suffers every time a packet is lost.
+
+The solution is a **dynamic algorithm**, due to Jacobson, that constantly adapts the timeout from measurements. For each connection TCP maintains a variable **SRTT** (smoothed round-trip time), the best current estimate. When a segment is sent and its acknowledgement arrives, TCP measures how long it took, *R*, and updates:
+
+$$
+\text{SRTT} = \alpha \cdot \text{SRTT} + (1-\alpha)\, R
+$$
+
+with α typically 7/8. This kind of formula is an **exponentially weighted moving average (EWMA)**: it is a low-pass filter that discards noise in the samples.
+
+A timeout based on the mean alone is not enough, because it is insensitive to how much the round-trip time varies. So a second smoothed variable is kept, **RTTVAR**, the round-trip time variation:
+
+$$
+\text{RTTVAR} = \beta \cdot \text{RTTVAR} + (1-\beta)\,\lvert \text{SRTT} - R \rvert
+$$
+
+with β typically 3/4, and the timeout is set to
+
+$$
+\text{RTO} = \text{SRTT} + 4 \times \text{RTTVAR}
+$$
+
+<RtoEstimator client:visible />
+
+<Question client:visible q={checks.rto} />
+
+TCP uses two more timers.
+
+- The **persistence timer** prevents a deadlock. The receiver sends an acknowledgement with a window of 0, telling the sender to wait. Later the receiver updates the window, but the packet with the update is **lost**. Now both sides are waiting for the other. When the persistence timer goes off, the sender transmits a **probe** to the receiver, whose response gives the window size. If it is still 0, the timer is set again and the cycle repeats.
+- The **keepalive timer**. When a connection has been idle for a long time, the timer may go off to cause one side to check whether the other is still there. If it fails to respond, the connection is terminated.
+
+### Congestion control
+
+When the load offered to any network is more than it can handle, congestion builds up. The network layer detects congestion when queues grow large at routers and tries to manage it, if only by dropping packets. It is up to the transport layer to receive that feedback and **slow down the rate of traffic** it is sending. In the Internet, TCP plays the main role in controlling congestion.
+
+TCP implements **AIMD**, using **packet loss** as its congestion signal. It maintains a **congestion window (cwnd)**: the number of bytes (here counted in segments) the sender may have in the network at any time. The corresponding rate is the window divided by the round-trip time. It is kept *in addition* to the flow-control window, and the sender may send only up to the **smaller** of the two.
+
+**The ACK clock.** Acknowledgements return to the sender at about the rate at which packets can be sent over the slowest link on the path. If the sender injects new packets only as acknowledgements come back, it sends at exactly the rate the path can carry, and bursts are smoothed out. This timing is called the **ACK clock**, and it is an essential part of TCP.
+
+**Slow start.** Pure additive increase from a small window would take far too long to reach a good operating point on a fast network. So TCP starts with a small window and grows it **exponentially**. When a connection is established, the sender sets the congestion window to a small initial value. For **each segment acknowledged** before its timer goes off, the sender adds one segment's worth of bytes to the window. Each acknowledged segment thus allows two more to be sent, so the window **doubles every round-trip time**. (It is slow only compared with the earlier practice of sending a whole flow-control window at once.)
+
+To keep slow start under control, the sender keeps a **slow-start threshold (ssthresh)**. Whenever a packet loss is detected, for example by a timeout, the threshold is set to **half of the congestion window** and the whole process is restarted.
+
+**Additive increase.** Whenever the threshold is crossed, TCP switches from slow start to additive increase, also called **congestion avoidance**: the congestion window is increased by **one segment every round-trip time**.
+
+<Question client:visible q={checks.slowstart} />
+
+**TCP Tahoe.** Slow start followed by additive increase, with any loss handled by setting the threshold to half the window and starting again from one segment. The defect is that waiting for a **timeout** is slow, and during it the ACK clock stops.
+
+**Fast retransmit.** There is a quicker way to recognise a loss. When packets after the lost one arrive at the receiver, they trigger acknowledgements that all bear the **same acknowledgement number**. These are **duplicate acknowledgements**. TCP somewhat arbitrarily assumes that **three duplicate ACKs** imply that a packet has been lost, and retransmits it immediately, without waiting for the timer.
+
+**TCP Reno: fast recovery.** After a fast retransmit there is no need to fall back to one segment, because the duplicate ACKs prove that packets are still leaving the network: **the ACK clock has not stopped**. So the threshold is set to half the window, and the window is set to that new threshold, skipping slow start. Additive increase continues from there. Only after a **timeout** does Reno restart from one segment.
+
+The result is the classic **sawtooth**: additive increase by one segment per round-trip time, and multiplicative decrease by half on a loss. That is exactly the AIMD rule.
+
+<TcpCongestion client:visible />
+
+| | TCP Tahoe | TCP Reno |
+|---|---|---|
+| Loss detected by timeout | ssthresh = cwnd / 2; cwnd = 1; slow start | The same |
+| Loss detected by three duplicate ACKs | The same as a timeout | ssthresh = cwnd / 2; **cwnd = ssthresh**; additive increase (fast recovery) |
+
+**Selective acknowledgements (SACK).** A cumulative acknowledgement number cannot say *which* packets have been lost, so with only ordinary ACKs the sender has no way of knowing that, say, packets 2 and 5 are both missing. SACK extends acknowledgements with up to three ranges of bytes that have been received. With it the sender can tell precisely which packets to retransmit, and recover from several losses in one window.
+
+<Callout type="exam" title="Tracing the congestion window">
+Draw the trace one round-trip time at a time and write down the window and the threshold. Three rules cover almost everything: **below the threshold, double; at or above it, add one; on a loss, the threshold becomes half the window**, and the window goes to 1 (Tahoe, or any timeout) or to the new threshold (Reno, after duplicate ACKs).
+</Callout>
+
+## Delay-tolerant networking
+
+Everything so far assumed that sender and receiver are **continuously connected** by some working path. That is not always true:
+
+- space networks, where satellites pass in and out of range of ground stations;
+- networks involving submarines, buses and mobile phones, which have **intermittent connectivity**.
+
+A **delay-tolerant network (DTN)** accepts delays, as the postal system does, by **storing messages inside the network** until they can be delivered. The idea has uses even on ordinary networks: copying very large data sets between data centres, sending bulk traffic during off-peak times, and doing backups at night.
+
+In the DTN architecture, messages are called **bundles**. DTN nodes are equipped with **storage**, and bundles are held there while waiting for an intermittent link, called a **contact**, to become available. Bundles might wait **hours**, not the milliseconds a packet spends in a router, and there may be **no working end-to-end path at any time**.
+
+## Summary
+
+- The **transport layer** runs on the users' machines and provides process-to-process delivery, making the service more reliable than the network beneath. It exchanges **segments** and is used through **sockets**.
+- **Ports** address processes. **Connection establishment** must defeat delayed duplicates: bound packet lifetime, do not reuse sequence numbers, and use the **three-way handshake**. **Release** is symmetric, and because of the **two-army problem** relies on timers.
+- **Flow control** uses a **variable window** advertised by the receiver, with larger windows and dynamic buffering than at the link layer.
+- **Congestion control** aims at efficient, **max-min fair** allocations. **AIMD** is the control law that converges to the fair and efficient point.
+- **UDP** adds only ports and a checksum; it carries **RPC** and, with **RTP** and a playout buffer, real-time media.
+- **TCP** gives a reliable byte stream. Its window management needs **window probes**, **Nagle's algorithm** and **Clark's solution**. Its timeout is **RTO = SRTT + 4 × RTTVAR**. Its congestion control combines **slow start**, **additive increase**, **fast retransmit** and (in Reno) **fast recovery**.
+
+## Exam-style practice
+
+<Question client:visible q={practice.window} label="Written practice" />
+
+<Question client:visible q={practice.nagle} label="Written practice" />
+
+<Checkpoint client:visible lessonId="transport-layer" questions={checkpoint} />

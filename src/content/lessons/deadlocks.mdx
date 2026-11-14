@@ -1,0 +1,479 @@
+---
+title: Deadlocks
+summary: How a set of processes can end up waiting on each other for ever, and the three ways a system can respond - prevent it, avoid it with the Banker's algorithm, or detect it and recover.
+minutes: 55
+prerequisites: [processes-and-ipc, synchronization]
+objectives:
+  - Define deadlock and state the four conditions that must hold for one to arise
+  - Read a resource-allocation graph and decide whether it shows a deadlock
+  - Explain how deadlock prevention denies each necessary condition, and what that costs
+  - Define safe and unsafe states and apply the Banker's safety and resource-request algorithms
+  - Apply the deadlock-detection algorithm and describe how a system recovers from a deadlock
+---
+
+import Callout from '../../components/learn/Callout.astro';
+import Flow from '../../components/learn/Flow.astro';
+import Question from '../../components/learn/Question.svelte';
+import Checkpoint from '../../components/learn/Checkpoint.svelte';
+import RagExplorer from '../../components/viz/RagExplorer.svelte';
+import BankersAlgorithm from '../../components/viz/BankersAlgorithm.svelte';
+import SemaphorePlayground from '../../components/viz/SemaphorePlayground.svelte';
+import { checks, practice, checkpoint } from '../../data/questions/deadlocks';
+
+## The deadlock problem
+
+In a multiprogramming system, several processes compete for a finite number of resources. A process requests resources, and if they are not available at that time, it waits. Sometimes a waiting process can **never** change state again, because the resources it has requested are held by other waiting processes.
+
+A **deadlock** is a set of blocked processes, each holding a resource and waiting to acquire a resource held by another process in the set.
+
+Two small examples show the shape of the problem.
+
+- A system has **two tape drives**. P1 and P2 each hold one drive, and each needs another one. Neither can continue, and neither will give its drive up.
+- Two semaphores A and B are initialised to 1, and two processes acquire them in opposite orders:
+
+```c
+/* P0 */        /* P1 */
+wait(A);        wait(B);
+wait(B);        wait(A);
+```
+
+If P0 gets A and then P1 gets B, each is waiting for a signal that only the other can send. Play the scheduler below and make it happen: run one step of each process in turn.
+
+<SemaphorePlayground client:visible start="deadlock" />
+
+<Callout type="analogy" title="The narrow bridge">
+A bridge carries traffic in only one direction at a time, and each section of the bridge can be viewed as a resource. If two cars enter from opposite ends, each holds a section and needs the one the other is on. The deadlock can be resolved only if one car **backs up**: its resource is preempted and it is rolled back. Several cars may have to back up. And if traffic from one side keeps being given way to, the other side **starves**. Every idea in this lesson is in that picture.
+</Callout>
+
+## The system model
+
+A system consists of a finite number of resources distributed among competing processes. The resources are partitioned into **types** R1, R2, …, Rn.
+
+- **Physical resources**: CPU cycles, memory space, I/O devices such as printers and tape drives.
+- **Logical resources**: files, semaphores and monitors.
+
+Each resource type Ri has some number **Wi of identical instances**. If a system has two CPUs, the resource type CPU has two instances. A request for a type can be satisfied by **any** instance of it.
+
+A process uses a resource in only one sequence:
+
+<Flow
+  steps={[
+    { label: 'Request', note: 'If the request cannot be granted immediately, the process must wait' },
+    { label: 'Use', note: 'The process operates on the resource' },
+    { label: 'Release', note: 'The process gives the resource back' },
+  ]}
+  caption="The only way a process ever uses a resource"
+/>
+
+With this model the definition can be made precise: **a set of processes is in a deadlock state when every process in the set is waiting for an event that can be caused only by another process in the set.** The events here are resource acquisition and release.
+
+Multithreaded programs are good candidates for deadlock, because many threads compete for shared resources such as locks.
+
+## Four necessary conditions
+
+A deadlock can arise only if **four conditions hold simultaneously**.
+
+| Condition | Meaning |
+|---|---|
+| **Mutual exclusion** | At least one resource is non-sharable: only one process at a time can use it. A second process that requests it must wait. |
+| **Hold and wait** | A process is holding at least one resource and waiting to acquire additional resources that are held by other processes. |
+| **No preemption** | Resources cannot be preempted. A resource is released only voluntarily by the process holding it, after that process has completed its task. |
+| **Circular wait** | There is a set of waiting processes P0, P1, …, Pn such that P0 is waiting for a resource held by P1, P1 for a resource held by P2, …, and Pn for a resource held by P0. |
+
+<Callout type="key" title="All four, at once">
+The conditions are **necessary**: take any one away and deadlock is impossible. That single fact is the whole basis of deadlock prevention. (Circular wait implies hold and wait, so the four are not completely independent, but it is useful to consider each separately.)
+</Callout>
+
+<Question client:visible q={checks.conditions} />
+
+## Resource-allocation graphs
+
+Deadlocks can be described precisely with a directed graph called a **resource-allocation graph**. It has a set of vertices V and a set of edges E. V is partitioned into two types:
+
+- **P** = \{P1, P2, …, Pn\}, the set of all processes in the system, drawn as **circles**;
+- **R** = \{R1, R2, …, Rm\}, the set of all resource types, drawn as **rectangles**, with one **dot for each instance**.
+
+There are two kinds of edge:
+
+- a **request edge** Pi → Rj: process Pi has requested an instance of Rj and is waiting for it;
+- an **assignment edge** Rj → Pi: an instance of Rj has been allocated to Pi.
+
+When a request can be fulfilled, the request edge is **instantaneously transformed** into an assignment edge. When the process releases the resource, the assignment edge is deleted.
+
+Try the three classic graphs. For each, decide whether there is a deadlock before you look at the verdict, then let processes finish one at a time to check.
+
+<RagExplorer client:visible />
+
+What the graph tells you:
+
+- If the graph contains **no cycle**, then no process is deadlocked.
+- If the graph contains **a cycle**:
+  - with **only one instance per resource type**, there **is** a deadlock;
+  - with **several instances per resource type**, there is the **possibility** of a deadlock.
+
+In the third graph the cycle is P1 → R1 → P3 → R2 → P1, but P4 can release its instance of R2. That instance goes to P3, and the cycle is broken. A cycle is **necessary** for deadlock; it is **sufficient** only when every resource has a single instance.
+
+<Question client:visible q={checks.cycle} />
+
+## Three ways to handle deadlocks
+
+1. **Ensure that the system never enters a deadlock state.** There are two schemes for this:
+   - **Deadlock prevention**: a set of methods for ensuring that at least one of the necessary conditions cannot hold.
+   - **Deadlock avoidance**: requires that the operating system be given, in advance, additional information about which resources a process will request and use during its lifetime.
+2. **Allow the system to enter a deadlock state, detect it, and recover.**
+3. **Ignore the problem** and pretend that deadlocks never occur in the system.
+
+The third option is the one used by most operating systems, including UNIX. It sounds irresponsible, but it is a judgement about cost: prevention and avoidance tax every resource request, while in many systems deadlocks occur rarely. When performance degrades because of an undetected deadlock, recovery is manual. It is then up to the **application developer** to write programs that do not deadlock.
+
+## Deadlock prevention
+
+Prevention **restrains the ways in which requests can be made**, so that one of the four conditions is impossible. Take them in turn.
+
+### Mutual exclusion
+
+Sharable resources, such as read-only files, do not require mutually exclusive access and cannot be involved in a deadlock. But in general **it is not possible to prevent deadlocks by denying mutual exclusion**, because some resources are intrinsically non-sharable. A printer cannot be shared by several processes at the same moment.
+
+### Hold and wait
+
+Guarantee that whenever a process requests a resource, it does not hold any other resources. There are two protocols.
+
+- **Protocol 1.** Each process requests and is allocated **all its resources before it begins execution**. The system calls requesting resources precede all other system calls.
+- **Protocol 2.** A process may request resources **only when it has none**. It can request some resources and use them, but before it can request any additional resources it must release all those it currently holds.
+
+Consider a process that copies data from a tape drive to a disk file, sorts the file, and then prints the results on a printer.
+
+- Under protocol 1 it must request the tape drive, the disk file and the printer at the start. It will **hold the printer for its entire execution**, even though it needs it only at the end.
+- Under protocol 2 it requests the tape drive and disk file, copies, and releases both. It then requests the disk file and the printer, prints, and releases them.
+
+Both have disadvantages:
+
+- **Resource utilisation is low**, since resources may be allocated but unused for a long time.
+- **Starvation is possible**: a process that needs several popular resources may have to wait indefinitely, because at least one of them is always allocated to some other process.
+- Process initiation is delayed, and future resource requirements must be known.
+
+### No preemption
+
+If a process that is holding some resources requests another resource that cannot be immediately allocated to it, then **all resources it currently holds are released**. The preempted resources are added to the list of resources for which the process is waiting. The process is restarted only when it can regain its old resources as well as the new one it is requesting.
+
+This protocol is applied to resources whose **state can easily be saved and restored later**, such as CPU registers and memory space. It cannot generally be applied to printers and tape drives: a half-printed page cannot be handed to another process and taken back.
+
+### Circular wait
+
+Impose a **total ordering** on all resource types, and require that each process requests resources in an **increasing order** of enumeration.
+
+Formally, define a one-to-one function F: R → N that assigns each resource type a unique natural number. For example:
+
+$$
+F(\text{tape drive}) = 1, \qquad F(\text{disk drive}) = 5, \qquad F(\text{printer}) = 12
+$$
+
+- **Protocol 1.** A process can initially request any number of instances of a type Ri. After that it can request instances of type Rj **if and only if F(Rj) > F(Ri)**. A process that needs both the tape drive and the printer must request the tape drive first.
+- **Protocol 2.** Whenever a process requests an instance of Rj, it must have **released** any resources Ri such that F(Ri) ≥ F(Rj).
+
+Why this works: suppose a circular wait existed among P0, …, Pn, where Pi waits for resource Ri held by the next process. Since each process holds one resource while requesting the next, the ordering demands
+
+$$
+F(R_0) < F(R_1) < \dots < F(R_n) < F(R_0)
+$$
+
+which is impossible. So there can be no circular wait.
+
+The ordering should follow the normal order of usage in the system: a tape drive is usually needed before a printer, so it is reasonable to give it the lower number.
+
+<Callout type="history" title="A lock-order verifier in a real kernel">
+Establishing an order does not by itself prevent deadlock; programmers must follow it. BSD UNIX includes a lock-order verifier called **witness**. It uses mutual-exclusion locks to protect critical regions and **records the order** in which locks are acquired. If `thread_one` acquires `first_mutex` and then `second_mutex`, witness records that `first_mutex` must be obtained before `second_mutex`. If `thread_two` later acquires them in the opposite order, witness **generates a warning**, before any deadlock has actually happened.
+</Callout>
+
+<Question client:visible q={checks.ordering} />
+
+<Callout type="pitfall" title="The price of prevention">
+Every prevention protocol works by restricting how requests are made. The side effects are **low device utilisation and reduced system throughput**. This is the standard argument for looking at avoidance instead.
+</Callout>
+
+## Deadlock avoidance
+
+Avoidance places no restriction on the form of requests. Instead it requires **additional information in advance**, and uses it to decide, for each request, whether the process should be made to wait.
+
+The simplest and most useful model requires that **each process declare the maximum number of resources of each type that it may need**. Given this, a deadlock-avoidance algorithm **dynamically examines the resource-allocation state** to ensure that a circular-wait condition can never exist. The **resource-allocation state** is defined by the number of available and allocated resources and the maximum demands of the processes.
+
+### Safe state
+
+When a process requests an available resource, the system must decide whether immediate allocation leaves the system in a **safe state**.
+
+A system is in a **safe state** if there exists a **safe sequence** of all the processes. A sequence &lt;P1, P2, …, Pn&gt; is safe if, for each Pi, the resources that Pi can still request can be satisfied by the **currently available resources plus the resources held by all the Pj with j &lt; i**.
+
+The reasoning is this. If the resources Pi needs are not immediately available, Pi can wait until all the earlier Pj have finished. When they have finished, Pi can obtain everything it needs, execute, return its allocated resources and terminate. Then Pi+1 can obtain its resources, and so on.
+
+- If a system is in a **safe state**, there is **no deadlock**.
+- If a system is in an **unsafe state**, there is the **possibility** of deadlock.
+- **Avoidance** ensures that the system **never enters an unsafe state**.
+
+<div class="not-sw-prose my-6">
+  <svg viewBox="0 0 520 190" class="mx-auto w-full max-w-lg" role="img" aria-label="Nested regions: deadlocked states lie inside the unsafe states, which are separate from the safe states">
+    <rect x="4" y="4" width="512" height="182" rx="12" fill="var(--card)" stroke="var(--border)" />
+    <rect x="20" y="20" width="200" height="150" rx="10" fill="color-mix(in oklab, var(--success) 14%, transparent)" stroke="var(--success)" stroke-width="1.5" />
+    <text x="120" y="92" text-anchor="middle" font-size="15" font-weight="600" fill="var(--foreground)">Safe</text>
+    <text x="120" y="112" text-anchor="middle" font-size="11" fill="var(--muted-foreground)">a safe sequence exists</text>
+    <rect x="236" y="20" width="264" height="150" rx="10" fill="color-mix(in oklab, var(--warning) 16%, transparent)" stroke="var(--warning)" stroke-width="1.5" />
+    <text x="300" y="92" text-anchor="middle" font-size="15" font-weight="600" fill="var(--foreground)">Unsafe</text>
+    <text x="300" y="112" text-anchor="middle" font-size="11" fill="var(--muted-foreground)">no guarantee</text>
+    <rect x="368" y="44" width="116" height="102" rx="8" fill="color-mix(in oklab, var(--error) 18%, transparent)" stroke="var(--error)" stroke-width="1.5" />
+    <text x="426" y="100" text-anchor="middle" font-size="14" font-weight="600" fill="var(--foreground)">Deadlock</text>
+  </svg>
+  <p class="text-muted-foreground mt-2 text-center text-sm">Every deadlocked state is unsafe, but not every unsafe state is deadlocked.</p>
+</div>
+
+In an unsafe state the operating system has lost control: whether a deadlock occurs now depends on the behaviour of the processes.
+
+### An example with tape drives
+
+A system has **12 magnetic tape drives** and three processes. At time t0:
+
+| Process | Maximum need | Holding | Still needs |
+|---|---|---|---|
+| P0 | 10 | 5 | 5 |
+| P1 | 4 | 2 | 2 |
+| P2 | 9 | 2 | 7 |
+
+Nine drives are allocated, so **3 are free**.
+
+The system is **safe**: the sequence &lt;P1, P0, P2&gt; satisfies the safety condition. P1 can take 2 of the 3 free drives, finish, and return all 4, leaving 5 free. P0 can then take 5, finish, and return 10. Then P2 can take its 7.
+
+Now suppose that at time t1, P2 requests and is allocated **1 more** drive. Two are free. P1 can still finish, which leaves 4 free. But P0 needs 5 more and P2 needs 6 more. If both ask, both wait for ever. The system is **no longer in a safe state**.
+
+The mistake was in **granting P2's request**. If P2 had been made to wait until one of the other processes had finished and released its drives, the deadlock could have been avoided. That is the idea of every avoidance algorithm: a request for a resource that is free may still be refused.
+
+<Question client:visible q={checks.tape} />
+
+<Question client:visible q={checks.safe} />
+
+### Avoidance with a resource-allocation graph
+
+If every resource type has **exactly one instance**, a variant of the resource-allocation graph can be used.
+
+- A **claim edge** Pi → Rj indicates that process Pi **may** request resource Rj at some time in the future. It is drawn as a **dashed** line.
+- Resources must be claimed a priori: before a process starts executing, all its claim edges must already appear in the graph.
+- When the process actually requests the resource, the claim edge is converted to a **request edge**.
+- When the resource is allocated, the request edge becomes an **assignment edge**. When it is released, the assignment edge reconverts to a claim edge.
+
+Suppose Pi requests Rj. **The request can be granted only if converting the request edge Pi → Rj to an assignment edge Rj → Pi does not result in a cycle** in the graph, where claim edges count as edges. Checking uses a cycle-detection algorithm, which takes on the order of n² operations for n processes.
+
+For example, let R1 be assigned to P1, let P2 be requesting R1, and let both P1 and P2 have claim edges to R2. If P2 now requests R2, R2 is free, but assigning it would create the cycle P1 → R2 → P2 → R1 → P1. The state would be **unsafe**: if P1 then requested R2, there would be a deadlock. So R2 **cannot be allocated to P2**.
+
+### The Banker's algorithm
+
+The graph scheme does not work when resource types have several instances. The **Banker's algorithm** does. The name comes from banking: a bank never allocates its available cash in such a way that it can no longer satisfy the needs of all its customers.
+
+Its rules:
+
+- Each process must **declare in advance** the maximum number of instances of each type it may need.
+- When a process requests resources, it **may have to wait**.
+- When a process gets all its resources, it must **return them in a finite amount of time**.
+
+**Data structures.** Let n be the number of processes and m the number of resource types.
+
+| Structure | Shape | Meaning |
+|---|---|---|
+| **Available** | vector of length m | Available[j] = k: there are k instances of Rj available |
+| **Max** | n × m matrix | Max[i, j] = k: Pi may request at most k instances of Rj |
+| **Allocation** | n × m matrix | Allocation[i, j] = k: Pi is currently allocated k instances of Rj |
+| **Need** | n × m matrix | Need[i, j] = k: Pi may need k more instances of Rj to complete its task |
+
+$$
+\text{Need}[i, j] = \text{Max}[i, j] - \text{Allocation}[i, j]
+$$
+
+One piece of notation: for vectors X and Y, **X ≤ Y** if and only if X[i] ≤ Y[i] for **every** i. For example, if X = (1, 7, 3, 2) and Y = (0, 3, 2, 1), then Y ≤ X. One component out of place is enough to make the comparison false.
+
+**The safety algorithm** finds out whether a state is safe.
+
+1. Let Work and Finish be vectors of length m and n. Initialise **Work = Available** and **Finish[i] = false** for all i.
+2. Find an i such that both **Finish[i] = false** and **Need_i ≤ Work**. If no such i exists, go to step 4.
+3. **Work = Work + Allocation_i**, Finish[i] = true. Go to step 2.
+4. If Finish[i] = true for all i, the system is in a **safe state**.
+
+It may require on the order of **m × n²** operations.
+
+**The resource-request algorithm** decides whether a request can be granted. Let Request_i be the request vector for process Pi.
+
+1. If **Request_i ≤ Need_i**, go to step 2. Otherwise raise an **error**: the process has exceeded its maximum claim.
+2. If **Request_i ≤ Available**, go to step 3. Otherwise Pi must **wait**: the resources are not available.
+3. **Pretend** to allocate the requested resources to Pi:
+
+```
+Available    = Available    - Request_i
+Allocation_i = Allocation_i + Request_i
+Need_i       = Need_i       - Request_i
+```
+
+Then run the safety algorithm on the resulting state. If it is **safe**, the resources are allocated to Pi. If it is **unsafe**, Pi must wait and the **old state is restored**.
+
+<Question client:visible q={checks.request} />
+
+### A worked example
+
+Five processes P0 to P4, and three resource types: **A** with 10 instances, **B** with 5 and **C** with 7. The simulator starts with the snapshot at time T0. Step through the safety algorithm first.
+
+<BankersAlgorithm client:visible />
+
+Things to notice:
+
+- The check finds the safe sequence **&lt;P1, P3, P4, P0, P2&gt;**. Safe sequences are **not unique**: &lt;P1, P3, P4, P2, P0&gt; is equally valid, and is the one usually quoted for this example. To show a state is safe you need only one.
+- When every process has finished, Work is (10, 5, 7), the **total** number of instances. That is a useful check on your arithmetic.
+- **P1 requests (1, 0, 2).** It is within P1's Need (1, 2, 2) and within Available (3, 3, 2). After the pretend allocation, Available is (2, 3, 0), and the safety algorithm still finds a safe sequence. **Granted.**
+- **Then P4 requests (3, 3, 0).** Available is now (2, 3, 0), so the request **cannot be granted**: the resources are not available.
+- **Then P0 requests (0, 2, 0).** The resources **are** available, but the resulting state, with Available (2, 1, 0), is **unsafe**: no process's Need fits. **Refused.**
+
+<Callout type="exam" title="Setting out a Banker's algorithm answer">
+Write the Need matrix first. Then show each step as a line: the process chosen, the comparison Need ≤ Work, and the new Work. Finish with the safe sequence in angle brackets, or name the processes that cannot finish. For a request, show all three tests in order before running the safety algorithm on the **new** state.
+</Callout>
+
+## Deadlock detection
+
+If a system uses neither prevention nor avoidance, a deadlock may occur. The system must then provide:
+
+- an algorithm that **examines the state** of the system to determine whether a deadlock has occurred, and
+- an algorithm to **recover** from it.
+
+### Single instance of each resource type
+
+Maintain a **wait-for graph**, obtained from the resource-allocation graph by removing the resource nodes and collapsing the edges.
+
+- The nodes are processes.
+- There is an edge **Pi → Pj if Pi is waiting for Pj** to release a resource that Pi needs. It exists exactly when the resource-allocation graph contains Pi → Rq and Rq → Pj for some resource Rq.
+
+**A deadlock exists if and only if the wait-for graph contains a cycle.** The system maintains the graph and periodically invokes an algorithm that searches it for a cycle, which requires on the order of **n²** operations, where n is the number of vertices.
+
+<div class="not-sw-prose my-6">
+  <svg viewBox="0 0 560 170" class="mx-auto w-full max-w-xl" role="img" aria-label="A resource-allocation graph in which P1 waits for R1 held by P2, and P2 waits for R2 held by P1, next to its wait-for graph in which P1 and P2 point at each other">
+    <defs>
+      <marker id="wf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke" /></marker>
+    </defs>
+    <text x="140" y="16" text-anchor="middle" font-size="12" fill="var(--muted-foreground)">Resource-allocation graph</text>
+    <text x="440" y="16" text-anchor="middle" font-size="12" fill="var(--muted-foreground)">Wait-for graph</text>
+    <rect x="118" y="30" width="44" height="30" rx="5" fill="var(--card)" stroke="var(--foreground)" stroke-width="1.5" />
+    <text x="140" y="50" text-anchor="middle" font-size="12" font-weight="600" fill="var(--foreground)">R1</text>
+    <rect x="118" y="126" width="44" height="30" rx="5" fill="var(--card)" stroke="var(--foreground)" stroke-width="1.5" />
+    <text x="140" y="146" text-anchor="middle" font-size="12" font-weight="600" fill="var(--foreground)">R2</text>
+    <circle cx="40" cy="93" r="20" fill="var(--primary)" /><text x="40" y="98" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">P1</text>
+    <circle cx="240" cy="93" r="20" fill="var(--primary)" /><text x="240" y="98" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">P2</text>
+    <line x1="56" y1="80" x2="116" y2="50" stroke="var(--muted-foreground)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#wf-arrow)" />
+    <line x1="164" y1="50" x2="223" y2="80" stroke="var(--foreground)" stroke-width="1.5" marker-end="url(#wf-arrow)" />
+    <line x1="224" y1="106" x2="164" y2="138" stroke="var(--muted-foreground)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#wf-arrow)" />
+    <line x1="116" y1="138" x2="57" y2="106" stroke="var(--foreground)" stroke-width="1.5" marker-end="url(#wf-arrow)" />
+    <circle cx="370" cy="93" r="20" fill="var(--primary)" /><text x="370" y="98" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">P1</text>
+    <circle cx="510" cy="93" r="20" fill="var(--primary)" /><text x="510" y="98" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">P2</text>
+    <path d="M388 82 Q440 56 492 82" fill="none" stroke="var(--chart-5)" stroke-width="2" marker-end="url(#wf-arrow)" />
+    <path d="M492 104 Q440 130 388 104" fill="none" stroke="var(--chart-5)" stroke-width="2" marker-end="url(#wf-arrow)" />
+  </svg>
+  <p class="text-muted-foreground mt-2 text-center text-sm">Removing the resource nodes leaves only "who waits for whom". The cycle is the deadlock.</p>
+</div>
+
+### Several instances of a resource type
+
+The wait-for graph is not applicable when resource types have several instances. The algorithm used instead closely resembles the Banker's safety algorithm, with these data structures:
+
+- **Available**: a vector of length m, the number of available resources of each type.
+- **Allocation**: an n × m matrix, the resources currently allocated to each process.
+- **Request**: an n × m matrix, the **current** request of each process. If Request[i, j] = k, then Pi is requesting k more instances of Rj.
+
+The algorithm:
+
+1. Initialise **Work = Available**. For each i, if Allocation_i ≠ 0 then Finish[i] = false; **otherwise Finish[i] = true**.
+2. Find an index i such that both **Finish[i] = false** and **Request_i ≤ Work**. If no such i exists, go to step 4.
+3. **Work = Work + Allocation_i**, Finish[i] = true. Go to step 2.
+4. If Finish[i] = false for some i, the system is in a **deadlock state**. Moreover, each such **Pi is deadlocked**.
+
+It requires on the order of **m × n²** operations.
+
+Why is it reasonable to reclaim the resources of Pi in step 3 as soon as its current request can be met? The algorithm is optimistic: it assumes that Pi will need no more resources to complete its task and will soon return everything. If that assumption is wrong, a deadlock may occur later, and it will be detected the next time the algorithm runs.
+
+<Question client:visible q={checks.detect} />
+
+**A worked example.** Five processes, and three resource types: A with 7 instances, B with 2 and C with 6. At time T0:
+
+| | Allocation (A B C) | Request (A B C) |
+|---|---|---|
+| P0 | 0 1 0 | 0 0 0 |
+| P1 | 2 0 0 | 2 0 2 |
+| P2 | 3 0 3 | 0 0 0 |
+| P3 | 2 1 1 | 1 0 0 |
+| P4 | 0 0 2 | 0 0 2 |
+
+Available = (0, 0, 0).
+
+| Step | Process chosen | Request ≤ Work? | Work afterwards |
+|---|---|---|---|
+| 1 | P0 | (0, 0, 0) ≤ (0, 0, 0) | (0, 1, 0) |
+| 2 | P2 | (0, 0, 0) ≤ (0, 1, 0) | (3, 1, 3) |
+| 3 | P3 | (1, 0, 0) ≤ (3, 1, 3) | (5, 2, 4) |
+| 4 | P1 | (2, 0, 2) ≤ (5, 2, 4) | (7, 2, 4) |
+| 5 | P4 | (0, 0, 2) ≤ (7, 2, 4) | (7, 2, 6) |
+
+The sequence &lt;P0, P2, P3, P1, P4&gt; results in Finish[i] = true for all i. **There is no deadlock.**
+
+Now suppose **P2 makes one additional request for an instance of type C**, so that its Request row becomes (0, 0, 1). P0 can still be chosen, and Work becomes (0, 1, 0). But now every remaining request needs an A or a C, and Work has none. Reclaiming the resources held by P0 is not enough to fulfil the requests of the other processes. **A deadlock exists, consisting of processes P1, P2, P3 and P4.**
+
+### When to run the detection algorithm
+
+When, and how often, to invoke it depends on two things:
+
+- **How often** is a deadlock likely to occur?
+- **How many processes** will be affected by a deadlock when it happens? One will need to be rolled back for each disjoint cycle.
+
+Invoking the algorithm for **every request** that cannot be granted immediately identifies not only the deadlocked set but the specific process that "caused" it. It is also very expensive. The alternative is to invoke it at less frequent intervals, for example **once per hour**, or **whenever CPU utilisation drops below 40 percent**, since a deadlock eventually cripples throughput. If detection is invoked at arbitrary points, there may be many cycles in the resource graph, and we would generally not be able to tell which of the many deadlocked processes caused the deadlock.
+
+## Recovery from deadlock
+
+When a detection algorithm finds a deadlock, one possibility is to **inform the operator** and let the operator deal with it manually. The other is to let the system **recover automatically**. There are two options for breaking a deadlock.
+
+### Process termination
+
+- **Abort all deadlocked processes.** This clearly breaks the cycle, but at great expense: the processes may have computed for a long time, and the results of those partial computations must be discarded.
+- **Abort one process at a time until the deadlock cycle is eliminated.** This incurs considerable overhead, since after each process is aborted the detection algorithm must be invoked again.
+
+Aborting a process may not be easy. If it was in the middle of **updating a file**, terminating it leaves the file in an incorrect state; if it was **printing**, the printer must be reset.
+
+In which order should processes be aborted? The one whose termination incurs the **minimum cost**. Many factors enter:
+
+- the **priority** of the process;
+- how long it has computed, and **how much longer** it needs to complete;
+- the resources it has **used**;
+- the resources it **needs** to complete;
+- **how many** processes will need to be terminated;
+- whether the process is **interactive or batch**.
+
+### Resource preemption
+
+Successively preempt some resources from processes and give them to other processes until the deadlock cycle is broken. Three issues must be addressed.
+
+1. **Selecting a victim.** Which resources and which processes are to be preempted? The order should minimise cost, with factors such as the number of resources a deadlocked process is holding and the time it has consumed so far.
+2. **Rollback.** A process that has lost a resource cannot continue normally. It must be rolled back to some **safe state** and restarted from there. The simplest solution is a total rollback: abort and restart. It is more effective to roll back only as far as necessary to break the deadlock, but that requires the system to keep more information about the state of running processes.
+3. **Starvation.** If victim selection is based only on cost, the same process may always be picked. A process must be picked as victim only a small, finite number of times. The usual solution is to **include the number of rollbacks in the cost factor**.
+
+## Summary
+
+- A **deadlock** is a set of processes each waiting for an event that only another process in the set can cause.
+- It can arise only if **mutual exclusion, hold and wait, no preemption and circular wait** all hold simultaneously.
+- In a **resource-allocation graph**: no cycle means no deadlock; a cycle means deadlock if every resource has one instance, and only a possibility of deadlock otherwise.
+
+| Approach | Idea | Cost |
+|---|---|---|
+| **Prevention** | A protocol makes one necessary condition impossible | Low device utilisation, reduced throughput, possible starvation |
+| **Avoidance** | Use a priori information; never enter an unsafe state | Maximum claims must be declared; safety check on every request |
+| **Detection and recovery** | Let deadlock happen, find it, break it | Detection overhead; lost work when a victim is aborted or rolled back |
+| **Ignore** | Assume deadlocks never occur | Manual recovery when one does |
+
+- **Prevention**: mutual exclusion cannot generally be denied; deny hold and wait by requesting everything at once or only when holding nothing; deny no preemption by releasing everything on a refused request; deny circular wait with a **total ordering** of resource types.
+- A state is **safe** if a **safe sequence** exists. Safe means no deadlock; unsafe means deadlock is possible.
+- **Banker's algorithm**: Need = Max − Allocation. The **safety algorithm** repeatedly finds a process with Need ≤ Work and adds its Allocation to Work. The **resource-request algorithm** checks Request ≤ Need, then Request ≤ Available, then pretends to allocate and tests for safety.
+- **Detection**: a cycle in the **wait-for graph** for single instances; for several instances, the same loop as the safety algorithm with **Request** in place of Need.
+- **Recovery**: terminate processes (all, or one at a time), or preempt resources (victim, rollback, starvation).
+
+## Exam-style practice
+
+<Question client:visible q={practice.compare} label="Written practice" />
+
+<Question client:visible q={practice.utilisation} label="Written practice" />
+
+<Checkpoint client:visible lessonId="deadlocks" questions={checkpoint} />
