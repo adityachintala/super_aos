@@ -9,6 +9,8 @@ interface Base {
   hint?: string;
   /** Set when the question comes from a past quiz paper. */
   pastPaper?: boolean;
+  /** Which paper it came from, when known, e.g. "End-sem 2025". */
+  source?: string;
 }
 
 export interface McqQuestion extends Base {

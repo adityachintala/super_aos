@@ -1,0 +1,9 @@
+- A **process** is a program in execution: text, program counter and registers, stack, data and heap. A program is passive; a process is active.
+- A process is **new, ready, running, waiting** or **terminated**. Only one can be running per processor. A waiting process becomes ready, never directly running.
+- The **PCB** records everything needed to stop and resume a process.
+- Processes move between the **job queue, ready queue** and **device queues**. The **long-term scheduler** controls the degree of multiprogramming, the **short-term scheduler** picks the next process to run and must be fast, and the **medium-term scheduler** swaps.
+- A **context switch** saves one PCB and loads another. It is pure overhead.
+- UNIX creates processes with **fork()** (returns 0 in the child, the child's pid in the parent), replaces programs with **exec()**, and collects children with **wait()**. *n* consecutive forks give 2<sup>n</sup> processes.
+- **Cooperating processes** communicate by **shared memory** (fast, but synchronisation is their problem) or **message passing** (simpler, works across machines, slower).
+- Message passing can be **direct or indirect** (mailboxes), **blocking or non-blocking**, with **zero, bounded or unbounded** buffering.
+- Across a network: **sockets**, **RPC** (at-most-once, at-least-once, exactly-once) and **pipes** (ordinary and named).

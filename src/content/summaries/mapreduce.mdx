@@ -1,0 +1,6 @@
+- MapReduce is a **programming model** and a library. The user writes **map** (one input pair → intermediate pairs) and **reduce** (one key and all its values → output); the library does the rest.
+- A job is **split** into M pieces, **mapped** in parallel, **partitioned** by hash(key) mod R, **shuffled and sorted** so each key's values are together, and **reduced** into R output files.
+- One **master** tracks the state of every task and assigns tasks to **workers**. M and R should be much larger than the number of machines.
+- **Fault tolerance is re-execution.** The master pings workers; a dead worker's in-progress tasks and its **completed map tasks** are redone (their output was on its local disk), but **completed reduce tasks** are not (their output is in the global file system). A master failure aborts the job.
+- **Refinements**: **locality** (run a map task where its data is), **backup tasks** (duplicate the last slow tasks), **combiners** (merge locally before sending), custom **partitioning**, **ordering guarantees** and **skipping bad records**.
+- The restricted model is what makes all of this possible: independent, deterministic tasks are easy to parallelise and safe to repeat.

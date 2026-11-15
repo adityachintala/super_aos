@@ -1,0 +1,21 @@
+- The **bootstrap program**, held in firmware, initialises the system and loads the kernel.
+- A computer is CPUs and **device controllers** on a common bus. Each controller has a local buffer and reports completion with an **interrupt**.
+- The **instruction cycle** is fetch then execute; the **PC** points at the next instruction and the **IR** holds the current one. With interrupts, an **interrupt cycle** follows each execute.
+- On an interrupt the hardware **saves the PC and PSW**, disables interrupts, and jumps through the **interrupt vector** to a service routine. A **trap** is a software-generated interrupt. **An operating system is interrupt driven.**
+
+| I/O technique | CPU involvement |
+|---|---|
+| Programmed | CPU polls the device continuously |
+| Interrupt-driven | Device interrupts when ready; about one interrupt per byte |
+| DMA | Controller moves a whole block; one interrupt per block |
+
+- **Dual mode**: a mode bit distinguishes **user mode (1)** from **monitor mode (0)**; privileged instructions run only in monitor mode.
+
+| Protection | Mechanism |
+|---|---|
+| I/O | All I/O instructions are privileged; users request I/O by **system call** |
+| Memory | **Base and limit registers**, checked by hardware on every user-mode address |
+| CPU | A **timer** interrupt returns control to the operating system |
+
+- The **storage hierarchy** trades speed against cost and size. **Caching** copies information into faster storage; **cache size** and **replacement policy** are the design problems; **cache coherency** keeps copies in several CPUs' caches consistent.
+- **Multiprocessor systems** give increased throughput, economy of scale and increased reliability; they are **symmetric** or **asymmetric**, UMA or NUMA. **Clustered systems** link separate machines for high availability or high performance.

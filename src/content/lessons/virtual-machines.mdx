@@ -11,6 +11,7 @@ objectives:
   - Trace the steps of live migration
 ---
 
+import Summary from '../summaries/virtual-machines.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -357,12 +358,7 @@ When Amazon launched its EC2 cloud in 2006, the virtual machines ran on **Xen**,
 
 ## Summary
 
-- A **virtual machine** abstracts one computer's hardware into several execution environments. The **host** is the hardware, the **VMM** (hypervisor) creates and runs the VMs, and the **guest** is usually an operating system.
-- Virtualization requires **fidelity**, **performance** and **safety**. Its benefits are isolation, snapshots and cloning, consolidation, templating and **live migration**, which together enable cloud computing.
-- **Type 0** is in firmware with dedicated hardware; **Type 1** runs natively on the hardware; **Type 2** is an application on a host OS. **Paravirtualization** modifies the guest; **emulation** translates a different CPU's instructions; **containers** share one kernel; a **language VM** such as the JVM virtualizes a programming environment.
-- **Trap-and-emulate**: the guest runs in real user mode, and privileged instructions trap to the VMM, which emulates them. **Binary translation** handles x86 special instructions such as `popf` that do not trap. **VT-x** and **AMD-V** add guest and host modes and remove the need for it. **Nested page tables** map guest "physical" memory to real memory.
-- **CPU over-commitment** stretches guest time slices and skews clocks. **Memory over-commitment** is managed by double paging, **ballooning** and deduplication. I/O uses virtual devices, bridging or NAT; storage uses disk images.
-- **Live migration** copies memory repeatedly while the guest runs, then freezes it briefly to send the last dirty pages and the CPU state.
+<Summary />
 
 ## Exam-style practice
 

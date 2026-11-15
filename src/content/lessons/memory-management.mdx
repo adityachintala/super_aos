@@ -13,6 +13,7 @@ objectives:
 
 import { BASE } from '../../lib/base';
 
+import Summary from '../summaries/memory-management.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -434,26 +435,7 @@ The famous crash message "**segmentation fault**" is a fossil. It comes from seg
 
 ## Summary
 
-| Scheme | Unit of allocation | External fragmentation | Internal fragmentation | Hardware needed |
-|---|---|---|---|---|
-| Contiguous, fixed partitions | Whole process | No | Yes (unused part of partition) | Base and limit registers |
-| Contiguous, variable partitions | Whole process | **Yes** | Negligible | Base and limit registers |
-| Paging | Fixed-size page | No | Yes (about half a page per process) | Page table, TLB |
-| Segmentation | Variable-size segment | **Yes** | No | Segment table |
-| Segmentation with paging | Page within a segment | No | Yes | Segment table and page tables |
-
-The ideas worth carrying with you:
-
-- **Binding time** decides flexibility: compile time (recompile to move), load time (reload to move), execution time (move freely, needs an MMU).
-- The CPU generates **logical** addresses; the MMU turns them into **physical** addresses. User programs never see physical addresses.
-- **External** fragmentation is free memory between allocations that is too scattered to use. **Internal** fragmentation is unused memory inside an allocation.
-- **Compaction** cures external fragmentation but needs execution-time relocation and is costly.
-- **Paging**: address = page number + offset; the page table maps page to frame; the offset is unchanged.
-- The **TLB** caches translations. EAT = α(ε + t) + (1 − α)(ε + 2t).
-- Page tables are shrunk by making them **hierarchical**, **hashed** or **inverted**.
-- **Segmentation** matches the programmer's view and gives natural protection and sharing, but brings external fragmentation back; **paging the segments** removes it.
-
-Next, <a href={`${BASE}/learn/virtual-memory`}>Virtual Memory</a> asks a bold question: what if a process's pages did not all have to be in memory at the same time?
+<Summary />
 
 ## Exam-style practice
 

@@ -11,6 +11,7 @@ objectives:
   - Describe rack-aware block placement and how HDFS detects and repairs lost replicas
 ---
 
+import Summary from '../summaries/hdfs.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -280,13 +281,7 @@ Replica placement in five words: **three copies, on two racks**. One copy next t
 
 ## Summary
 
-- A **distributed file system** manages storage across a network of machines and presents it as one. HDFS is the file system of **Hadoop**, modelled on the Google File System.
-- HDFS separates **metadata** (one **NameNode**) from **data** (many **DataNodes**). Data never flows through the NameNode.
-- Files are split into large **blocks** (128 MB) and each block is **replicated** (three times) on different DataNodes.
-- The NameNode keeps the **namespace** and the **block-to-DataNode map** in RAM. A **checkpoint** plus a write-ahead **journal** make the namespace durable; replica locations are rebuilt from **block reports**.
-- DataNodes send **heartbeats** every 3 seconds; after **10 minutes** of silence a node is declared dead and its blocks are re-replicated. The NameNode issues commands only in **replies to heartbeats**.
-- Writes are **single-writer** (a lease), append-only after close, and flow through a **pipeline** of DataNodes. Reads go to the **closest replica**.
-- **Rack-aware placement** puts one replica on the writer's node and two on another rack. The **balancer**, **block scanner** and **decommissioning** keep the cluster healthy.
+<Summary />
 
 ## Exam-style practice
 

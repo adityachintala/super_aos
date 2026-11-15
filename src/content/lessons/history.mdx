@@ -11,6 +11,7 @@ objectives:
   - Relate modern requirements (scale, cost, reliability, availability) to parallel and distributed systems
 ---
 
+import Summary from '../summaries/history.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -326,18 +327,7 @@ The computer that guided Apollo 11 to the Moon had about **4 kilobytes** of RAM.
 
 ## Summary
 
-| Stage | Key idea | Solved | Still wrong |
-|---|---|---|---|
-| **Serial processing** | Programmer at the console, no operating system | | Scheduling by sign-up sheet; setup time |
-| **Simple batch** | Operator, batching, **resident monitor**, job control language | Idle time between jobs | CPU idle during slow I/O; long turnaround |
-| **Spooling** | Disk as a buffer | I/O of one job overlaps computation of another | Only one job in memory |
-| **Multiprogramming** | Several jobs in memory; CPU switches when one waits | CPU utilisation | No interaction; response time |
-| **Time sharing** | Switch so frequently that users interact | Response time | (leads to virtual memory, file systems, protection) |
-
-- The **stored-program concept** made the general-purpose computer possible.
-- A batch monitor needs **memory protection, a timer, privileged instructions and interrupts**.
-- Multiprogramming made the operating system take decisions: **job scheduling, CPU scheduling, memory management, device allocation**.
-- Modern systems add many cores and many machines: **parallel and distributed processing** for scale and cost, **replication** for reliability and availability, and **distributed synchronisation** for consistency.
+<Summary />
 
 ## Exam-style practice
 

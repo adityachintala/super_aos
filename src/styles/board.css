@@ -328,7 +328,7 @@ html {
 }
 
 /* key terms look highlighted */
-.lesson :is(p, li, td, dd) > strong:not(.long) {
+:is(.lesson, .notes) :is(p, li, td, dd) > strong:not(.long) {
   font-weight: 600;
   background: linear-gradient(transparent 58%, var(--marker) 58%);
   padding: 0 0.1em;
@@ -354,11 +354,11 @@ html {
   rotate: 12deg;
 }
 
-.lesson table {
+:is(.lesson, .notes) table {
   display: block;
   overflow-x: auto;
 }
-.lesson thead th {
+:is(.lesson, .notes) thead th {
   background: var(--muted);
 }
 .lesson blockquote {
@@ -436,5 +436,45 @@ details.deep > .deep-body > h3:first-child {
   }
   [data-slot="button"] {
     transition: none;
+  }
+}
+
+/* ---------- revision notes page ---------- */
+
+.notes :is(p, li) {
+  line-height: 1.7;
+}
+.notes li + li {
+  margin-top: 0.4em;
+}
+.notes > :first-child {
+  margin-top: 0;
+}
+.notes > :last-child {
+  margin-bottom: 0;
+}
+
+/* printing the notes: paper only, no site furniture */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000;
+  }
+  body > header,
+  body > footer,
+  .no-print {
+    display: none !important;
+  }
+  .notes-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border-color: #999 !important;
+    border-radius: 12px !important;
+  }
+  .sketch {
+    filter: none;
+  }
+  details.deep > summary .deep-chevron {
+    display: none;
   }
 }

@@ -159,7 +159,7 @@
             <div class="flex flex-wrap items-center gap-2">
               <Badge tone="primary" appearance="soft" size="sm" eyebrow>Question {i + 1}</Badge>
               <Badge variant="outline" size="sm">{q(i).marks} marks</Badge>
-              {#if item.q.pastPaper}<Badge variant="outline" size="sm">From a past quiz</Badge>{/if}
+              {#if item.q.pastPaper}<Badge variant="outline" size="sm">{item.q.source ?? 'From a past quiz'}</Badge>{/if}
               <span class="text-muted-foreground ml-auto text-xs">Unit {unitOf(item.lessonId).id}</span>
             </div>
             <p class="mt-3 leading-relaxed font-medium">{@html item.q.prompt}</p>

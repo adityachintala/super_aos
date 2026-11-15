@@ -11,6 +11,7 @@ objectives:
   - Explain the virtual-machine idea, time and space multiplexing, and how an operating system is generated and booted
 ---
 
+import Summary from '../summaries/system-structures.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -510,22 +511,7 @@ The operating system must be made available to the hardware so that the hardware
 
 ## Summary
 
-- An operating system provides services **to users** (user interface, program execution, I/O operations, file-system manipulation, communications, error detection) and **for the system** (resource allocation, accounting, protection and security).
-- **System calls** are the programming interface to those services, usually reached through an **API** (Win32, POSIX, Java). Each has a **number** that indexes a **table**; parameters are passed in **registers**, in a **block** or on the **stack**. The five types are process control, file management, device management, information maintenance and communications.
-- **System programs** define most users' view of the system.
-- **Mechanism** is how; **policy** is what. Separating them lets policy change without touching the mechanism.
-
-| Structure | Idea | Strength | Weakness |
-|---|---|---|---|
-| Simple | Most functionality in least space | Small | No separation, no protection |
-| Monolithic | Everything in one kernel | Fast | Hard to maintain |
-| Layered | Each layer uses only lower ones | Easy to debug and verify | Hard to define layers; overhead |
-| Microkernel | Minimal kernel, services in user space, message passing | Extensible, portable, reliable, secure | Message-passing overhead |
-| Modules | Core plus loadable modules with known interfaces | Flexible and efficient | Modules still run in kernel mode |
-
-- A **virtual machine** takes layering to its logical conclusion, giving each guest an interface identical to the bare hardware. Privileged instructions trap and are simulated. **Paravirtualisation** modifies the guest instead.
-- Resources are shared by **time multiplexing** (processor, devices) and **space multiplexing** (memory, disk).
-- **SYSGEN** configures a system for a specific machine; the **bootstrap loader** in firmware locates and loads the kernel.
+<Summary />
 
 ## Exam-style practice
 

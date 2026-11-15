@@ -11,6 +11,7 @@ objectives:
   - Apply the deadlock-detection algorithm and describe how a system recovers from a deadlock
 ---
 
+import Summary from '../summaries/deadlocks.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -486,22 +487,7 @@ Database servers detect deadlocks all day long. When two transactions block each
 
 ## Summary
 
-- A **deadlock** is a set of processes each waiting for an event that only another process in the set can cause.
-- It can arise only if **mutual exclusion, hold and wait, no preemption and circular wait** all hold simultaneously.
-- In a **resource-allocation graph**: no cycle means no deadlock; a cycle means deadlock if every resource has one instance, and only a possibility of deadlock otherwise.
-
-| Approach | Idea | Cost |
-|---|---|---|
-| **Prevention** | A protocol makes one necessary condition impossible | Low device utilisation, reduced throughput, possible starvation |
-| **Avoidance** | Use a priori information; never enter an unsafe state | Maximum claims must be declared; safety check on every request |
-| **Detection and recovery** | Let deadlock happen, find it, break it | Detection overhead; lost work when a victim is aborted or rolled back |
-| **Ignore** | Assume deadlocks never occur | Manual recovery when one does |
-
-- **Prevention**: mutual exclusion cannot generally be denied; deny hold and wait by requesting everything at once or only when holding nothing; deny no preemption by releasing everything on a refused request; deny circular wait with a **total ordering** of resource types.
-- A state is **safe** if a **safe sequence** exists. Safe means no deadlock; unsafe means deadlock is possible.
-- **Banker's algorithm**: Need = Max − Allocation. The **safety algorithm** repeatedly finds a process with Need ≤ Work and adds its Allocation to Work. The **resource-request algorithm** checks Request ≤ Need, then Request ≤ Available, then pretends to allocate and tests for safety.
-- **Detection**: a cycle in the **wait-for graph** for single instances; for several instances, the same loop as the safety algorithm with **Request** in place of Need.
-- **Recovery**: terminate processes (all, or one at a time), or preempt resources (victim, rollback, starvation).
+<Summary />
 
 ## Exam-style practice
 

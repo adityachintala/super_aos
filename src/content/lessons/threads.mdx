@@ -11,6 +11,7 @@ objectives:
   - Discuss fork and exec semantics, cancellation, signals, thread pools, thread-specific data and scheduler activations
 ---
 
+import Summary from '../summaries/threads.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -366,13 +367,7 @@ A word processor is a classic multithreaded program: one thread draws the screen
 
 ## Summary
 
-- A process has two roles: **resource ownership** and **scheduling/execution**. The **thread** is the unit of dispatching; the **process** is the unit of resource ownership.
-- Threads **share** code, data, heap and files, and each has its **own** program counter, registers and stack.
-- Benefits: **responsiveness, resource sharing, economy** and **scalability**.
-- **Concurrency** is several tasks making progress; **parallelism** is several tasks executing at the same instant. **Amdahl's law** bounds the gain: speedup ≤ 1 / (S + (1 − S)/N), approaching 1/S.
-- **User-level threads** are fast but block together and cannot use several processors. **Kernel-level threads** avoid both problems at the cost of mode switches.
-- **Many-to-one**: efficient, but one blocking call blocks the process and there is no parallelism. **One-to-one**: full concurrency, costly creation. **Many-to-many**: the flexibility of both, with LWPs and **scheduler activations** connecting library and kernel.
-- Issues: **fork/exec** semantics, **cancellation** (asynchronous or deferred), **signal** delivery, **thread pools**, and **thread-specific data**.
+<Summary />
 
 ## Exam-style practice
 

@@ -11,6 +11,7 @@ objectives:
   - Distinguish host-attached, network-attached, SAN, cloud and object storage
 ---
 
+import Summary from '../summaries/storage-and-raid.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -423,13 +424,7 @@ RAID **0** has **zero** protection. RAID **1** keeps **one** extra copy of every
 
 ## Summary
 
-- **Hard disks** are mechanical. I/O time = seek + rotational latency + transfer + overhead, and positioning dominates. Average latency is half a revolution: ½ × 60/RPM.
-- **Flash** has no seek or latency, but pages cannot be overwritten in place and blocks wear out, so the controller runs an FTL, garbage collection, over-provisioning and wear leveling.
-- **Disk scheduling** reduces head movement: FCFS (fair, slow), SSTF (fast, can starve), SCAN (elevator), C-SCAN (uniform wait), LOOK and C-LOOK (stop at the last request). NVM just uses FCFS.
-- A device is made usable by **low-level formatting, partitioning and logical formatting**; it boots from boot blocks and hides bad sectors by sparing.
-- Storage can be **host-attached**, **network-attached** (files over NFS/CIFS), on a **SAN** (blocks over a private storage network), or in the **cloud** (APIs).
-- **RAID** gets reliability from **redundancy** (mirrors or parity) and speed from **striping**. Level 0 stripes, 1 mirrors, 4 adds a parity disk, 5 distributes the parity, 6 survives two failures, and 1+0 beats 0+1 on fault tolerance.
-- RAID handles disk failure only; **checksums** as in ZFS catch silent corruption.
+<Summary />
 
 ## Exam-style practice
 

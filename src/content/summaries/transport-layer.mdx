@@ -1,0 +1,6 @@
+- The **transport layer** runs on the users' machines and provides process-to-process delivery, making the service more reliable than the network beneath. It exchanges **segments** and is used through **sockets**.
+- **Ports** address processes. **Connection establishment** must defeat delayed duplicates: bound packet lifetime, do not reuse sequence numbers, and use the **three-way handshake**. **Release** is symmetric, and because of the **two-army problem** relies on timers.
+- **Flow control** uses a **variable window** advertised by the receiver, with larger windows and dynamic buffering than at the link layer.
+- **Congestion control** aims at efficient, **max-min fair** allocations. **AIMD** is the control law that converges to the fair and efficient point.
+- **UDP** adds only ports and a checksum; it carries **RPC** and, with **RTP** and a playout buffer, real-time media.
+- **TCP** gives a reliable byte stream. Its window management needs **window probes**, **Nagle's algorithm** and **Clark's solution**. Its timeout is **RTO = SRTT + 4 × RTTVAR**. Its congestion control combines **slow start**, **additive increase**, **fast retransmit** and (in Reno) **fast recovery**.

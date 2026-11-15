@@ -11,6 +11,7 @@ objectives:
   - Read an IPv4 address with its prefix, and describe NAT, ICMP, ARP, DHCP and IPv6
 ---
 
+import Summary from '../summaries/network-layer.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -473,11 +474,7 @@ IPv4 has about **4.3 billion** addresses, which seemed endless in 1981. The cent
 
 ## Summary
 
-- The **network layer** carries packets end to end across many hops by **store-and-forward** switching. It may be **connectionless** (datagrams, each routed independently) or **connection-oriented** (virtual circuits, with a route fixed at set-up and labels in packets).
-- **Forwarding** uses the tables; **routing** builds them. **Dijkstra** finds shortest paths. **Flooding** is robust but wasteful. **Distance vector** exchanges whole vectors with neighbours and suffers **count to infinity**. **Link state** floods information about neighbours and runs Dijkstra locally. **Hierarchical** routing keeps tables small.
-- **Congestion** is too many packets in part of the network. Remedies, slowest to fastest: provisioning, traffic-aware routing, admission control, traffic throttling (choke packets, ECN) and load shedding (wine or milk, RED).
-- **Quality of service** is about bandwidth, delay, jitter and loss. Traffic is **shaped** by a **leaky bucket** (constant output) or **token bucket** (bounded bursts); **scheduled** by FIFO, **fair queueing** or **WFQ**; and accepted by **admission control**.
-- **IPv4** addresses are 32 bits with a **prefix**. **Subnetting** splits a block, **aggregation** joins blocks, **NAT** shares one address among many hosts. **ICMP**, **ARP** and **DHCP** support IP. **IPv6** has 128-bit addresses.
+<Summary />
 
 ## Exam-style practice
 

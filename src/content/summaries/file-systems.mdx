@@ -1,0 +1,9 @@
+- A file system needs two things understood: its **on-disk data structures** and its **access methods**.
+- The disk is divided into blocks: a **superblock**, an **inode bitmap**, a **data bitmap**, an **inode table** and a **data region**. Mounting starts by reading the superblock.
+- An **inode** holds all of a file's metadata and the pointers to its data, but **not its name**. Its disk location is computed from its number.
+- **Multi-level indexes** (direct, then single, double and triple indirect pointers) support large files while keeping small files fast. **Extents** (pointer plus length) are more compact; **FAT** uses a linked table.
+- A **directory** is a special file containing (name, inode number) pairs.
+- **Free space** is tracked with bitmaps (or free lists), and **pre-allocation** keeps files contiguous.
+- Operations are costly: **open** reads two blocks per directory level plus the file's inode; an allocating **write** is 5 I/Os; a **create** is about 10.
+- **Caching** (a unified page cache) removes most read I/O; **write buffering** batches, schedules and avoids writes at the cost of durability.
+- **UNIX semantics** make writes visible immediately; **session semantics** make them visible only to later sessions.

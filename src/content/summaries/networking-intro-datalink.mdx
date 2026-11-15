@@ -1,0 +1,7 @@
+- Networks are built in **layers**. A layer offers a **service** to the layer above and speaks a **protocol** to its peer. Each layer adds a header on the way down.
+- **OSI** has seven layers; **TCP/IP** has four. Services are **connection-oriented** or **connectionless**.
+- The **data link layer** moves **frames** over one link. It does **framing** (bit stuffing), **error detection and correction** (parity, CRC, Hamming codes), **error control** (acks, timers, sequence numbers) and **flow control**.
+- **Stop-and-wait** sends one frame at a time; **sliding windows** pipeline frames, with w ≥ 2BD + 1. On an error, **Go-Back-N** resends the tail of the window and **Selective Repeat** resends one frame but needs buffers.
+- **Piggybacking** carries acknowledgements on data frames going the other way.
+- The **MAC sublayer** shares a broadcast channel. **1-persistent CSMA** is greedy, **nonpersistent** waits a random time (better utilisation, longer delay), **p-persistent** sends with probability *p*. **CSMA/CD** stops on collision; Ethernet adds **binary exponential backoff**.
+- **Hubs** form one collision domain; **bridges and switches** forward by address, **learn** by looking at source addresses, and **flood** what they do not know. **VLANs** make logical LANs out of one physical one.

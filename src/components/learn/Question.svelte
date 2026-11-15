@@ -118,7 +118,7 @@
 {#snippet body()}
   <div class="flex flex-wrap items-center gap-2">
     <Badge tone="primary" appearance="soft" size="sm" eyebrow>{label}</Badge>
-    {#if q.pastPaper}<Badge variant="outline" size="sm">From a past quiz</Badge>{/if}
+    {#if q.pastPaper}<Badge variant="outline" size="sm">{q.source ?? 'From a past quiz'}</Badge>{/if}
     {#if q.type === 'written'}<Badge variant="outline" size="sm">Written · {q.marks} marks</Badge>{/if}
   </div>
 

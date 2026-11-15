@@ -11,6 +11,7 @@ objectives:
   - Describe frame allocation, thrashing, and how the working-set and page-fault-frequency methods prevent it
 ---
 
+import Summary from '../summaries/virtual-memory.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -404,21 +405,7 @@ Ideally the working set of each process fits within the TLB reach; otherwise the
 
 ## Summary
 
-- **Virtual memory** lets a process run with only part of itself in memory, so programs can be bigger than memory and more of them fit.
-- **Demand paging** brings in a page only when it is referenced. The **valid-invalid bit** triggers a **page fault**, and the OS fetches the page and **restarts the instruction**.
-- **EAT = (1 − p) × memory access + p × fault service time.** Faults cost millions of times more than a memory access, so *p* must be tiny.
-- **Copy-on-write** and **memory-mapped files** are further benefits.
-- When no frame is free, a **page-replacement algorithm** picks a victim; the **modify bit** avoids writing clean pages.
-
-| Algorithm | Evicts | Belady's anomaly | Practical? |
-|---|---|---|---|
-| FIFO | Oldest page in memory | **Yes** | Yes, but poor |
-| OPT | Page used farthest in the future | No | No: needs the future. A yardstick only |
-| LRU | Page unused for longest | No | Costly to do exactly |
-| Second chance | Oldest page whose reference bit is 0 | Possible | Yes: the usual approximation of LRU |
-
-- **Frame allocation** can be equal, proportional or by priority; replacement can be **global** (better throughput) or **local** (isolation).
-- **Thrashing** is paging so heavy that little work gets done. It happens when the active localities do not fit in memory. It is prevented with the **working-set model** (suspend a process when D > m) or **page-fault frequency** control.
+<Summary />
 
 ## Exam-style practice
 

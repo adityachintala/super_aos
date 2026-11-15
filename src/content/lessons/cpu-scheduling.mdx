@@ -11,6 +11,7 @@ objectives:
   - Explain real-time scheduling with rate-monotonic and earliest-deadline-first algorithms
 ---
 
+import Summary from '../summaries/cpu-scheduling.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -387,21 +388,7 @@ How is a scheduling algorithm chosen for a particular system? First define the c
 
 ## Summary
 
-- Processes alternate **CPU bursts** and **I/O bursts**; there are many short bursts and few long ones. The **short-term scheduler** picks the next process; the **dispatcher** hands over the CPU.
-- Scheduling is **non-preemptive** if a process gives up the CPU only by waiting or terminating, and **preemptive** otherwise.
-- Criteria: CPU utilisation, throughput, **turnaround** (completion − arrival), **waiting** (turnaround − burst) and **response** time.
-
-| Algorithm | Selects | Strength | Weakness |
-|---|---|---|---|
-| FCFS | Earliest arrival | Simple | Convoy effect; long average wait |
-| SJF / SRTF | Shortest next (remaining) burst | Optimal average waiting time | Burst length must be predicted; long jobs may starve |
-| Priority | Highest priority | Important work first | Starvation, cured by aging |
-| Round robin | Each in turn, one quantum | Good response; no starvation | Higher turnaround; context-switch overhead |
-| Multilevel queue | By queue, each with its own algorithm | Different treatment for different classes | Inflexible; lower queues may starve |
-| Multilevel feedback queue | By queue, with movement between queues | Adapts to behaviour; favours short bursts | Complex to configure |
-
-- On **multiprocessors**, schedulers balance **processor affinity** against **load balancing**.
-- **Real-time** scheduling uses fixed priorities and low latency. **Rate monotonic** assigns priority by period and is guaranteed only up to N(2<sup>1/N</sup> − 1); **EDF** assigns priority by deadline and can reach 100%.
+<Summary />
 
 ## Exam-style practice
 

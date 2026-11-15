@@ -20,6 +20,7 @@
   const started = $derived(Object.keys($progress.sections).length > 0 || points > 0);
 
   const PRACTICE = [
+    { href: `${BASE}/notes`, doodle: 'folder', note: 'var(--note-yellow)', title: 'Revision notes', text: 'Every chapter, two minutes each.' },
     { href: `${BASE}/review`, doodle: 'cards', note: 'var(--note-teal)', title: 'Flashcards', text: 'Two minutes of quick recall.' },
     { href: `${BASE}/pyq`, doodle: 'pencil', note: 'var(--note-rose)', title: 'Past quiz questions', text: 'What has been asked before.' },
     { href: `${BASE}/exam`, doodle: 'target', note: 'var(--note-orange)', title: 'Mock exam', text: 'A timed 40-mark paper.' },
@@ -43,7 +44,7 @@
   </div>
 </section>
 
-<nav class="mt-5 grid gap-4 sm:grid-cols-3" aria-label="Practice">
+<nav class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Practice">
   {#each PRACTICE as p, i}
     <a
       href={p.href}

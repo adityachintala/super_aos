@@ -4,6 +4,7 @@
 import { allLessons } from './course';
 import type { BankItem } from './exam';
 import type { Question } from './questions';
+import { extraPastQuestions } from '../data/pyq-extra';
 
 interface QuestionModule {
   checks?: Record<string, Question>;
@@ -22,6 +23,12 @@ for (const [path, mod] of Object.entries(modules)) {
     ...(mod.checkpoint ?? []).map((q) => ({ lessonId, source: 'checkpoint' as const, q })),
   ];
   byLesson.set(lessonId, items);
+}
+
+// Past-paper questions that are not placed inside a lesson page.
+for (const [lessonId, questions] of Object.entries(extraPastQuestions)) {
+  if (!byLesson.has(lessonId)) throw new Error(`pyq-extra.ts: unknown lesson "${lessonId}"`);
+  byLesson.get(lessonId)!.push(...questions.map((q) => ({ lessonId, source: 'practice' as const, q })));
 }
 
 /** All questions, in course order. */

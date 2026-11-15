@@ -52,6 +52,20 @@ describe("Banker's algorithm", () => {
     const seen = alloc.map((a) => a.map((v, i) => (work[i] += v)).slice());
     expect(seen).toEqual([[0, 1, 0], [3, 1, 3], [5, 2, 4], [7, 2, 4], [7, 2, 6]]);
   });
+  test('the 2022 end-sem state (C = 6, 4, 4, 2) is safe; P2 must go first and P1 last', () => {
+    const max = [[3, 2, 1, 1], [1, 2, 0, 2], [1, 1, 2, 0], [3, 2, 1, 0], [2, 1, 0, 1]];
+    const allocation = [[2, 0, 1, 1], [1, 1, 0, 0], [1, 1, 0, 0], [1, 0, 1, 0], [0, 1, 0, 1]];
+    const total = [6, 4, 4, 2];
+    const available = total.map((t, j) => t - allocation.reduce((s, a) => s + a[j], 0));
+    expect(available).toEqual([1, 1, 2, 0]);
+    const state = { available, max, allocation };
+    expect(need(state)).toEqual([[1, 2, 0, 0], [0, 1, 0, 2], [0, 0, 2, 0], [2, 2, 0, 0], [2, 0, 0, 0]]);
+    const r = safety(state);
+    expect(r.safe).toBe(true);
+    expect(r.sequence[0]).toBe(2);
+    expect(r.sequence[4]).toBe(1);
+    expect(r.steps[4].workAfter).toEqual(total);
+  });
   test('an unsafe state names the processes that cannot finish', () => {
     const r = safety({ available: [0, 0, 0], max: [[1, 1, 1], [1, 1, 1]], allocation: [[1, 0, 0], [0, 1, 0]] });
     expect(r.safe).toBe(false);

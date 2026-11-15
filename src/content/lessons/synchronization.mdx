@@ -11,6 +11,7 @@ objectives:
   - Solve the bounded-buffer, readers-writers and dining-philosophers problems, and describe monitors
 ---
 
+import Summary from '../summaries/synchronization.mdx';
 import Callout from '../../components/learn/Callout.astro';
 import Note from '../../components/learn/Note.astro';
 import Deep from '../../components/learn/Deep.astro';
@@ -748,21 +749,7 @@ Mutual exclusion within the monitor is preserved throughout.
 
 ## Summary
 
-- A **race condition** arises when several processes manipulate shared data concurrently and the result depends on the order. Even `counter++` is three instructions.
-- The **critical-section problem** asks for a protocol with **mutual exclusion**, **progress** and **bounded waiting**.
-
-| Attempt | Mutual exclusion | Progress | Verdict |
-|---|---|---|---|
-| Algorithm 1 (turn) | Yes | No: strict alternation | Fails |
-| Algorithm 2 (flags) | Yes | No: both can wait for ever | Fails |
-| Algorithm 3 (Peterson) | Yes | Yes, with bounded waiting | Correct |
-
-- The **bakery algorithm** extends this to *n* processes with numbered tickets.
-- **Hardware**: disabling interrupts (uniprocessor only), and the atomic **TestAndSet** and **Swap**. They are simple and general but involve **busy waiting**, and may starve.
-- A **mutex lock** is acquire and release; a **spinlock** busy-waits and suits short waits on multiprocessors.
-- A **semaphore** has atomic **wait** and **signal**. Initialised to 1 it gives mutual exclusion; to 0, ordering; to *n*, a count of resources. The blocking implementation queues waiting processes, and a negative value counts them. Misordered waits cause **deadlock**.
-- **Bounded buffer**: mutex = 1, empty = *n*, full = 0. **Readers-writers**: the first reader in and last reader out handle `wrt`. **Dining philosophers**: the simple solution deadlocks; limit to four, take both chopsticks atomically, or make one asymmetric.
-- A **monitor** enforces mutual exclusion automatically and uses **condition variables**, whose signal is lost if nobody is waiting.
+<Summary />
 
 ## Exam-style practice
 
