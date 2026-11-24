@@ -49,3 +49,46 @@ export function resetStatus(ids: string[]) {
     return copy;
   });
 }
+
+// ---- Page view: filters and "open all / close all" ----
+
+const VIEW_KEY = 'super-aos-pyq-view-v1';
+
+export interface PyqView {
+  /** Show only questions marked Revisit. */
+  revisitOnly: boolean;
+  /** Hide questions marked Completed. */
+  hideCompleted: boolean;
+}
+
+export const pyqView = writable<PyqView>({ revisitOnly: false, hideCompleted: false });
+
+/** Bumped by "Open all answers" / "Close all"; every card follows the latest command. */
+export const answerCommand = writable<{ open: boolean; n: number }>({ open: false, n: 0 });
+
+export function setAllAnswers(open: boolean) {
+  answerCommand.update((c) => ({ open, n: c.n + 1 }));
+}
+
+/** Whether a question with this status is filtered out by the current view. */
+export const isFilteredOut = (v: PyqView, s: PyqStatus) => (v.revisitOnly && s !== 'revisit') || (v.hideCompleted && s === 'completed');
+
+let viewLoaded = false;
+
+export function loadPyqView() {
+  if (viewLoaded || typeof localStorage === 'undefined') return;
+  viewLoaded = true;
+  try {
+    const raw = localStorage.getItem(VIEW_KEY);
+    if (raw) pyqView.set({ revisitOnly: false, hideCompleted: false, ...JSON.parse(raw) });
+  } catch {
+    // ignore
+  }
+  pyqView.subscribe((v) => {
+    try {
+      localStorage.setItem(VIEW_KEY, JSON.stringify(v));
+    } catch {
+      // ignore
+    }
+  });
+}
