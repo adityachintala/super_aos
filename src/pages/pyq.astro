@@ -2,7 +2,8 @@
 import { BASE } from '../lib/base';
 import Base from '@/layouts/Base.astro';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/starwind/breadcrumb';
-import Question from '@/components/learn/Question.svelte';
+import PyqQuestion from '@/components/learn/PyqQuestion.svelte';
+import PyqTracker from '@/components/learn/PyqTracker.svelte';
 import { units } from '@/lib/course';
 import { bank } from '@/lib/bank';
 
@@ -13,11 +14,15 @@ const groups = units
     lessons: unit.lessons.map((lesson) => ({ lesson, items: past.filter((x) => x.lessonId === lesson.id) })).filter((g) => g.items.length > 0),
   }))
   .filter((g) => g.lessons.length > 0);
+
+// Numbered within each unit; the tracker gets every question id per unit.
+const tracked = groups.map((g) => ({ id: g.unit.id, title: g.unit.title, ids: g.lessons.flatMap((l) => l.items.map((x) => x.q.id)) }));
+const numberOf = new Map(tracked.flatMap((u) => u.ids.map((id, i) => [id, i + 1] as const)));
 ---
 
 <Base title="Past quiz questions" description="Questions from past Advanced Operating Systems quizzes, grouped by topic, each with a model answer and marking points.">
   <div class="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[minmax(0,1fr)_15rem]">
-    <main class="min-w-0 pt-8">
+    <main class="min-w-0 pt-8 pb-40">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem><BreadcrumbLink href={`${BASE}/`}>Course map</BreadcrumbLink></BreadcrumbItem>
@@ -33,7 +38,9 @@ const groups = units
       </p>
       <p class="text-muted-foreground mt-3 max-w-2xl text-sm">
         Each question is tagged with the paper it came from where that is known. The model answers and marking points were written for this
-        site; where a paper came with its own answer key, they follow it. Write your own answer first, then compare.
+        site; where a paper came with its own answer key, they follow it. Answers stay hidden until you press <b>Show answer</b>. Use the
+        button on each question to mark it <b>completed</b>, then click again to flag it to <b>revisit</b> (a third click resets it). Your
+        progress per unit is in the floating panel and is saved in this browser.
       </p>
 
       {
@@ -50,7 +57,7 @@ const groups = units
                   </a>
                 </h3>
                 {items.map((item) => (
-                  <Question client:visible q={item.q} label="Past quiz" />
+                  <PyqQuestion client:visible q={item.q} label="Past quiz" number={numberOf.get(item.q.id)} />
                 ))}
               </div>
             ))}
@@ -77,4 +84,5 @@ const groups = units
       </nav>
     </aside>
   </div>
+  <PyqTracker client:load units={tracked} />
 </Base>
