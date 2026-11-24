@@ -130,6 +130,10 @@
 }
 
 @layer base {
+  /* 18px base instead of 16px: every rem-based size (text, spacing) scales up for easier reading. */
+  html {
+    font-size: 112.5%;
+  }
   * {
     @apply border-border outline-outline/50;
   }
