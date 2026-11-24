@@ -2,7 +2,7 @@
 
 ## Memory Management
 
-### PYQ-122
+### PYQ-99
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
@@ -26,7 +26,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-123
+### PYQ-100
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
@@ -48,7 +48,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-124
+### PYQ-101
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
@@ -72,7 +72,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-125
+### PYQ-102
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
@@ -99,7 +99,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-126
+### PYQ-103
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
@@ -121,7 +121,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-127
+### PYQ-104
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
@@ -170,7 +170,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-128
+### PYQ-105
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
@@ -201,34 +201,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-129
-Unit: 4 Memory
-Topic: Memory Management
-Type: written
-Asked in: OSN End-sem 2023, Q2a (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The Mem Team has considered multiple policies for memory virtualization, and finally, they have decided to use Paging. However, they are not sure about certain aspects and require your suggestions: a. The team is thinking of dividing the virtual memory into pages of different sizes and then mapping them to physical memory, where, again, it is divided into blocks of different sizes to support different processes that may have different memory requirements. What are your observations and comments on this approach?
-Answer: **Observation:** with variable-sized units this is no longer paging; it is variable-partition allocation (or segmentation) under another name, and it brings back the problems paging was introduced to remove.
-
-1. **External fragmentation returns.** Paging has none only because every frame is the same size, so any free frame fits any page. With blocks of different sizes, free memory again breaks into holes that are too small for the next request, and compaction is needed.
-2. **Allocation becomes a search.** Finding a block for a page is again the dynamic storage-allocation problem (first-fit, best-fit, worst-fit) instead of taking any frame from a free list.
-3. **Translation gets slower and larger.** With one fixed power-of-two size, the page number and offset are just bit fields of the address. With variable sizes each entry needs a base and a length, and every reference needs a comparison and an addition.
-
-**Comment:** different memory requirements are already handled by giving a process a different *number* of equal pages. If logical units of different sizes are wanted, the established answer is segmentation with paging: variable-sized segments for the user's view, each cut into fixed-size pages for allocation.
-
-No official key exists for this paper; this is my own answer.
-Marking points:
-- External fragmentation returns.
-- Allocation becomes a search.
-- Translation gets slower and larger.
-- Observation: with variable-sized units this is no longer paging; it is variable-partition allocation (or segmentation) under another name, and it brings back the problems paging was introduced to remove.
-- Comment: different memory requirements are already handled by giving a process a different number of equal pages.
-Answer source: written by Claude, no key
-Weak / low priority: yes: asked once, in the scenario-style paper; the answer is section 8 and section 13 applied to a new wording.
-
-### PYQ-130
+### PYQ-106
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
@@ -249,7 +222,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-131
+### PYQ-107
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
@@ -279,7 +252,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-132
+### PYQ-108
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
@@ -309,7 +282,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-133
+### PYQ-109
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
@@ -334,67 +307,11 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-134
-Unit: 4 Memory
-Topic: Memory Management
-Type: written
-Asked in: OSN End-sem 2023, Q2c (4 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The team is considering a 32-bit address space with 2 KB pages. The team estimates each entry in the page table to consume 4 bytes. On average, the Mem team estimates any machine to support around 100 processes. This results in a memory overhead. Moreover, for any address translation, the page table needs to be first accessed, and then the page table entry needs to be fetched. This results in two accesses to the memory for each address translation. Is there some better mechanism that you can suggest to the team to handle these issues? Please elaborate on the mechanism.
-Answer: **Size of the problem.** Page size 2 KB = 2^11, so the offset is 11 bits and the page number is 32 − 11 = 21 bits. A linear page table has 2^21 entries × 4 bytes = 2^23 bytes = **8 MB per process**. For 100 processes that is **800 MB** of page tables, each of which must also be contiguous, although most processes use only a small part of their address space.
-
-**Issue 1, space: a multi-level (hierarchical) page table.** Page the page table. One 2 KB page holds 2048 / 4 = 512 = 2^9 entries, so each level resolves 9 bits. The 21-bit page number becomes 3 + 9 + 9: a small top level, then two levels of one-page tables. Inner tables are allocated only for the parts of the address space a process actually uses; an unused region costs a single invalid entry in the level above. A typical process that uses a little memory at the bottom (code, data) and a little at the top (stack) then needs a handful of 2 KB pages instead of 8 MB. An inverted page table, one entry per physical frame for the whole system, is the other option.
-
-**Issue 2, speed: a translation look-aside buffer (TLB).** A small associative cache of recent ⟨page, frame⟩ pairs, searched in parallel. On a hit the frame number comes from the TLB and the page table is not accessed at all; on a miss the table is walked and the pair is added to the TLB. Because of locality the hit ratio is high, so the effective access time is close to one memory access (for example 122 ns against 100 ns at a 98% hit ratio with a 20 ns TLB).
-
-**Core sentence:** the two mechanisms go together; the multi-level table saves space but makes a miss cost more accesses, and the TLB hides that cost.
-
-No official key exists for this paper; this is my own solution.
-Marking points:
-- the two mechanisms go together; the multi-level table saves space but makes a miss cost more accesses, and the TLB hides that cost.
-- Size of the problem: Page size 2 KB = 2^11, so the offset is 11 bits and the page number is 32 − 11 = 21 bits.
-- Issue 1, space: a multi-level (hierarchical) page table.
-- Issue 2, speed: a translation look-aside buffer (TLB).
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-135
-Unit: 4 Memory
-Topic: Memory Management
-Type: MCQ
-Asked in: OSN End-sem 2025, Q3 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: A system uses segmentation with 16-bit virtual addresses. The hardware uses the top 2 bits of the address to select the segment. The segment table is: Code, ID 00, base 0x2000, limit 0x1000; Heap, ID 01, base 0x9000, limit 0x2000; Stack, ID 10, base 0xE000, limit 0x1000. A process generates the virtual address 0x5100. What is the corresponding physical address, and why?
-Options: A) 0x3100 B) 0xA100 C) 0xF100 D) Segmentation fault
-Answer: **Step 1, split the address.** 0x5100 = 0101 0001 0000 0000 in binary. The top 2 bits are **01**, so the segment is the **heap**. The remaining 14 bits are the offset: 01 0001 0000 0000 = **0x1100**.
-
-**Step 2, check the limit.** Offset 0x1100 < limit 0x2000, so the reference is legal.
-
-**Step 3, add the base.** Physical address = 0x9000 + 0x1100 = **0xA100**.
-
-**Answer: (b) 0xA100.**
-
-**Traps.** (1) The offset is 14 bits, not 12: masking off only the top hex digit gives 0x100 and the wrong address 0x9100. Remove the top two *bits*: 0x5100 − 0x4000 = 0x1100. (2) The limit is compared with the *offset*, not with the whole virtual address; comparing 0x5100 with 0x2000 wrongly suggests a segmentation fault, which is option (d). (3) Check the limit before adding the base.
-
-No official key exists for this paper; this is my own solution.
-Marking points:
-- Final answer: Answer: (b) 0xA100.
-- Step 1, split the address: 0x5100 = 0101 0001 0000 0000 in binary.
-- Step 2, check the limit: Offset 0x1100 < limit 0x2000, so the reference is legal.
-- Step 3, add the base: Physical address = 0x9000 + 0x1100 = 0xA100.
-- Traps: (1) The offset is 14 bits, not 12: masking off only the top hex digit gives 0x100 and the wrong address 0x9100.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
 ### PRED-66
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-122, PYQ-123
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-99, PYQ-100
 In syllabus: yes
 Question: Justify the observation: "Most operating systems delay address binding until execution time, even though it needs extra hardware."
 Answer: **Core sentence:** only execution-time binding lets a process be moved while it is running, and almost everything a modern memory manager does depends on moving processes.
@@ -412,7 +329,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A process runs with relocation register = 14000 and limit register = 3000. What happens when it references (a) logical address 346, (b) logical address 3200?
 Answer: The logical address is first compared with the limit register, and only then relocated.
@@ -434,7 +351,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-124
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-101
 In syllabus: yes
 Question: A two-pass assembler has pass 1 = 70K, pass 2 = 80K, symbol table = 20K and common routines = 30K. Only 150K of memory is available and there is no hardware support for memory management. Show how the program can still be run, and state two drawbacks of the method.
 Answer: Loading everything needs 70 + 80 + 20 + 30 = **200K > 150K**, so the program cannot run as it is. Pass 1 and pass 2 are never needed at the same time, so define two **overlays**:
@@ -457,7 +374,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-125
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-102
 In syllabus: yes
 Question: TRUE or FALSE, correct if false and justify: "A process that has been swapped out can always be swapped back into any free region of memory."
 Answer: **FALSE.** Corrected: a swapped-out process can be swapped back into a different region *only if binding is done at execution time*; with binding at assembly or load time it must be swapped back into the same memory space it occupied before.
@@ -474,7 +391,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-126
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-103
 In syllabus: yes
 Question: A system has 2560K of memory with a 400K resident OS. Under FCFS, P1 (600K), P2 (1000K) and P3 (300K) are loaded. P2 terminates and P4 (700K) is allocated. P5 (500K) now arrives. Can it be loaded? Justify, and give two ways the system could get it running.
 Answer: **Memory map at that moment:** OS 0–400K, P1 400–1000K, P4 1000–1700K, hole 1700–2000K (300K), P3 2000–2300K, hole 2300–2560K (260K).
@@ -496,7 +413,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-128
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-105
 In syllabus: yes
 Question: Distinguish internal fragmentation from external fragmentation. For each of the following, state which kind it suffers from and why: fixed partitions, variable partitions, paging, pure segmentation.
 Answer: **External fragmentation:** enough total free memory exists to satisfy a request but it is not contiguous. **Internal fragmentation:** memory allocated to a process is larger than what it requested, and the difference is wasted inside the allocation.
@@ -523,7 +440,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-128
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-105
 In syllabus: yes
 Question: TRUE or FALSE, correct if false and justify: "Compaction can be used to remove external fragmentation in a system that binds addresses at load time."
 Answer: **FALSE.** Corrected: compaction is possible only if relocation is dynamic and is done at execution time.
@@ -540,7 +457,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-129
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A system uses 1 KB pages. A process has the page table: page 0 → frame 5, page 1 → frame 2, page 2 → frame 7, page 3 → invalid. Translate the logical addresses 1030, 2375 and 3500.
 Answer: Page size = 1024 bytes. Page number = address div 1024, offset = address mod 1024, physical = frame × 1024 + offset.
@@ -563,7 +480,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-129
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: The page size is 2,048 bytes. How many frames does a process of 72,766 bytes need, and how much internal fragmentation results? What is the expected internal fragmentation per process in general?
 Answer: 72,766 ÷ 2,048 = 35 full pages (35 × 2,048 = 71,680 bytes) with 72,766 − 71,680 = **1,086 bytes** left over.
@@ -583,7 +500,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-130
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-106
 In syllabus: yes
 Question: A TLB lookup takes 10 ns and a memory access takes 100 ns. (a) Find the effective access time with a 90% hit ratio and the percentage slowdown compared with unpaged memory. (b) What hit ratio is needed to keep the slowdown at or below 15%?
 Answer: **Costs.** Hit: 10 + 100 = 110 ns. Miss: 10 + 100 + 100 = 210 ns.
@@ -608,7 +525,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-130
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-106
 In syllabus: yes
 Question: TRUE or FALSE, correct if false and justify: "On every context switch the TLB must be flushed."
 Answer: **FALSE.** Corrected: the TLB must be flushed on a context switch only if it does not support address-space identifiers (ASIDs).
@@ -625,7 +542,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to processes and threads; same section as PYQ-130
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to processes and threads; same section as PYQ-106
 In syllabus: yes
 Question: When the CPU scheduler switches from process A to process B, what must the dispatcher do for memory management under (i) contiguous allocation with relocation and limit registers, and (ii) paging with a TLB that has no ASIDs? Using your answer, justify why switching between two threads of the same process is cheaper than switching between two processes.
 Answer: **(i) Contiguous allocation.** The dispatcher loads the relocation register and the limit register with B's values as part of the context switch (these are privileged instructions). If B is not in main memory and there is no free memory, a process is first swapped out and B swapped in. The direct cost is two register loads.
@@ -669,7 +586,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-131, PYQ-132, PYQ-133, PYQ-134
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-107, PYQ-108, PYQ-109
 In syllabus: yes
 Question: A system uses two-level paging. A memory access takes 100 ns and a TLB search takes 20 ns. (a) How long does a memory reference take with no TLB? (b) What is the effective access time with a TLB whose hit ratio is 98%? (c) Compare with single-level paging at the same hit ratio and comment.
 Answer: **(a)** Without a TLB every reference needs the outer page table, the inner page table and then the data: 3 × 100 = **300 ns**.
@@ -688,7 +605,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Memory Management
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-135
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)
 In syllabus: yes
 Question: Compare paging and segmentation with respect to (a) the programmer's view, (b) address translation, (c) fragmentation and (d) sharing and protection.
 Answer:
@@ -736,86 +653,7 @@ Weak / low priority: no
 
 ## Virtual Memory
 
-### PYQ-136
-Unit: 4 Memory
-Topic: Virtual Memory
-Type: written
-Asked in: OSN End-sem 2023, Q1b (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The fork team learned from the Mem Team that they might be using Paging for Memory management. Assuming that it will be paging, Team fork wants your input on how the memory management will work when performing calls like repl() and execute().
-Answer: **repl() (fork).** The child must appear to have a copy of the parent's whole address space. With paging the kernel does not copy the pages; it creates a new page table for the child whose entries point to the *same frames* as the parent's, and marks those pages read-only in both tables (**copy-on-write**). Parent and child run sharing every page. When either one writes to a shared page, the write traps, the kernel takes a free frame (from the pool of zeroed-out pages), copies that one page, updates the writer's page table to point at the copy and makes it writable, and restarts the instruction. Only modified pages are ever copied.
-
-**execute() (exec).** The process keeps its identity but its memory image is replaced. The kernel discards the old address space (the page-table entries are dropped and frames no longer shared are freed) and builds a new page table for the new program, with every entry initially invalid. Nothing is loaded up front: pages of the new executable are brought in by **demand paging** as the program touches them.
-
-**Core sentence:** because a fork is usually followed at once by an exec, copying the parent's memory at fork would be wasted work; copy-on-write makes the fork cost only a page-table copy, and demand paging makes the exec cost only the pages actually used.
-
-No official key exists for this paper; this is my own answer.
-Marking points:
-- because a fork is usually followed at once by an exec, copying the parent's memory at fork would be wasted work; copy-on-write makes the fork cost only a page-table copy, and demand paging makes the exec cost only the pages actually used.
-- repl() (fork): The child must appear to have a copy of the parent's whole address space.
-- execute() (exec): The process keeps its identity but its memory image is replaced.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-137
-Unit: 4 Memory
-Topic: Virtual Memory
-Type: written
-Asked in: OSN End-sem 2025, Q4a (5 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: A new kernel uses paging with a software-managed TLB. On a TLB miss the page translation may not be in the TLB, and after the TLB miss the page may not be present in physical memory either. Design an algorithm or pseudocode for the OS trap handler to resolve the condition where the page is not in memory. It must detail, in sequence, the lifecycle of the event from the moment the trap occurs to the moment the instruction succeeds, and it must explicitly account for CPU efficiency: the CPU cannot sit idle while the disk spins.
-Answer:
-```
-on TLB_MISS trap (virtual address va):            // hardware: save PC, switch to kernel mode
-    save the registers and state of the faulting process P
-    pte = page_table(P)[ page_number(va) ]
-    if va is outside P's address space:            // invalid reference
-        terminate P (addressing error)
-    if pte.present == 1:                           // plain TLB miss
-        TLB.insert(page_number(va), pte.frame)
-        return-from-trap                           // retry the same instruction
-    // ---- page fault: valid page, not in memory ----
-    f = take a frame from the free-frame list
-    if no free frame:
-        v = evictPages()                           // page replacement (clock)
-        if v.modified: schedule a write of v to swap space
-        v.pte.present = 0;  TLB.invalidate(v)
-        f = v.frame
-    issue a disk read: swap location of the page -> frame f      // do not wait
-    P.state = BLOCKED (waiting for paging I/O); put P on the disk's wait queue
-    call the CPU scheduler: dispatch another READY process       // CPU stays busy
-
-on DISK_INTERRUPT (read for P complete):           // some other process is running
-    pte.frame = f;  pte.present = 1;  clear reference and modify bits
-    P.state = READY; put P on the ready queue
-
-when the scheduler next dispatches P:
-    restore P's registers and PC                   // PC still points at the faulting instruction
-    the instruction is retried -> TLB miss again -> pte.present == 1
-    -> TLB.insert -> retried once more -> succeeds
-```
-
-**The points the question is looking for:** (1) distinguish an invalid reference from a not-in-memory page; (2) find a frame, replacing a victim if none is free and writing it out only if modified; (3) **block the faulting process and schedule another one** while the disk works, so the CPU is never idle; (4) on the disk interrupt, update the page table and make the process ready; (5) **restart the faulting instruction**, with the TLB filled on the retry.
-
-This one handler touches four chapters: the trap and mode switch (Block 1), process states and the scheduler (Blocks 2 and 3), disk I/O (Block 11) and paging itself. No official key exists for this paper; this is my own solution.
-Marking points:
-- The points the question is looking for: (1) distinguish an invalid reference from a not-in-memory page; (2) find a frame, replacing a victim if none is free and writing it out only if modified; (3) …
-- on DISK_INTERRUPT (read for P complete):           // some other process is running
-    pte.frame = f;  pte.present = 1;  clear reference and modify bits
-    P.state = READY; put P on the ready queue
-- when the scheduler next dispatches P:
-    restore P's registers and PC                   // PC still points at the faulting instruction
-    the instruction is retried -> TLB miss again -> pte.present == 1
-    -> TLB.insert -> retried once more -> succeeds
-- This one handler touches four chapters: the trap and mode switch (Block 1), process states and the scheduler (Blocks 2 and 3), disk I/O (Block 11) and paging itself.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-138
+### PYQ-110
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: written
@@ -840,7 +678,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-139
+### PYQ-111
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: numerical
@@ -873,7 +711,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-140
+### PYQ-112
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: written
@@ -895,156 +733,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-141
-Unit: 4 Memory
-Topic: Virtual Memory
-Type: numerical
-Asked in: OSN Mid-sem 2025, Q3 (5 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: You observed that, like many teams, another team has also used paging for memory management, where they have devised a technique using swap space to manage even processes with large virtual address spaces. However, the exact policy for page replacement is yet to be decided. The team has two types of traces of page access in mind, and they are looking at the main memory as a cache with a size of 3 pages: Trace 1: 0, 1, 2, 0, 1, 3, 0, 3, 1, 2, 1; Trace 2: 1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5. The team is deliberating between different memory management policies, but they don't want to consider any random policy, and they do understand that the optimal policy cannot be implemented. Develop the trace table for the different policies - FIFO and LRU, and further, which among them would you recommend and why? What if the main memory can hold 4 pages?
-Answer: **Trace 1, 3 frames.**
-
-| ref | 0 | 1 | 2 | 0 | 1 | 3 | 0 | 3 | 1 | 2 | 1 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| frame 1 | 0 | 0 | 0 | 0 | 0 | 3 | 3 | 3 | 3 | 2 | 2 |
-| frame 2 |  | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
-| frame 3 |  |  | 2 | 2 | 2 | 2 | 2 | 2 | 1 | 1 | 1 |
-| fault? | F | F | F | · | · | F | F | · | F | F | · |
-
-**FIFO, 3 frames: 7 page faults**, 4 hits.
-
-| ref | 0 | 1 | 2 | 0 | 1 | 3 | 0 | 3 | 1 | 2 | 1 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| frame 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 2 |
-| frame 2 |  | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
-| frame 3 |  |  | 2 | 2 | 2 | 3 | 3 | 3 | 3 | 3 | 3 |
-| fault? | F | F | F | · | · | F | · | · | · | F | · |
-
-**LRU, 3 frames: 5 page faults**, 6 hits.
-
-**Trace 2, 3 frames.**
-
-| ref | 1 | 2 | 3 | 4 | 1 | 2 | 5 | 1 | 2 | 3 | 4 | 5 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| frame 1 | 1 | 1 | 1 | 4 | 4 | 4 | 5 | 5 | 5 | 5 | 5 | 5 |
-| frame 2 |  | 2 | 2 | 2 | 1 | 1 | 1 | 1 | 1 | 3 | 3 | 3 |
-| frame 3 |  |  | 3 | 3 | 3 | 2 | 2 | 2 | 2 | 2 | 4 | 4 |
-| fault? | F | F | F | F | F | F | F | · | · | F | F | · |
-
-**FIFO, 3 frames: 9 page faults**, 3 hits.
-
-| ref | 1 | 2 | 3 | 4 | 1 | 2 | 5 | 1 | 2 | 3 | 4 | 5 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| frame 1 | 1 | 1 | 1 | 4 | 4 | 4 | 5 | 5 | 5 | 3 | 3 | 3 |
-| frame 2 |  | 2 | 2 | 2 | 1 | 1 | 1 | 1 | 1 | 1 | 4 | 4 |
-| frame 3 |  |  | 3 | 3 | 3 | 2 | 2 | 2 | 2 | 2 | 2 | 5 |
-| fault? | F | F | F | F | F | F | F | · | · | F | F | F |
-
-**LRU, 3 frames: 10 page faults**, 2 hits.
-
-**With 4 frames.** Trace 1 has only four distinct pages (0, 1, 2, 3), so both policies fault exactly 4 times, once per page. Trace 2 is the slide string: FIFO gives 10 faults and LRU gives 8 (tables in the section above).
-
-| Page faults | Trace 1, 3 frames | Trace 1, 4 frames | Trace 2, 3 frames | Trace 2, 4 frames |
-| --- | --- | --- | --- | --- |
-| FIFO | 7 | 4 | 9 | **10** |
-| LRU | 5 | 4 | 10 | 8 |
-
-**Recommendation: LRU.**
-
-- On trace 1, which shows locality (pages 0, 1 and 3 are reused soon after use), LRU gives 5 faults against FIFO's 7. Five is also what the optimal policy achieves on this trace, so LRU cannot be beaten here.
-- LRU never shows Belady's anomaly: giving it a fourth frame reduces faults on trace 2 from 10 to 8. FIFO gets *worse* , from 9 to 10, so with FIFO the team could add memory and lose performance.
-- FIFO does win on trace 2 with 3 frames (9 against 10), but that string is a constructed worst case with no locality; the win disappears with one more frame.
-
-The cost of LRU is implementation: exact LRU needs the time of last use on every reference, so in practice it is approximated with a reference bit (the clock algorithm of section 9).
-
-**Trap in the LRU table.** A hit changes nothing in the frames but it does change recency. On trace 1, when page 2 arrives at the tenth reference, the frames hold 0, 1, 3 and the least recently used is 0 (last used at reference 7; 3 was used at 8 and 1 at 9), so 0 is the victim, not 1 or 3.
-
-No official key exists for either paper; this is my own solution.
-Marking points:
-- Final answer: With 4 frames: Trace 1 has only four distinct pages (0, 1, 2, 3), so both policies fault exactly 4 times, once per page.
-- On trace 1, which shows locality (pages 0, 1 and 3 are reused soon after use), LRU gives 5 faults against FIFO's 7.
-- LRU never shows Belady's anomaly: giving it a fourth frame reduces faults on trace 2 from 10 to 8.
-- FIFO does win on trace 2 with 3 frames (9 against 10), but that string is a constructed worst case with no locality; the win disappears with one more frame.
-- Trace 1, 3 frames.
-- FIFO, 3 frames: 7 page faults, 4 hits.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-142
-Unit: 4 Memory
-Topic: Virtual Memory
-Type: numerical
-Asked in: OSN End-sem 2023, Q2b (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The team is planning to use a FIFO approach for page replacement where the system has a cache size of 3. The team claims that FIFO is the best policy for page replacement by considering an example trace: 0, 1, 2, 0, 1, 3, 0, 3, 1, 2, 1. The team would like to know your opinion.
-Answer: **The claim is wrong.** On this trace with 3 frames (tables in the question above):
-
-| Policy | Faults | Hits |
-| --- | --- | --- |
-| FIFO | 7 | 4 |
-| LRU | 5 | 6 |
-| Optimal | 5 | 6 |
-
-FIFO evicts page 0 at the sixth reference only because it is the oldest, although it was used two references earlier and is needed again immediately; the same happens with page 1. Those evictions cause the extra faults. LRU keeps the recently used pages and reaches the optimal 5 faults.
-
-**Opinion:** FIFO is the simplest policy, not the best. It ignores how pages are used, and it can suffer Belady's anomaly. Recommend LRU, or its clock approximation if the hardware offers only a reference bit.
-Marking points:
-- The claim is wrong: On this trace with 3 frames (tables in the question above):
-- Opinion: FIFO is the simplest policy, not the best.
-- The claim is wrong.
-Answer source: written by Claude, no key
-Weak / low priority: yes: the same trace and the same working as the question above; only the wording differs.
-
-### PYQ-143
-Unit: 4 Memory
-Topic: Virtual Memory
-Type: written
-Asked in: OSN End-sem 2025, Q4b (5 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: A virtual memory subsystem has performance issues when memory becomes full. Design the page-replacement policy under two constraints: (i) the hardware does not support a timestamp register for every page access; (ii) the hardware provides a single reference bit per page-table entry. Outline the algorithm for the evictPages() routine that decides which pages to evict. Does your algorithm degenerate to FIFO under specific circumstances?
-Answer: **Choice.** Exact LRU needs the time of last use, which constraint (i) rules out. With one reference bit the right policy is the **second-chance (clock) algorithm**, an approximation of LRU.
-
-```
-hand = 0                                  // persists between calls; frames form a circle
-
-evictPages(k):                            // free k frames
-    freed = 0
-    while freed < k:
-        p = page in frame[hand]
-        if p.pte.reference == 1:          // used since the hand last passed
-            p.pte.reference = 0           // second chance: clear the bit, keep the page
-        else:                             // not used for a whole revolution
-            if p.pte.modified:
-                write p to swap space     // only dirty pages cost a disk write
-            p.pte.present = 0             // next access will page-fault
-            invalidate p's TLB entry
-            add frame[hand] to the free list
-            freed = freed + 1
-        hand = (hand + 1) mod NFRAMES
-```
-
-**Why it approximates LRU.** The hardware sets a page's reference bit whenever the page is accessed. A page whose bit is still 0 when the hand returns has not been used during one full revolution, so it is among the least recently used. Pages in active use keep getting their bit set again and survive.
-
-**Degenerating to FIFO: yes.** If *all* reference bits are 1 when the routine runs (every page in memory has been referenced since the hand last passed, which is typical when memory is heavily overcommitted), the hand clears every bit in one full sweep, arrives back where it started, and evicts that page. Victims are then chosen purely in circular order of position, with no regard to use, which is FIFO.
-
-**Refinement worth one line.** Use the modify bit as well (enhanced second chance): prefer (0, 0) pages, which need no disk write, over (0, 1) pages.
-
-No official key exists for this paper; this is my own solution.
-Marking points:
-- Choice: Exact LRU needs the time of last use, which constraint (i) rules out.
-- Why it approximates LRU: The hardware sets a page's reference bit whenever the page is accessed.
-- Degenerating to FIFO: yes: If all reference bits are 1 when the routine runs (every page in memory has been referenced since the hand last passed, which is typical when memory is heavily overcommitted), the hand clears every bit …
-- Refinement worth one line: Use the modify bit as well (enhanced second chance): prefer (0, 0) pages, which need no disk write, over (0, 1) pages.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-144
+### PYQ-113
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: numerical
@@ -1076,7 +765,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-145
+### PYQ-114
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: true/false
@@ -1099,7 +788,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-146
+### PYQ-115
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: written
@@ -1175,7 +864,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-139
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-111
 In syllabus: yes
 Question: Memory access time is 100 ns and the page-fault service time is 25 ms. What page-fault rate keeps the performance degradation below 10%?
 Answer: EAT = (1 − p) × 100 + p × 25,000,000 = 100 + 24,999,900 p ns.
@@ -1199,7 +888,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-136
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)
 In syllabus: yes
 Question: Compare accessing a file through memory mapping with accessing it through read() and write() system calls.
 Answer:
@@ -1222,7 +911,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-141, PYQ-142
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1)
 In syllabus: yes
 Question: TRUE or FALSE, correct if false and justify: "Allocating more frames to a process always reduces, or at least never increases, its number of page faults."
 Answer: **FALSE.** Corrected: allocating more frames never increases the number of page faults for LRU and optimal replacement, but for some algorithms such as FIFO it can increase them (Belady's anomaly).
@@ -1239,7 +928,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-141, PYQ-142
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: Apply the optimal page-replacement algorithm to the reference string 1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5 with 3 frames. Why is this algorithm studied if it cannot be implemented?
 Answer:
@@ -1266,7 +955,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-143, PYQ-144
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-113
 In syllabus: yes
 Question: Compare the counter and stack implementations of LRU. Why do real systems use neither?
 Answer:
@@ -1289,7 +978,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-143, PYQ-144
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-113
 In syllabus: yes
 Question: Four pages have (reference, modify) bits A = (1, 1), B = (0, 1), C = (1, 0), D = (0, 0). In what order would the enhanced second-chance algorithm prefer them as victims? Which replacements need a disk write?
 Answer: **Order of preference: D, B, C, A**, that is (0, 0), then (0, 1), then (1, 0), then (1, 1).
@@ -1314,7 +1003,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-145
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-114
 In syllabus: yes
 Question: A system has 64 free frames and two processes, P1 of 10 pages and P2 of 127 pages. Find the allocation under equal allocation and under proportional allocation. Which is better here, and what does neither scheme take into account?
 Answer: **Equal allocation:** 64 / 2 = **32 frames each**. P1 has only 10 pages, so 22 of its frames are wasted, while P2 is short.
@@ -1342,7 +1031,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A process has the page-reference string 2 6 1 5 7 7 7 7 5 1 | 6 2 3 4 1 2 | 3 4 4 4 3 4 3 4 4 4 | …, where t1 is the instant after the tenth reference and t2 the instant after the twenty-sixth. (a) With Δ = 10, find the working set and its size at t1 and at t2. (b) Three processes have working-set sizes 5, 2 and 6 and the system has 12 frames. What does the working-set model say, and what should the OS do?
 Answer: **(a)** The working set is the set of distinct pages in the last 10 references.
@@ -1408,7 +1097,7 @@ Weak / low priority: no
 Unit: 4 Memory
 Topic: Virtual Memory
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: (a) A TLB has 64 entries. Find the TLB reach with 4 KB pages and with 4 MB pages. (b) Give two arguments for a small page size and two for a large page size. (c) How do multiple page sizes resolve the conflict?
 Answer: **(a)** TLB reach = TLB size × page size. With 4 KB pages: 64 × 4 KB = **256 KB**. With 4 MB pages: 64 × 4 MB = **256 MB**. A process whose working set is larger than the reach suffers TLB misses even when all its pages are in memory.

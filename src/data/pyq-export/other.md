@@ -2,30 +2,7 @@
 
 ## Other
 
-### PYQ-170
-Unit: Other
-Topic: Other (application layer (HTTP, web caches), which is not one of the listed topics)
-Type: MCQ
-Asked in: OSN End-sem 2023, Q11 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: no: application layer; not in the end-sem networking list
-Question: The Net team has built the application layer support in their OS network stack by providing support mainly for HTTP/1.1. Before opening IndixOS to the public, the team wanted to do a final test where multiple systems using IndixOS are connected to an extensive network. One machine was designated as the server, and other machines as the clients. The team observed that since many client machines were sending HTTP requests to the server, the server was not able to handle the load, and it crashed. What do you think is the quick solution that the team can implement to proceed with the test, and how?
-Options: A) The team can make use of cookies B) Web caches can be leveraged C) The team should use HTTP/1.0 instead D) Make use of proxies
-Answer: **Answer: (b) web caches, and (d) proxies used as caches.**
-
-- A web cache (a caching proxy placed between the clients and the server) keeps copies of recently fetched pages. Repeated requests for the same objects are answered by the cache, so far fewer requests reach the server and it no longer crashes. This can be set up quickly without changing the server.
-- (a) Cookies only let the server keep state about users; they do not reduce the load.
-- (c) HTTP/1.0 uses a new TCP connection per object, so it increases the load on the server.
-Marking points:
-- Web caches (or caching proxies) as the quick fix.
-- Repeated requests answered from the cache, reducing server load.
-- Cookies do not reduce load.
-- HTTP/1.0 makes it worse (a connection per object).
-Answer source: written by Claude, no key
-Weak / low priority: yes: application layer; not in the end-sem networking list
-
-### PYQ-171
+### PYQ-134
 Unit: Other
 Topic: Other (security, which is not one of the listed topics)
 Type: true/false
@@ -47,7 +24,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: security is not in the end-sem topic list
 
-### PYQ-172
+### PYQ-135
 Unit: Other
 Topic: Other (security (program threats), which is not one of the listed topics)
 Type: written

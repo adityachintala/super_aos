@@ -804,107 +804,6 @@
   "format": "written",
   "asked": [
    {
-    "paper": "OSN Mid-sem 2025",
-    "ref": "Q1",
-    "marks": "5 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>As a first step to process virtualisation, the team has identified that a process at any point can be in one of the three states: ready, running or blocked. Since you know Unix OS principles, they wanted to check with you when a process should alternate these states. Considering the scenario of two different processes, i) Interactive collaborative coding sessions (user-driven, lots of I/O); and ii) Periodic retraining of language models (assume these are purely CPU-intensive jobs with no disk or network I/O), please explain briefly (with a diagram) the states and their transitions. Briefly describe the conditions under which transitions occur, considering the above two examples.</p>",
-  "options": [],
-  "answer": "<p><strong>Diagram:</strong> Ready → Running (scheduled), Running → Ready (descheduled: time slice expires or preempted), Running → Blocked (initiates I/O or waits for an event), Blocked → Ready (I/O or event completes).</p>\n<p><strong>Coding session.</strong> It runs for short bursts, then waits for keystrokes, file saves or network sync, so it moves Running → Blocked very often. When the input or I/O completes it goes Blocked → Ready, and is scheduled Ready → Running quickly. It rarely uses up its time slice.</p>\n<p><strong>Retraining job.</strong> It never blocks, because it does no I/O. It cycles only between Ready and Running: scheduled Ready → Running, and when its slice expires, the timer interrupt forces Running → Ready. A good scheduler also preempts it when the interactive process becomes ready, to keep the session responsive.</p>",
-  "points": [
-   "Diagram: Ready → Running (scheduled), Running → Ready (descheduled: time slice expires or preempted), Running → Blocked (initiates I/O or waits for an event), Blocked → Ready (I/O or event completes).",
-   "Coding session: It runs for short bursts, then waits for keystrokes, file saves or network sync, so it moves Running → Blocked very often.",
-   "Retraining job: It never blocks, because it does no I/O."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-25",
-  "kind": "pyq",
-  "num": 25,
-  "unitId": 2,
-  "lessonId": "processes-and-ipc",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q1c",
-    "marks": "4 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>At any given point, there will be many processes executing in the IndixOS. At present, the team relies on the cooperative approach to pass control back to the OS. However, the team is unclear about how a pre-emptive approach can be implemented to get control back to the OS during process execution. For instance, assume that process B is getting executed, and if it makes some system call during execution, then as per their current implementation the OS will be able to get control and execute some other process C. Apart from this, the team requires the OS to have a better mechanism which allows the OS to get control as and when required. The team requires your suggestion based on your understanding of Unix about the mechanism and protocol that the OS needs to use to ensure that it can seamlessly switch between multiple processes.</p>",
-  "options": [],
-  "answer": "<p><strong>Mechanism: the timer interrupt.</strong> At boot, in kernel mode, the OS installs its interrupt handlers in the interrupt vector and starts a hardware timer. Both are privileged operations. The timer interrupts every few milliseconds regardless of what the process is doing, so even a process in an infinite loop cannot keep the CPU.</p>\n<p><strong>Protocol when the timer fires while process B runs:</strong></p>\n<ul>\n<li>Hardware saves B's user registers, switches to kernel mode, and jumps to the timer handler.</li>\n<li>The OS scheduler decides whether to keep B or switch to C.</li>\n<li>To switch, it saves B's context in B's PCB and loads C's saved context from C's PCB (a context switch).</li>\n<li>A return-from-trap instruction restores C's registers, switches back to user mode, and resumes C.</li>\n</ul>",
-  "points": [
-   "Hardware saves B's user registers, switches to kernel mode, and jumps to the timer handler.",
-   "The OS scheduler decides whether to keep B or switch to C.",
-   "To switch, it saves B's context in B's PCB and loads C's saved context from C's PCB (a context switch).",
-   "A return-from-trap instruction restores C's registers, switches back to user mode, and resumes C.",
-   "Mechanism: the timer interrupt: At boot, in kernel mode, the OS installs its interrupt handlers in the interrupt vector and starts a hardware timer.",
-   "Protocol when the timer fires while process B runs:"
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-26",
-  "kind": "pyq",
-  "num": 26,
-  "unitId": 2,
-  "lessonId": "processes-and-ipc",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN Mid-sem 2025",
-    "ref": "Q5",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>In LangOS, a user process issues a send() system call to transmit data over a TCP socket. Considering the following possible statements, which among these do you think captures what may happen in such a scenario?</p>",
-  "options": [
-   "A context switch always happens immediately because every system call requires the process to be de-scheduled",
-   "A context switch may happen if the kernel's TCP send buffer is full causing the process to block until space is available",
-   "A context switch never happens because TCP send is handled entirely in user space",
-   "A context switch occurs only if the receiver is on the same machine as inter-process communication requires switching between processes"
-  ],
-  "answer": "<p><strong>(b).</strong> send() is a blocking system call. If there is room in the kernel's send buffer, the data is copied in and the call returns, with only a <em>mode</em> switch. If the buffer is full, the process moves Running → Blocked and the scheduler runs another process, which is a <em>context</em> switch.</p>\n<p>(a) confuses a mode switch with a context switch. (c) is wrong because TCP is implemented in the kernel. (d) is wrong because blocking depends on buffer space, not on where the receiver is.</p>",
-  "points": [
-   "Final answer: (b): send() is a blocking system call.",
-   "If there is room in the kernel's send buffer, the data is copied in and the call returns, with only a mode switch.",
-   "If the buffer is full, the process moves Running → Blocked and the scheduler runs another process, which is a context switch."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-27",
-  "kind": "pyq",
-  "num": 27,
-  "unitId": 2,
-  "lessonId": "processes-and-ipc",
-  "format": "written",
-  "asked": [
-   {
     "paper": "AOS End-sem 2025",
     "ref": "Q3",
     "marks": "5 marks"
@@ -946,9 +845,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-28",
+  "id": "x-pyq-25",
   "kind": "pyq",
-  "num": 28,
+  "num": 25,
   "unitId": 2,
   "lessonId": "processes-and-ipc",
   "format": "written",
@@ -983,9 +882,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-29",
+  "id": "x-pyq-26",
   "kind": "pyq",
-  "num": 29,
+  "num": 26,
   "unitId": 2,
   "lessonId": "processes-and-ipc",
   "format": "written",
@@ -1015,9 +914,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-30",
+  "id": "x-pyq-27",
   "kind": "pyq",
-  "num": 30,
+  "num": 27,
   "unitId": 2,
   "lessonId": "processes-and-ipc",
   "format": "written",
@@ -1047,9 +946,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-31",
+  "id": "x-pyq-28",
   "kind": "pyq",
-  "num": 31,
+  "num": 28,
   "unitId": 2,
   "lessonId": "processes-and-ipc",
   "format": "written",
@@ -1081,9 +980,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-32",
+  "id": "x-pyq-29",
   "kind": "pyq",
-  "num": 32,
+  "num": 29,
   "unitId": 2,
   "lessonId": "processes-and-ipc",
   "format": "written",
@@ -1117,42 +1016,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-33",
+  "id": "x-pyq-30",
   "kind": "pyq",
-  "num": 33,
-  "unitId": 2,
-  "lessonId": "processes-and-ipc",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q1a",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The fork team have created two APIs for supporting process virtualization: i) repl(), which is similar to fork(); ii) execute(), which is the same as the exec() and iii) wait as offered by the standard Unix OS. The team has developed a kernel and a shell on top of it. However, they want to implement support for a new shell command, \"fwc\" which takes a file name as input and gives out the number of words in the file as output (eg: fwc file.txt gives \"20\" as output indicating 20 words). Since shell itself is an executing process, they want your suggestion on implementing this command. Please explain how the existing system calls can be used to achieve this.</p>",
-  "options": [],
-  "answer": "<p>The shell reads and parses the command line, then calls fork(). In the child (fork returned 0), it calls exec() with the fwc program and the argument file.txt; the child's memory is replaced by fwc, which opens the file, reads and counts the words, writes the count to standard output, and calls exit(). In the parent (fork returned the child's pid), the shell calls wait() until the child finishes, collects its exit status, and prints the prompt again. If the command ends with &#x26;, the shell skips wait() and continues immediately.</p>\n<p>fork() and exec() are separate so the child can adjust its environment between them, for example redirecting output to a file or a pipe, before the new program starts.</p>",
-  "points": [
-   "The shell reads and parses the command line, then calls fork().",
-   "In the child (fork returned 0), it calls exec() with the fwc program and the argument file.txt; the child's memory is replaced by fwc, which opens the file, reads and counts the words, writes the count to standard output …",
-   "In the parent (fork returned the child's pid), the shell calls wait() until the child finishes, collects its exit status, and prints the prompt again.",
-   "If the command ends with &#x26;, the shell skips wait() and continues immediately.",
-   "fork() and exec() are separate so the child can adjust its environment between them, for example redirecting output to a file or a pipe, before the new program starts."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-34",
-  "kind": "pyq",
-  "num": 34,
+  "num": 30,
   "unitId": 2,
   "lessonId": "processes-and-ipc",
   "format": "written",
@@ -1180,9 +1046,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-35",
+  "id": "x-pyq-31",
   "kind": "pyq",
-  "num": 35,
+  "num": 31,
   "unitId": 2,
   "lessonId": "processes-and-ipc",
   "format": "written",
@@ -1211,9 +1077,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-36",
+  "id": "x-pyq-32",
   "kind": "pyq",
-  "num": 36,
+  "num": 32,
   "unitId": 2,
   "lessonId": "threads",
   "format": "written",
@@ -1248,9 +1114,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-37",
+  "id": "x-pyq-33",
   "kind": "pyq",
-  "num": 37,
+  "num": 33,
   "unitId": 2,
   "lessonId": "threads",
   "format": "written",
@@ -1280,9 +1146,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-38",
+  "id": "x-pyq-34",
   "kind": "pyq",
-  "num": 38,
+  "num": 34,
   "unitId": 2,
   "lessonId": "threads",
   "format": "written",
@@ -1321,9 +1187,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-39",
+  "id": "x-pyq-35",
   "kind": "pyq",
-  "num": 39,
+  "num": 35,
   "unitId": 2,
   "lessonId": "threads",
   "format": "written",
@@ -1355,9 +1221,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-40",
+  "id": "x-pyq-36",
   "kind": "pyq",
-  "num": 40,
+  "num": 36,
   "unitId": 2,
   "lessonId": "threads",
   "format": "written",
@@ -1392,9 +1258,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-41",
+  "id": "x-pyq-37",
   "kind": "pyq",
-  "num": 41,
+  "num": 37,
   "unitId": 2,
   "lessonId": "threads",
   "format": "tf",
@@ -1423,9 +1289,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-42",
+  "id": "x-pyq-38",
   "kind": "pyq",
-  "num": 42,
+  "num": 38,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1461,9 +1327,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-43",
+  "id": "x-pyq-39",
   "kind": "pyq",
-  "num": 43,
+  "num": 39,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1493,9 +1359,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-44",
+  "id": "x-pyq-40",
   "kind": "pyq",
-  "num": 44,
+  "num": 40,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1530,9 +1396,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-45",
+  "id": "x-pyq-41",
   "kind": "pyq",
-  "num": 45,
+  "num": 41,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "tf",
@@ -1563,9 +1429,9 @@
   "answerSource": "student answers"
  },
  {
-  "id": "x-pyq-46",
+  "id": "x-pyq-42",
   "kind": "pyq",
-  "num": 46,
+  "num": 42,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1605,76 +1471,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-47",
+  "id": "x-pyq-43",
   "kind": "pyq",
-  "num": 47,
-  "unitId": 2,
-  "lessonId": "cpu-scheduling",
-  "format": "numeric",
-  "asked": [
-   {
-    "paper": "OSN Mid-sem 2025",
-    "ref": "Q2",
-    "marks": "8 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The LangOS process virtualisation team is considering the different workload types in the system to decide on a scheduling policy. The team is planning to build a scenario-based scheduling policy selector that dynamically selects a policy based on a given scenario. The team has identified two broad scenarios: a. Scenario A: Three identical system processes, each requiring 20ms execution time, arrive simultaneously. b. Scenario B: Three processes with different execution requirements: Process 1 (10ms), Process 2 (20ms), Process 3 (30ms) arrive simultaneously. Based on the above scenarios, the team wants your help and support in deciding on which scheduling policy to use: a. In your opinion, what will be the benefit of using SJF and FIFO schedulers for scenario A, considering the different metrics? b. For Scenario B, express your opinion by calculating the metrics for SJF, FIFO, and Round Robin (time slice = 1ms) schedulers. Show your work clearly. c. According to you, under what characteristics would SJF deliver the same turnaround times as FIFO in LangOS? d. For what types of workloads and quantum lengths would SJF deliver the same response times as Round Robin?</p>",
-  "options": [],
-  "answer": "<p><strong>(a)</strong> None. With identical bursts SJF and FIFO make the same decisions: turnaround 20, 40, 60, average 40 ms; response 0, 20, 40, average 20 ms.</p>\n<p><strong>(b)</strong> Turnaround = completion − arrival; response = first run − arrival.</p>\n<table>\n<thead>\n<tr>\n<th>Policy</th>\n<th>Completions</th>\n<th>Avg turnaround</th>\n<th>Avg response</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>FIFO (10, 20, 30)</td>\n<td>10, 30, 60</td>\n<td>(10 + 30 + 60)/3 = <strong>33.3 ms</strong></td>\n<td>(0 + 10 + 30)/3 = <strong>13.3 ms</strong></td>\n</tr>\n<tr>\n<td>SJF (same order)</td>\n<td>10, 30, 60</td>\n<td><strong>33.3 ms</strong> (optimal)</td>\n<td><strong>13.3 ms</strong></td>\n</tr>\n<tr>\n<td>RR, q = 1 ms</td>\n<td>28, 49, 60</td>\n<td>(28 + 49 + 60)/3 = <strong>45.7 ms</strong></td>\n<td>(0 + 1 + 2)/3 = <strong>1 ms</strong></td>\n</tr>\n</tbody>\n</table>\n<p>RR detail: for the first 30 ms the three alternate, so the 10 ms job finishes at its tenth slice, 3 × 9 + 1 = <strong>28</strong>; the other two then alternate, and the 20 ms job finishes at 30 + 2 × 9 + 1 = <strong>49</strong>; the 30 ms job runs alone to <strong>60</strong>. RR gives by far the best response (good for interactive users) and the worst turnaround (plus context-switch overhead, ignored here).</p>\n<p><strong>(c)</strong> SJF equals FIFO in turnaround when jobs arrive in non-decreasing order of burst (or all bursts are equal): shortest-first is then the arrival order. SJF equals RR in response time when every job's burst is no longer than the quantum (each finishes in its first slice), or with a single job.</p>\n<p>No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "Final answer: (c) SJF equals FIFO in turnaround when jobs arrive in non-decreasing order of burst (or all bursts are equal): shortest-first is then the arrival order.",
-   "(b) Turnaround = completion − arrival; response = first run − arrival."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-48",
-  "kind": "pyq",
-  "num": 48,
-  "unitId": 2,
-  "lessonId": "cpu-scheduling",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q1",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The AgentOS team is evaluating whether Round Robin (RR) is a suitable scheduler for their workloads. They consider three processes: P1, which arrives at time 0 ms and requires 5 ms of CPU time; P2, which arrives at 1 ms and exhibits mixed behaviour with a 2 ms CPU burst, followed by a 4 ms I/O operation, and then another 2 ms CPU burst; and P3, which arrives at 3 ms and requires 4 ms of CPU time. The team simulates Round Robin scheduling with 1 ms time quantum and no context-switch overhead, and they want to determine the resulting average turnaround time. What is the correct value and why?</p>",
-  "options": [
-   "10.00 ms",
-   "8.66 ms",
-   "11.33 ms",
-   "9.00 ms"
-  ],
-  "answer": "<p><strong>Convention (state it):</strong> when a process's quantum expires at the same instant another arrives, the preempted process goes to the tail before the newcomer. (With the opposite convention the answer is 10.67 ms, which is not an option, so the paper uses this one.)</p>\n<table>\n<thead>\n<tr>\n<th>Time</th>\n<th>0–1</th>\n<th>1–2</th>\n<th>2–3</th>\n<th>3–4</th>\n<th>4–5</th>\n<th>5–6</th>\n<th>6–7</th>\n<th>7–8</th>\n<th>8–9</th>\n<th>9–10</th>\n<th>10–11</th>\n<th>11–12</th>\n<th>12–13</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Runs</td>\n<td>P1</td>\n<td>P1</td>\n<td>P2</td>\n<td>P1</td>\n<td>P2</td>\n<td>P3</td>\n<td>P1</td>\n<td>P3</td>\n<td>P1</td>\n<td>P3</td>\n<td>P2</td>\n<td>P3</td>\n<td>P2</td>\n</tr>\n</tbody>\n</table>\n<p>P2's first burst ends at 5, so it does I/O 5–9 and rejoins the queue at 9. P1 finishes at <strong>9</strong>, P3 at <strong>12</strong>, P2 at <strong>13</strong>.</p>\n<p>Turnaround: P1 9 − 0 = 9, P2 13 − 1 = 12, P3 12 − 3 = 9. Average = 30 / 3 = <strong>10.00 ms: option (a)</strong>.</p>\n<p>The I/O time counts in P2's turnaround (turnaround is completion − arrival), but during it P2 is not in the ready queue. No official key exists; this is my own solution.</p>",
-  "points": [
-   "Final answer: Average = 30 / 3 = 10.00 ms: option (a).",
-   "Convention (state it): when a process's quantum expires at the same instant another arrives, the preempted process goes to the tail before the newcomer.",
-   "(With the opposite convention the answer is 10.67 ms, which is not an option, so the paper uses this one.)",
-   "P2's first burst ends at 5, so it does I/O 5–9 and rejoins the queue at 9."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-49",
-  "kind": "pyq",
-  "num": 49,
+  "num": 43,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1704,44 +1503,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-50",
+  "id": "x-pyq-44",
   "kind": "pyq",
-  "num": 50,
-  "unitId": 2,
-  "lessonId": "cpu-scheduling",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q10",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The Fork team wants to check how IndixOS can seamlessly switch between different running processes at any given point. The team expects IndixOS to have a mix of workloads with a lot of I/O-intensive workloads and some CPU-intensive workloads. Assuming that, as in any real case, there will not be any information on the completion time of each process and any process can arrive at any time, the team wants to check with you which could be a better policy to use for scheduling. Which one of the following scheduling policies do you recommend and why?</p>",
-  "options": [
-   "Multi-level feedback queues",
-   "First come, first serve",
-   "Round Robin",
-   "Shortest Completion time first"
-  ],
-  "answer": "<p><strong>(a) Multilevel feedback queues.</strong> It needs no advance knowledge of burst lengths: it <em>learns</em> each process's behaviour from how it uses its quantum. I/O-intensive processes use short bursts and stay in the high-priority, short-quantum queues, so they get fast response and keep the devices busy; CPU-intensive processes are demoted to lower queues with longer quanta, which reduces context switches for them; aging prevents their starvation. New arrivals at any time enter the top queue and get served quickly.</p>\n<p><strong>Why not the others:</strong> (b) FCFS gives the convoy effect, I/O-bound processes waiting behind CPU-bound ones; (c) RR is fair and responsive but treats both kinds the same, so I/O-bound processes wait behind full quanta of CPU-bound ones; (d) needs completion times, which are unknown (and with arrivals at any time, it can starve long jobs).</p>\n<p>No official key; this is my own solution.</p>",
-  "points": [
-   "Final answer: (a) Multilevel feedback queues: It needs no advance knowledge of burst lengths: it learns each process's behaviour from how it uses its quantum.",
-   "Why not the others: (b) FCFS gives the convoy effect, I/O-bound processes waiting behind CPU-bound ones; (c) RR is fair and responsive but treats both kinds the same, so I/O-bound processes wait behind full quanta of CPU-bound ones; (d) …"
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-51",
-  "kind": "pyq",
-  "num": 51,
+  "num": 44,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "tf",
@@ -1780,9 +1544,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-52",
+  "id": "x-pyq-45",
   "kind": "pyq",
-  "num": 52,
+  "num": 45,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1822,9 +1586,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-53",
+  "id": "x-pyq-46",
   "kind": "pyq",
-  "num": 53,
+  "num": 46,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1859,9 +1623,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-54",
+  "id": "x-pyq-47",
   "kind": "pyq",
-  "num": 54,
+  "num": 47,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "tf",
@@ -1890,9 +1654,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-55",
+  "id": "x-pyq-48",
   "kind": "pyq",
-  "num": 55,
+  "num": 48,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1921,9 +1685,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-56",
+  "id": "x-pyq-49",
   "kind": "pyq",
-  "num": 56,
+  "num": 49,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1955,9 +1719,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-57",
+  "id": "x-pyq-50",
   "kind": "pyq",
-  "num": 57,
+  "num": 50,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -1988,9 +1752,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-58",
+  "id": "x-pyq-51",
   "kind": "pyq",
-  "num": 58,
+  "num": 51,
   "unitId": 2,
   "lessonId": "cpu-scheduling",
   "format": "written",
@@ -2021,77 +1785,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-59",
+  "id": "x-pyq-52",
   "kind": "pyq",
-  "num": 59,
-  "unitId": 2,
-  "lessonId": "cpu-scheduling",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q10 (bonus)",
-    "marks": "4 (bonus)"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>Bonus Question: Many CPU-scheduling algorithms are parameterized. For example, the RR algorithm requires a parameter to indicate the time slice. Multilevel feedback queues require parameters to define the number of queues, the scheduling algorithms for each queue, the criteria used to move processes between queues, and so on. These algorithms are thus really sets of algorithms (for example, the set of RR algorithms for all time slices, and so on). One set of algorithms may include another (for example, the FCFS algorithm is the RR algorithm with an infinite time quantum). What (if any) relation holds between the following pairs of algorithm sets? a. Priority and SJF b. Multilevel feedback queues and FCFS c. Priority and FCFS d. RR and SJF</p>",
-  "options": [],
-  "answer": "<p>Each scheduling algorithm is really a set of algorithms (one per parameter value), so the question is which set contains which.</p>\n<table>\n<thead>\n<tr>\n<th>Pair</th>\n<th>Relation</th>\n<th>Reason</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a. Priority and SJF</td>\n<td>SJF is a subset of Priority</td>\n<td>SJF is priority scheduling with priority = the (predicted) length of the next CPU burst: the shortest job has the highest priority.</td>\n</tr>\n<tr>\n<td>b. MLFQ and FCFS</td>\n<td>FCFS is a subset of MLFQ</td>\n<td>An MLFQ with a single queue scheduled FCFS (or with an infinite quantum) is FCFS; the lowest queue of a typical MLFQ is FCFS too.</td>\n</tr>\n<tr>\n<td>c. Priority and FCFS</td>\n<td>FCFS is a subset of Priority</td>\n<td>FCFS is priority scheduling with priority = arrival time: the job that has been waiting longest has the highest priority.</td>\n</tr>\n<tr>\n<td>d. RR and SJF</td>\n<td>No relation</td>\n<td>Neither contains the other: RR ignores burst length, and SJF never preempts a job to share the CPU in turns.</td>\n</tr>\n</tbody>\n</table>",
-  "points": [
-   "SJF is a special case of Priority (priority = next CPU burst).",
-   "FCFS is a special case of MLFQ (one queue, FCFS).",
-   "FCFS is a special case of Priority (priority = arrival time).",
-   "RR and SJF: no relation, with a reason."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-60",
-  "kind": "pyq",
-  "num": 60,
-  "unitId": 2,
-  "lessonId": "cpu-scheduling",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN Mid-sem 2025",
-    "ref": "Bonus 2",
-    "marks": "3 (bonus)"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>Bonus: The team is considering using a CFS scheduler, but they have a curiosity. What was the main reason the CFS scheduler replaced the Linux O(1) scheduler? Justify your answer. (option d is cut off in the scan)</p>",
-  "options": [
-   "Scheduling a task under high loads took an unpredictable amount of time",
-   "Low-priority task could wait indefinitely and starve",
-   "Interactive tasks could wait for unpredictable amounts of time to be scheduled"
-  ],
-  "answer": "<p><strong>Answer: (c).</strong></p>\n<p>The O(1) scheduler had to guess which tasks were interactive, using complicated heuristics based on sleep time, and then boost their priority. These heuristics were often wrong, so interactive tasks could wait for unpredictable amounts of time and desktop responsiveness was poor.</p>\n<p>CFS (Completely Fair Scheduler) dropped the heuristics. It gives every task a share of the CPU in proportion to its weight (its nice value): it tracks each task's virtual runtime and always runs the task with the smallest virtual runtime, kept in a red-black tree. A task that sleeps (an interactive one) has a small virtual runtime, so it is picked quickly when it wakes. Fairness, and with it good interactive latency, follows naturally.</p>\n<p>Options (a) and (b) are not the main reason: the O(1) scheduler's selection time was constant, and it already had mechanisms against indefinite starvation.</p>",
-  "points": [
-   "Chooses (c).",
-   "O(1) relied on fragile interactivity heuristics.",
-   "CFS: proportional share by weight, smallest virtual runtime first, red-black tree.",
-   "Sleeping tasks get the CPU quickly, so interactivity is good."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-61",
-  "kind": "pyq",
-  "num": 61,
+  "num": 52,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2120,9 +1816,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-62",
+  "id": "x-pyq-53",
   "kind": "pyq",
-  "num": 62,
+  "num": 53,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2152,9 +1848,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-63",
+  "id": "x-pyq-54",
   "kind": "pyq",
-  "num": 63,
+  "num": 54,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2184,9 +1880,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-64",
+  "id": "x-pyq-55",
   "kind": "pyq",
-  "num": 64,
+  "num": 55,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2216,77 +1912,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-65",
+  "id": "x-pyq-56",
   "kind": "pyq",
-  "num": 65,
-  "unitId": 2,
-  "lessonId": "synchronization",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q3",
-    "marks": "10 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The sem team responsible for managing concurrency is testing out applications to test the concurrency aspects. They have implemented the notion of semaphore that is made available through the POSIX library. The team plans to test this by creating a simple application similar to Google Docs. However, they want you to test their semaphore implementation. The constraint they have for the application is that multiple threads should be able to read a document at the same time, but only one writer should be able to write at any given instant of time. Moreover, they also want to ensure that there is no starvation of thread that is waiting to write to the document. Can you devise a solution to address these constraints (Pseudocode)? (Clearly state the assumptions made and reason on the solution)</p>",
-  "options": [],
-  "answer": "<p><strong>Assumptions:</strong> semaphores are strong (FIFO queues: wakeup order is arrival order); readers and writers are threads of one process sharing the document; a reader never upgrades to a writer.</p>\n<pre><code>semaphore rw_mutex = 1;  /* held by a writer, or by the group of readers */\nsemaphore mutex    = 1;  /* protects read_count                          */\nsemaphore queue    = 1;  /* service order: everyone passes through here  */\nint read_count = 0;\n\nreader() {\n    wait(queue);                 /* take a place in line            */\n    wait(mutex);\n    read_count++;\n    if (read_count == 1) wait(rw_mutex);   /* first reader locks out writers */\n    signal(mutex);\n    signal(queue);               /* let the next in line proceed    */\n    /* read the document */\n    wait(mutex);\n    read_count--;\n    if (read_count == 0) signal(rw_mutex); /* last reader lets writers in    */\n    signal(mutex);\n}\n\nwriter() {\n    wait(queue);                 /* take a place in line            */\n    wait(rw_mutex);              /* wait for current readers / writer */\n    signal(queue);\n    /* write the document */\n    signal(rw_mutex);\n}\n</code></pre>\n<p><strong>Multiple readers:</strong> only the first reader of a group takes rw_mutex, so readers already inside overlap freely.</p>\n<p><strong>One writer at a time:</strong> a writer holds rw_mutex for the whole write, which excludes readers (they need it via the first reader) and other writers.</p>\n<p><strong>No writer starvation:</strong> the extra <code>queue</code> semaphore is a turnstile. When a writer arrives it takes <code>queue</code> and holds it while waiting for rw_mutex; every reader arriving after it blocks on <code>queue</code>, so the stream of new readers stops; the readers already inside finish, the last one signals rw_mutex, and the writer enters. In the first (reader-preference) solution there is no such turnstile, which is exactly why a continuous stream of readers starves the writer there.</p>\n<p><strong>No reader starvation either:</strong> with FIFO semaphores, threads pass <code>queue</code> in arrival order, so a reader waits behind at most the writers that arrived before it.</p>\n<p><strong>Trade-off:</strong> slightly less read concurrency (readers behind a waiting writer must wait even though readers are inside). No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "Assumptions: semaphores are strong (FIFO queues: wakeup order is arrival order); readers and writers are threads of one process sharing the document; a reader never upgrades to a writer.",
-   "Multiple readers: only the first reader of a group takes rw_mutex, so readers already inside overlap freely.",
-   "One writer at a time: a writer holds rw_mutex for the whole write, which excludes readers (they need it via the first reader) and other writers.",
-   "No writer starvation: the extra queue semaphore is a turnstile.",
-   "No reader starvation either: with FIFO semaphores, threads pass queue in arrival order, so a reader waits behind at most the writers that arrived before it.",
-   "Trade-off: slightly less read concurrency (readers behind a waiting writer must wait even though readers are inside)."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-66",
-  "kind": "pyq",
-  "num": 66,
-  "unitId": 2,
-  "lessonId": "synchronization",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q9a",
-    "marks": "8 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The AgentOS team is in the process of developing a firmware for a high-end Core Router placed at the edge of an Autonomous System (AS). This router maintains a massive Global_Routing Table in shared memory. The router has two critical tasks running as concurrent threads: i) Hundreds of threads representing incoming packets. They need to read the Global_Routing Table to find the \"Next Hop\" interface. Speed is critical; multiple readers must access the table simultaneously; ii) A background process that receives BGP_UPDATE messages from other ISPs. When a route changes (e.g., a cable cut in some location), this daemon must acquire exclusive access to modify the table to prevent readers from routing packets into a black hole. a. Write pseudocode Lookup_Route(Dest_IP) and Update_BGP_Route(New_Path) using Semaphores and Mutexes.</p>",
-  "options": [],
-  "answer": "<p>This is the <strong>readers–writers problem with writer priority</strong>: many lookups may read the table at once, but an update needs exclusive access, and an update must not be starved by the endless stream of packet lookups (otherwise packets keep going to a dead route).</p>\n<pre><code>semaphore rw_mutex  = 1;   // held by the writer, or by the group of readers\nsemaphore mutex     = 1;   // protects read_count\nsemaphore turnstile = 1;   // a waiting writer closes it to stop new readers\nint read_count = 0;\n\nLookup_Route(Dest_IP):\n    wait(turnstile);              // blocks only while an update is waiting\n    signal(turnstile);\n    wait(mutex);\n    read_count = read_count + 1;\n    if (read_count == 1) wait(rw_mutex);   // first reader locks out writers\n    signal(mutex);\n\n    hop = search(Global_Routing_Table, Dest_IP);   // many readers in parallel\n\n    wait(mutex);\n    read_count = read_count - 1;\n    if (read_count == 0) signal(rw_mutex); // last reader lets a writer in\n    signal(mutex);\n    return hop;\n\nUpdate_BGP_Route(New_Path):\n    wait(turnstile);              // no new readers may enter\n    wait(rw_mutex);               // wait for readers already inside to leave\n    apply(Global_Routing_Table, New_Path);\n    signal(rw_mutex);\n    signal(turnstile);            // readers may enter again\n</code></pre>\n<p><strong>Why it is correct.</strong></p>\n<ul>\n<li>Mutual exclusion for updates: the updater holds <code>rw_mutex</code>, which the first reader must also acquire, so no lookup runs during an update and no packet is routed on a half-written entry.</li>\n<li>Concurrency for lookups: only the first reader takes <code>rw_mutex</code>, so any number of lookups run together.</li>\n<li>No writer starvation: once the updater passes <code>turnstile</code>, new readers block on it; the readers already inside finish, the last one releases <code>rw_mutex</code>, and the update runs.</li>\n<li><code>mutex</code> makes the update of <code>read_count</code> atomic.</li>\n</ul>\n<p><strong>Assumption:</strong> updates are rare compared with lookups. If update latency matters even more, the table can be updated by building a new copy and swapping a pointer (read-copy-update), so readers never block.</p>",
-  "points": [
-   "Identifies readers–writers with writer priority.",
-   "Readers share access; first reader locks out writers, last reader releases.",
-   "Writer gets exclusive access to the table.",
-   "Turnstile (or equivalent) stops writer starvation.",
-   "mutex protects read_count.",
-   "Explains why no packet sees a half-updated route."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-67",
-  "kind": "pyq",
-  "num": 67,
+  "num": 56,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2321,9 +1949,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-68",
+  "id": "x-pyq-57",
   "kind": "pyq",
-  "num": 68,
+  "num": 57,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "tf",
@@ -2352,9 +1980,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-69",
+  "id": "x-pyq-58",
   "kind": "pyq",
-  "num": 69,
+  "num": 58,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "tf",
@@ -2393,9 +2021,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-70",
+  "id": "x-pyq-59",
   "kind": "pyq",
-  "num": 70,
+  "num": 59,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2424,9 +2052,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-71",
+  "id": "x-pyq-60",
   "kind": "pyq",
-  "num": 71,
+  "num": 60,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2456,44 +2084,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-72",
+  "id": "x-pyq-61",
   "kind": "pyq",
-  "num": 72,
-  "unitId": 2,
-  "lessonId": "synchronization",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q9",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The sem team wants to test their implementation with an I/O intensive operation where they want to create a program that can process a file consisting of 100000 records. In order to make it faster and to test the efficiency of their implementation, the thread team are planning to write a program which will use 10 threads where each thread reads 10000 records and processes them independently, so in total, all the 100000 records will be processed. However, the team is not sure which of these is required to complete the implementation. Which of these do you recommend and why?</p>",
-  "options": [
-   "Make use of locks. No need for condition variables",
-   "Only condition variables are needed. No need for locks",
-   "Both locks and condition variables are needed",
-   "No need for either locks or condition variables"
-  ],
-  "answer": "<p><strong>(d) Neither</strong>, under the stated design: each thread works on a disjoint range of records and processes them independently, so there is no shared mutable data to protect (no race, no need for a lock) and no thread waits for another's result or state change (no need for a condition variable). Each thread can open the file itself and read its own range by offset (pread), and write its results to its own output.</p>\n<p><strong>When the answer changes:</strong> if the threads share one file descriptor and its offset, or update a shared counter or result structure, a <strong>lock</strong> is needed; if one thread must wait for others (for example a main thread waiting for all to finish, or a producer feeding records to workers), a <strong>condition variable</strong> (or join) is needed. State the assumption. No official key; this is my own solution.</p>",
-  "points": [
-   "Final answer: (d) Neither, under the stated design: each thread works on a disjoint range of records and processes them independently, so there is no shared mutable data to protect (no race, no need for a lock) and no thread waits for another's result or state change …",
-   "When the answer changes: if the threads share one file descriptor and its offset, or update a shared counter or result structure, a lock is needed; if one thread must wait for others (for example a main thread waiting …"
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-73",
-  "kind": "pyq",
-  "num": 73,
+  "num": 61,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2539,9 +2132,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-74",
+  "id": "x-pyq-62",
   "kind": "pyq",
-  "num": 74,
+  "num": 62,
   "unitId": 2,
   "lessonId": "synchronization",
   "format": "written",
@@ -2571,9 +2164,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-75",
+  "id": "x-pyq-63",
   "kind": "pyq",
-  "num": 75,
+  "num": 63,
   "unitId": 2,
   "lessonId": "deadlocks",
   "format": "written",
@@ -2620,9 +2213,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-76",
+  "id": "x-pyq-64",
   "kind": "pyq",
-  "num": 76,
+  "num": 64,
   "unitId": 2,
   "lessonId": "deadlocks",
   "format": "tf",
@@ -2654,45 +2247,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-77",
+  "id": "x-pyq-65",
   "kind": "pyq",
-  "num": 77,
-  "unitId": 2,
-  "lessonId": "deadlocks",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q7",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>Three concurrent processes X, Y and Z update shared variables. X performs Wait</p>",
-  "options": [
-   ", Wait",
-   ", Wait",
-   "before entering its critical section; Y performs Wait(b), Wait(c), Wait",
-   "; Z performs Wait(c), Wait(d), Wait(a). All semaphores are binary, initialized to 1. Which order of invoking the Wait() operations is deadlock-free? (a) X: a, b, c Y: b, c, d Z: c, d, a (b) X: b, a, c Y: b, c, d Z: a, c, d (c) X: a, b, c Y: c, b, d Z: a, c, d (d) X: a, b, c Y: b, d, c Z: d, c, a"
-  ],
-  "answer": "<p><strong>Answer: (b).</strong></p>\n<p><strong>Core sentence:</strong> a set of processes is deadlock-free if every process acquires the semaphores in one consistent global order, because that is exactly the circular-wait prevention protocol — impose a total ordering F on the resources and require requests in increasing F.</p>\n<p><strong>Checking (b)</strong> against the order <strong>b &#x3C; a &#x3C; c &#x3C; d</strong>: X takes b, a, c ✓; Y takes b, c, d ✓; Z takes a, c, d ✓. Every process requests in increasing order, so no cycle of \"holds one, waits for the next\" can form.</p>\n<p><strong>Why the given order deadlocks:</strong> in the original (option a) X holds a and wants b, Y holds b and wants c, Z holds c and wants a — a circular wait, and all four necessary conditions hold. The other options each contain at least one pair whose relative order disagrees with another process's, which re-creates a cycle.</p>\n<p>Worth adding in the exam: this is the same idea BSD UNIX's <em>witness</em> tool enforces, by recording lock orders and warning when a thread acquires them out of order.</p>",
-  "points": [
-   "Final answer: Checking (b) against the order b &#x3C; a &#x3C; c &#x3C; d: X takes b, a, c ✓; Y takes b, c, d ✓; Z takes a, c, d ✓.",
-   "a set of processes is deadlock-free if every process acquires the semaphores in one consistent global order, because that is exactly the circular-wait prevention protocol — impose a total ordering F on the resources and require requests in increasing F.",
-   "Why the given order deadlocks: in the original (option a) X holds a and wants b, Y holds b and wants c, Z holds c and wants a — a circular wait, and all four necessary conditions hold."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-78",
-  "kind": "pyq",
-  "num": 78,
+  "num": 65,
   "unitId": 2,
   "lessonId": "deadlocks",
   "format": "tf",
@@ -2721,9 +2278,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-79",
+  "id": "x-pyq-66",
   "kind": "pyq",
-  "num": 79,
+  "num": 66,
   "unitId": 2,
   "lessonId": "deadlocks",
   "format": "written",
@@ -2752,9 +2309,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-80",
+  "id": "x-pyq-67",
   "kind": "pyq",
-  "num": 80,
+  "num": 67,
   "unitId": 2,
   "lessonId": "deadlocks",
   "format": "tf",
@@ -2784,9 +2341,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-81",
+  "id": "x-pyq-68",
   "kind": "pyq",
-  "num": 81,
+  "num": 68,
   "unitId": 2,
   "lessonId": "deadlocks",
   "format": "numeric",
@@ -2817,9 +2374,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-82",
+  "id": "x-pyq-69",
   "kind": "pyq",
-  "num": 82,
+  "num": 69,
   "unitId": 2,
   "lessonId": "deadlocks",
   "format": "written",
@@ -2851,9 +2408,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-83",
+  "id": "x-pyq-70",
   "kind": "pyq",
-  "num": 83,
+  "num": 70,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -2883,9 +2440,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-84",
+  "id": "x-pyq-71",
   "kind": "pyq",
-  "num": 84,
+  "num": 71,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -2917,9 +2474,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-85",
+  "id": "x-pyq-72",
   "kind": "pyq",
-  "num": 85,
+  "num": 72,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -2957,9 +2514,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-86",
+  "id": "x-pyq-73",
   "kind": "pyq",
-  "num": 86,
+  "num": 73,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -2988,43 +2545,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-87",
+  "id": "x-pyq-74",
   "kind": "pyq",
-  "num": 87,
-  "unitId": 3,
-  "lessonId": "networking-intro-datalink",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q5b, Q5c",
-    "marks": "4 + 3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The Net team has developed a simple web application to test their TCP implementation. The web application is a simple process that will be sending a stream of data 11100110011001101101010101010101 to another process in a different machine (running IndixOS). Moreover, the team also would like to develop some mechanisms to guarantee reliability during the transfer. However, they are still determining how this can be implemented, and they require your suggestions: b. How can the process in the destination machine validate the incoming data? c. Further, how can the Net team provide guarantees on data reliability and flow control?</p>",
-  "options": [],
-  "answer": "<p><strong>(b) Validating the data — error-detecting codes.</strong> The sender adds structured redundancy computed over the bits, and the receiver recomputes it:</p>\n<ul>\n<li><strong>Parity</strong> : a single bit making the count of 1s even or odd; catches any odd number of bit errors, cheap but weak.</li>\n<li><strong>Checksum</strong> : the data is treated as numbers and summed (the Internet checksum is a 16-bit one's-complement sum); carried in the TCP/IP headers.</li>\n<li><strong>CRC (cyclic redundancy code)</strong> : the frame is treated as a polynomial and divided by a generator polynomial; the remainder is appended. This is what the data link layer actually uses, because it catches all burst errors shorter than the CRC and is cheap in hardware.</li>\n</ul>\n<p>If the recomputed value disagrees, the frame is discarded as damaged. Error <em>correction</em> codes (Hamming, convolutional, Reed–Solomon, LDPC) are the alternative when retransmission is too expensive, for example on a wireless or satellite link.</p>\n<p><strong>(c) Reliability</strong> is error control: the receiver <em>acknowledges</em> frames that arrive correctly; the sender starts a <em>timer</em> when it sends and <em>retransmits</em> if no ack arrives (ARQ, automatic repeat request); and every frame and ack carries a <em>sequence number</em> so that a retransmission is not mistaken for a new frame and duplicates are discarded. For stop-and-wait, one bit of sequence number is enough.</p>\n<p><strong>Flow control</strong> stops a fast sender outpacing a slow receiver. Feedback-based control has the receiver grant permission to send — in its simplest form stop-and-wait (one frame outstanding), and in general a <strong>sliding window</strong> whose size bounds the number of unacknowledged frames. Rate-based control instead limits the sending rate directly, with no feedback.</p>\n<p><strong>Core sentence:</strong> validation is done by redundancy (CRC/checksum); reliability by acknowledgements, timers and sequence numbers; flow control by the receiver's window.</p>",
-  "points": [
-   "validation is done by redundancy (CRC/checksum); reliability by acknowledgements, timers and sequence numbers; flow control by the receiver's window.",
-   "Parity : a single bit making the count of 1s even or odd; catches any odd number of bit errors, cheap but weak.",
-   "Checksum : the data is treated as numbers and summed (the Internet checksum is a 16-bit one's-complement sum); carried in the TCP/IP headers.",
-   "CRC (cyclic redundancy code) : the frame is treated as a polynomial and divided by a generator polynomial; the remainder is appended.",
-   "(b) Validating the data — error-detecting codes.",
-   "(c) Reliability is error control: the receiver acknowledges frames that arrive correctly; the sender starts a timer when it sends and retransmits if no ack arrives (ARQ, automatic repeat request); and every frame and ack …"
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-88",
-  "kind": "pyq",
-  "num": 88,
+  "num": 74,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3056,9 +2579,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-89",
+  "id": "x-pyq-75",
   "kind": "pyq",
-  "num": 89,
+  "num": 75,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3094,9 +2617,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-90",
+  "id": "x-pyq-76",
   "kind": "pyq",
-  "num": 90,
+  "num": 76,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3140,9 +2663,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-91",
+  "id": "x-pyq-77",
   "kind": "pyq",
-  "num": 91,
+  "num": 77,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3176,9 +2699,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-92",
+  "id": "x-pyq-78",
   "kind": "pyq",
-  "num": 92,
+  "num": 78,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3213,9 +2736,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-93",
+  "id": "x-pyq-79",
   "kind": "pyq",
-  "num": 93,
+  "num": 79,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3244,9 +2767,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-94",
+  "id": "x-pyq-80",
   "kind": "pyq",
-  "num": 94,
+  "num": 80,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "tf",
@@ -3276,9 +2799,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-95",
+  "id": "x-pyq-81",
   "kind": "pyq",
-  "num": 95,
+  "num": 81,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3308,9 +2831,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-96",
+  "id": "x-pyq-82",
   "kind": "pyq",
-  "num": 96,
+  "num": 82,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3341,9 +2864,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-97",
+  "id": "x-pyq-83",
   "kind": "pyq",
-  "num": 97,
+  "num": 83,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "tf",
@@ -3373,9 +2896,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-98",
+  "id": "x-pyq-84",
   "kind": "pyq",
-  "num": 98,
+  "num": 84,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3405,9 +2928,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-99",
+  "id": "x-pyq-85",
   "kind": "pyq",
-  "num": 99,
+  "num": 85,
   "unitId": 3,
   "lessonId": "networking-intro-datalink",
   "format": "written",
@@ -3437,9 +2960,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-100",
+  "id": "x-pyq-86",
   "kind": "pyq",
-  "num": 100,
+  "num": 86,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "numeric",
@@ -3483,9 +3006,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-101",
+  "id": "x-pyq-87",
   "kind": "pyq",
-  "num": 101,
+  "num": 87,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "tf",
@@ -3519,9 +3042,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-102",
+  "id": "x-pyq-88",
   "kind": "pyq",
-  "num": 102,
+  "num": 88,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "written",
@@ -3553,9 +3076,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-103",
+  "id": "x-pyq-89",
   "kind": "pyq",
-  "num": 103,
+  "num": 89,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "written",
@@ -3586,9 +3109,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-104",
+  "id": "x-pyq-90",
   "kind": "pyq",
-  "num": 104,
+  "num": 90,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "written",
@@ -3617,9 +3140,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-105",
+  "id": "x-pyq-91",
   "kind": "pyq",
-  "num": 105,
+  "num": 91,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "written",
@@ -3655,9 +3178,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-106",
+  "id": "x-pyq-92",
   "kind": "pyq",
-  "num": 106,
+  "num": 92,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "written",
@@ -3689,9 +3212,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-107",
+  "id": "x-pyq-93",
   "kind": "pyq",
-  "num": 107,
+  "num": 93,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "written",
@@ -3723,9 +3246,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-108",
+  "id": "x-pyq-94",
   "kind": "pyq",
-  "num": 108,
+  "num": 94,
   "unitId": 3,
   "lessonId": "network-layer",
   "format": "written",
@@ -3755,247 +3278,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-109",
+  "id": "x-pyq-95",
   "kind": "pyq",
-  "num": 109,
-  "unitId": 3,
-  "lessonId": "network-layer",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q6a, Q6b",
-    "marks": "5 + 5 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The Net Team has completed the network stack development following the OSI model. Now, they want to perform some tests to check if everything is working fine. They have a machine with an IP address 192.168.1.25, MAC 9B:8C:6D:5E:3E:2F, with a subnet mask of /24. The public IP address of the network is 17.84.18.65, and the IP address of the router is 172.18.12.92; MAC address ID: 7G:98:1C:1A:2D. The team wants to understand how the data transfer can be achieved in the following cases: a. The destination machine has an IP address of 192.168.1.32 with a subnet mask 255.255.255.0, MAC 8A:9B:1C:2F:9F:6D. From L2 perspective, can you help the team understand how this communication can work with reasoning. b. The destination machine has an IP address of 10.8.17.65 with a subnet mask of 255.255.255.0 and a MAC address of 1A:2B:3C:4D:9C:5A. The machine is in a network with an outgoing IP address of the router being 18.72.19.85 and the internal address of the router is 10.8.17.89 /24. Can you explain to the team how the data transfer works in this scenario? (Hint: Think about both L2 and L3)</p>",
-  "options": [],
-  "answer": "<p><strong>(a) Same subnet.</strong> The host ANDs its own address and the destination with the /24 mask (255.255.255.0): both give 192.168.1.0, so the destination is on the same subnet and can be reached <em>directly</em>, with no router.</p>\n<ul>\n<li>It needs a MAC address to build the frame, so it checks its <strong>ARP cache</strong> ; on a miss it broadcasts an ARP request, \"who has 192.168.1.32?\", to the whole LAN.</li>\n<li>Only 192.168.1.32 replies, with its MAC address, which the sender caches.</li>\n<li>The frame goes out with destination MAC = B's MAC and destination IP = B's IP. A switch forwards it on the learned port; <strong>one hop, nothing is rewritten</strong> .</li>\n</ul>\n<p><strong>(b) Different subnet.</strong> Masking 10.8.17.65 with /24 gives 10.8.17.0 ≠ 192.168.1.0, so the destination is elsewhere and the packet must go to the <strong>default gateway</strong>.</p>\n<ul>\n<li>Layer 3: the IP header carries source 192.168.1.25 and destination 10.8.17.65 — <strong>unchanged for the whole journey</strong> . Each router looks up the destination in its routing table, decrements TTL and recomputes the header checksum.</li>\n<li>Layer 2: the host ARPs for the <em>gateway's</em> MAC address, not the destination's, and sends a frame addressed to the router. The router strips that frame, and builds a <strong>new</strong> frame on the next link with its own outgoing interface's MAC as source and the next hop's MAC as destination — found by ARP on that link.</li>\n<li>So the <strong>MAC source and destination are rewritten at every hop</strong> , while the IP addresses and the port numbers stay the same.</li>\n</ul>\n<p><strong>Core sentence (this is the MCQ answer from mid 2025):</strong> MAC addresses are link-local and change at every hop; IP addresses and port numbers are end-to-end and do not change.</p>\n<p>The one exception to quote: if the packet passes through a <strong>NAT</strong> box on the way to the public Internet, the NAT rewrites the private source IP and the source port to its own public address and a mapped port — which is precisely why NAT is described as violating layering.</p>",
-  "points": [
-   "MAC addresses are link-local and change at every hop; IP addresses and port numbers are end-to-end and do not change.",
-   "It needs a MAC address to build the frame, so it checks its ARP cache ; on a miss it broadcasts an ARP request, \"who has 192.168.1.32?\", to the whole …",
-   "Only 192.168.1.32 replies, with its MAC address, which the sender caches.",
-   "The frame goes out with destination MAC = B's MAC and destination IP = B's IP.",
-   "Layer 3: the IP header carries source 192.168.1.25 and destination 10.8.17.65 — unchanged for the whole journey .",
-   "Layer 2: the host ARPs for the gateway's MAC address, not the destination's, and sends a frame addressed to the router."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-110",
-  "kind": "pyq",
-  "num": 110,
-  "unitId": 3,
-  "lessonId": "network-layer",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN Mid-sem 2025",
-    "ref": "Q6",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The LangOS network team wants to check the end-to-end network communication capabilities. The team is investigating a scenario of a process on Machine A with IP 192.168.1.10 and MAC AA:BB:CC:DD:EE:01 running on Port number 5000, sends data to a process on Machine B with an IP address of 10.0.0.20, MAC AA:BB:CC:DD:EE:02 on Port number 6000. The packet travels through a router R with two interfaces: LAN side: IP = 192.168.1.1, MAC = AA:BB:CC:DD:EE:11; WAN side: IP = 10.0.0.1, MAC = AA:BB:CC:DD:EE:22. Given this scenario, in your opinion, which of the following statements is correct with respect to the OSI layer?</p>",
-  "options": [
-   "MAC source/destination addresses are rewritten at every hop",
-   "The IP addresses of the source and destination change at each router, but others remain the same",
-   "The port numbers are reassigned by the router (to avoid conflicts), while the IP and MAC addresses remain the same",
-   "Both IP and MAC addresses change at every hop, but the port numbers remain unchanged"
-  ],
-  "answer": "<p><strong>Answer: (a).</strong></p>\n<ul>\n<li>Layer 2 addresses are local to one link. When R forwards the frame from the LAN to the WAN, it removes the old Ethernet header and builds a new one: on the LAN the frame goes AA:...:01 to AA:...:11; on the WAN it goes AA:...:22 to AA:...:02. So the MAC source and destination are rewritten at every hop.</li>\n<li>Layer 3 addresses are end to end: the packet carries 192.168.1.10 to 10.0.0.20 on both links (no NAT is mentioned). So (b) and (d) are wrong.</li>\n<li>Layer 4 port numbers (5000 to 6000) are end to end too and are not touched by a router; ports are rewritten only by a NAT device. So (c) is wrong.</li>\n</ul>",
-  "points": [
-   "Chooses (a).",
-   "MAC addresses are per link and rewritten at each router.",
-   "IP addresses stay the same end to end (no NAT).",
-   "Ports are not changed by a router."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-111",
-  "kind": "pyq",
-  "num": 111,
-  "unitId": 3,
-  "lessonId": "network-layer",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q7",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The Net Team, in order to test their network stack, has decided to connect a machine with IndixOS to a network (172.18.20.x/24). However, the team wanted to check with you how the host machine can get an IP address in the given network. What can be the protocol that can be leveraged, and how does it work?</p>",
-  "options": [
-   "DNS",
-   "HTTP",
-   "DHCP",
-   "ARP"
-  ],
-  "answer": "<p><strong>Answer: (c) DHCP.</strong></p>\n<p>How it works (four messages, all over UDP, ports 67 and 68):</p>\n<ol>\n<li><strong>DHCPDISCOVER:</strong> the host has no address yet, so it broadcasts to 255.255.255.255 from 0.0.0.0.</li>\n<li><strong>DHCPOFFER:</strong> a DHCP server on the 172.18.20.x/24 network offers a free address, for example 172.18.20.57.</li>\n<li><strong>DHCPREQUEST:</strong> the host broadcasts that it accepts that offer.</li>\n<li><strong>DHCPACK:</strong> the server confirms. The address is leased for a fixed time and must be renewed.</li>\n</ol>\n<p>Along with the IP address, DHCP gives the subnet mask (/24), the default gateway and the DNS servers.</p>\n<p>Why not the others: DNS maps names to IP addresses; ARP maps an IP address to a MAC address on the LAN; HTTP is an application protocol.</p>",
-  "points": [
-   "Chooses DHCP.",
-   "DISCOVER, OFFER, REQUEST, ACK, with broadcast at the start.",
-   "Lease with renewal.",
-   "Also gives mask, gateway, DNS.",
-   "Why DNS, ARP, HTTP do not assign addresses."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-112",
-  "kind": "pyq",
-  "num": 112,
-  "unitId": 3,
-  "lessonId": "network-layer",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q6",
-    "marks": "10 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>A node running AgentOS connects to a network without having any IP address assigned. Immediately after joining, a user process attempts to send an HTTP request to <a href=\"http://anotherdomain.com\">http://anotherdomain.com</a> (server IP: 179.20.10.6). The AgentOS team requires your help in understanding the end-to-end sequence of steps from the moment the node connects until the HTTP request is ready to leave the link layer and move toward the next hop. a. Describe what the Operating System must provide to enable network communication. b. Explain the mechanisms the node uses to acquire its own IP address and to resolve the destination server's IP address. c. Describe the activities at the link layer that prepare the HTTP request for transmission toward the next hop (excluding network-layer routing details).</p>",
-  "options": [],
-  "answer": "<p><strong>(a) What the OS must provide (2).</strong> The protocol stack itself — implementations of TCP/UDP, IP, ARP and the link-layer protocol — living in the kernel; <strong>device drivers</strong> for the network interface card; a <strong>socket API</strong> (the Berkeley sockets primitives: socket, bind, listen, connect, send, receive, close) so that user processes can reach the stack through system calls; buffers for send and receive queues, with the associated blocking and interrupt handling; and the configuration state: its own IP address, mask, default gateway, DNS server and ARP cache.</p>\n<p><strong>(b) Getting an address, then resolving one (4).</strong></p>\n<ul>\n<li><strong>DHCP</strong> gives the node its own address. With no IP address it cannot be addressed individually, so it <em>broadcasts</em> a DHCP DISCOVER from 0.0.0.0 to 255.255.255.255; a DHCP server replies with an OFFER; the node sends a REQUEST for that offer; the server confirms with an ACK. The reply carries not only the IP address but the subnet mask, the default gateway and the DNS server's address, and it is a <strong>lease</strong> with a finite lifetime that must be renewed.</li>\n<li><strong>DNS</strong> resolves the name. The node sends a DNS query for <code>anotherdomain.com</code> (normally UDP to port 53) to the resolver it just learned from DHCP. The resolver walks the hierarchy — root, then the .com servers, then the domain's authoritative server — and returns <strong>179.20.10.6</strong> , which is cached for its TTL.</li>\n</ul>\n<p><strong>(c) Down the stack, layer by layer (4).</strong></p>\n<ul>\n<li><strong>Application</strong> : the browser builds the HTTP request text — <code>GET / HTTP/1.1</code> with a Host header — and writes it to a socket opened to 179.20.10.6 port 80.</li>\n<li><strong>Transport</strong> : TCP first establishes a connection with the <em>three-way handshake</em> (SYN, SYN-ACK, ACK), choosing an ephemeral source port. It then segments the byte stream, adds the TCP header with source and destination ports, sequence and acknowledgement numbers, window and checksum, and keeps the data buffered until it is acknowledged.</li>\n<li><strong>Network</strong> : IP adds a header with source = the node's new address, destination = 179.20.10.6, plus TTL and a header checksum. Masking shows the destination is outside the local subnet, so the packet is sent to the default gateway.</li>\n<li><strong>Link</strong> : the node needs the gateway's MAC address, so it <strong>ARPs</strong> for it (broadcast query, unicast reply, cached). The frame is then built with source MAC = the node's NIC, destination MAC = the gateway, a CRC appended, and the MAC sublayer waits for the medium before transmitting.</li>\n</ul>\n<p><strong>The sentence that ties it together:</strong> the packet leaves carrying the <em>end-to-end</em> IP address of the server but the <em>link-local</em> MAC address of the very next hop.</p>",
-  "points": [
-   "DHCP gives the node its own address.",
-   "DNS resolves the name.",
-   "Application : the browser builds the HTTP request text — GET / HTTP/1.1 with a Host header — and writes it to a socket opened to 179.20.10.6 port 80.",
-   "Transport : TCP first establishes a connection with the three-way handshake (SYN, SYN-ACK, ACK), choosing an ephemeral source port.",
-   "Network : IP adds a header with source = the node's new address, destination = 179.20.10.6, plus TTL and a header checksum.",
-   "Link : the node needs the gateway's MAC address, so it ARPs for it (broadcast query, unicast reply, cached)."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-113",
-  "kind": "pyq",
-  "num": 113,
-  "unitId": 3,
-  "lessonId": "network-layer",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q9b(i), Q9b(ii)",
-    "marks": "4 + 3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The router described above is in an Autonomous System (AS 300). Considering a node with a public IP address 179.81.26.18 in this autonomous system wants to send data to another node in another autonomous system (AS 700) with an IP address 17.65.21.89. Given this scenario: i. Explain how such a communication can work using different protocols. ii. Do we need different protocols like OSPF and BGP, or will one protocol suffice for the entire internet routing? Explain.</p>",
-  "options": [],
-  "answer": "<p><strong>(i) How it works.</strong> An <em>autonomous system</em> is a network under one administrative authority with its own routing policy. Inside AS 300, routers use an <strong>interior gateway protocol</strong> — OSPF, a link-state algorithm: each router discovers its neighbours, floods link-state packets describing its links and costs, builds the complete map and runs a shortest-path computation. The packet is forwarded hop by hop on that basis to the AS's border router.</p>\n<p>Between autonomous systems, the border routers speak <strong>BGP</strong>, an exterior gateway protocol of the path-vector family: each AS advertises which prefixes it can reach <em>and the full AS path</em> to them, so AS 300's border router learns that AS 700's prefix is reachable via, say, AS 300 → AS 500 → AS 700. BGP chooses among such paths by <em>policy</em> — business agreements about whose traffic an AS will carry — not simply by shortest distance, and the AS path also makes loops detectable, since an AS rejects any path already containing itself. Inside AS 700, OSPF again carries the packet to the destination host. Through all of this, the IP addresses stay fixed while each hop's MAC addresses are rewritten and the TTL falls.</p>\n<p><strong>(ii) Why two protocols are needed.</strong> One protocol would not do, for three reasons:</p>\n<ul>\n<li><strong>Scale.</strong> A link-state protocol requires every router to hold a map of the whole area and recompute shortest paths when anything changes. Running that over the entire Internet is impossible in memory, CPU and bandwidth — this is exactly the argument for hierarchical routing, and AS-level routing <em>is</em> that hierarchy.</li>\n<li><strong>Policy versus metric.</strong> Inside one AS the goal is simply performance, so a shortest-path metric is right. Between ASes the goal is to honour commercial relationships: an AS may refuse to carry transit traffic for a competitor even though that path is shorter. A metric-only protocol cannot express \"do not route this through that neighbour\".</li>\n<li><strong>Autonomy and trust.</strong> Each AS wants to choose its own internal protocol and metrics, and must not be forced to reveal its internal topology to others. BGP exchanges only reachability and AS paths, keeping internals private.</li>\n</ul>\n<p><strong>Core sentence:</strong> OSPF optimizes a path inside one administrative domain; BGP chooses a path between domains by policy. Those are different problems, so they need different protocols.</p>",
-  "points": [
-   "OSPF optimizes a path inside one administrative domain; BGP chooses a path between domains by policy.",
-   "Policy versus metric.",
-   "Autonomy and trust.",
-   "(i) How it works: An autonomous system is a network under one administrative authority with its own routing policy.",
-   "(ii) Why two protocols are needed: One protocol would not do, for three reasons:"
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-114",
-  "kind": "pyq",
-  "num": 114,
-  "unitId": 3,
-  "lessonId": "network-layer",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN Mid-sem 2025",
-    "ref": "Bonus 1",
-    "marks": "2 (bonus)"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>Bonus: The LangOS team has been thinking of using IPv6 and would like to know some details from you. What part of the IPv6 header can be used to track the path of a package in a network? How is it able to track it?</p>",
-  "options": [],
-  "answer": "<p>Two fields of the IPv6 base header are relevant:</p>\n<ul>\n<li><strong>Flow Label (20 bits):</strong> the source puts the same label on every packet of one flow. Routers can recognise the packets of that flow without looking deeper into the packet and keep per-flow state, so the flow can be followed and handled consistently along its path (for example, kept on the same path, or given its reserved quality of service).</li>\n<li><strong>Hop Limit (8 bits):</strong> set by the source and decremented by one at every router; the packet is discarded when it reaches 0. Tools such as traceroute send packets with Hop Limit 1, 2, 3, ...; each router where the limit runs out returns an ICMPv6 \"time exceeded\" message, which reveals the routers on the path one by one.</li>\n</ul>",
-  "points": [
-   "Names the Flow Label and what it does.",
-   "Names the Hop Limit, decremented per router.",
-   "Explains traceroute-style path discovery with ICMPv6 time exceeded."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-115",
-  "kind": "pyq",
-  "num": 115,
-  "unitId": 3,
-  "lessonId": "transport-layer",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q5a",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The web application is a simple process that will be sending a stream of data 11100110011001101101010101010101 to another process in a different machine (running IndixOS). a. The Net Team would first like to understand what kind of APIs the OS needs to provide to make this communication happen (based on Unix implementation) and what is the role of the OS when such communication happens.</p>",
-  "options": [],
-  "answer": "<p><strong>The API: Berkeley sockets</strong>, the primitives that began with TCP on UNIX, where a <em>socket</em> is a transport endpoint identified by an IP address plus a port number.</p>\n<table>\n<thead>\n<tr>\n<th>Primitive</th>\n<th>Meaning</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>SOCKET</td>\n<td>Create a new communication endpoint</td>\n</tr>\n<tr>\n<td>BIND</td>\n<td>Associate a local address with the socket</td>\n</tr>\n<tr>\n<td>LISTEN</td>\n<td>Announce willingness to accept connections; set the queue size</td>\n</tr>\n<tr>\n<td>ACCEPT</td>\n<td>Passively establish an incoming connection</td>\n</tr>\n<tr>\n<td>CONNECT</td>\n<td>Actively attempt to establish a connection</td>\n</tr>\n<tr>\n<td>SEND / RECEIVE</td>\n<td>Send and receive data over the connection</td>\n</tr>\n<tr>\n<td>CLOSE</td>\n<td>Release the connection</td>\n</tr>\n</tbody>\n</table>\n<p><strong>The OS's role.</strong> The protocol stack itself lives in the kernel: TCP/UDP, IP, ARP and the link layer are kernel code, reached through system calls, so the application never touches the network directly. The OS owns the device drivers for the network interface and handles its interrupts; it maintains the send and receive <strong>buffers</strong> for every connection, blocking the process when a buffer is full or empty and waking it when the state changes; it keeps the per-connection state (sequence numbers, window, timers) and runs the retransmission timers; it demultiplexes arriving segments to the right socket by port number; and it enforces protection — ports below 1024 can only be bound by privileged users.</p>\n<p><strong>Core sentence:</strong> the OS turns an unreliable packet network into a reliable byte stream that a process can use with ordinary read and write calls, and sockets are the interface where that happens.</p>",
-  "points": [
-   "the OS turns an unreliable packet network into a reliable byte stream that a process can use with ordinary read and write calls, and sockets are the interface where that happens.",
-   "The API: Berkeley sockets, the primitives that began with TCP on UNIX, where a socket is a transport endpoint identified by an IP address plus a port number.",
-   "The OS's role: The protocol stack itself lives in the kernel: TCP/UDP, IP, ARP and the link layer are kernel code, reached through system calls, so the application never touches the network directly."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-116",
-  "kind": "pyq",
-  "num": 116,
+  "num": 95,
   "unitId": 3,
   "lessonId": "transport-layer",
   "format": "written",
@@ -4009,15 +3294,10 @@
     "paper": "OSN End-sem 2022",
     "ref": "Q10",
     "marks": "5 marks"
-   },
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q5",
-    "marks": "3 marks"
    }
   ],
-  "times": 3,
-  "reworded": "\"Issues in connection establishment and how the three-way handshake solves them (the question text is only partly legible in the scan; the key answers with the forbidden region and fresh sequence numbers).\" (OSN End-sem 2022); \"As part of diagnosing intermittent network failures in AgentOS, the networking team asks you to verify whether the system is correctly following the TCP three-way handshake. A TCP client module P in AgentOS initiates a connection to a remote TCP service Q. Let Np denote the sequence number in the SYN sent from P to Q, and let Nq denote the acknowledgement number in the SYN-ACK sent from Q back to P. Based on standard TCP behaviour, which of the following statements is/are CORRECT and why? (a) The sequence number Np is randomly chosen (b) The sequence number is set to 0 (c) The acknowledgement number is Nq = Np (d) The acknowledgement number is Nq = Np + 1\" (OSN End-sem 2025)",
+  "times": 2,
+  "reworded": "\"Issues in connection establishment and how the three-way handshake solves them (the question text is only partly legible in the scan; the key answers with the forbidden region and fresh sequence numbers).\" (OSN End-sem 2022)",
   "basedOn": null,
   "inSyllabus": true,
   "outReason": null,
@@ -4025,7 +3305,7 @@
   "weakReason": null,
   "question": "<p>What are the issues of implementing \"Connection Establishment\" in the transport protocol? Explain the justification of employing three-way hand shake.</p>",
   "options": [],
-  "answer": "<p><strong>The issues.</strong> The network may lose, corrupt, delay and duplicate packets, and the key danger is the <strong>delayed duplicate</strong>: a connection request takes the longest route, the sender times out and sends it again, and the receiver eventually gets both. If the stale copy is accepted as new, a connection is opened that nobody asked for, and stale <em>data</em> from a previous connection can be accepted inside it.</p>\n<ul>\n<li>Loss and corruption are handled by ARQ and checksums; that part is easy.</li>\n<li>Preventing packets from looping by restricting the network design is difficult; hop counters and timestamps help but are not enough — and it is not only the data packets that must die, <em>all the acknowledgements must be dead too</em> .</li>\n<li>So the rule is: <strong>do not reuse a sequence number within twice the maximum segment lifetime</strong> (2T = 240 seconds), deriving the initial sequence number from a clock.</li>\n<li>That raises its own issue: keeping sequence numbers out of the <strong>forbidden region</strong> . A host that sends too much data too fast runs its sequence numbers into the forbidden curve; a host that sends slower than the clock rate also gets into trouble.</li>\n</ul>\n<p><strong>Why the three-way handshake solves it.</strong> Because no state survives from a previous connection, <strong>both hosts contribute fresh sequence numbers each time a connection is set up</strong>:</p>\n<ol>\n<li>Host 1 chooses a sequence number x and sends CR(x).</li>\n<li>Host 2 replies with ACK(x) and its own fresh sequence number y.</li>\n<li>Host 1 acknowledges host 2's choice with ACK(y), and data flows.</li>\n</ol>\n<p>Now test it against the bad cases. If an <em>old duplicate CR</em> arrives out of nowhere, host 2 replies with a fresh y, but host 1 — which never opened a connection — rejects it, so nothing is established. If an <em>old duplicate CR and an old duplicate data packet</em> both arrive, the stale data acknowledges some old sequence number z rather than the freshly chosen y, so it is rejected too. The freshness of y is what makes replay impossible.</p>\n<p><strong>For the MCQ:</strong> the initial sequence number Np is <em>randomly chosen</em> (precisely so that it cannot be guessed or replayed), and the acknowledgement number in the SYN-ACK is <strong>Np + 1</strong>, not Np, because an acknowledgement names the next byte expected and the SYN flag consumes one sequence number.</p>",
+  "answer": "<p><strong>The issues.</strong> The network may lose, corrupt, delay and duplicate packets, and the key danger is the <strong>delayed duplicate</strong>: a connection request takes the longest route, the sender times out and sends it again, and the receiver eventually gets both. If the stale copy is accepted as new, a connection is opened that nobody asked for, and stale <em>data</em> from a previous connection can be accepted inside it.</p>\n<ul>\n<li>Loss and corruption are handled by ARQ and checksums; that part is easy.</li>\n<li>Preventing packets from looping by restricting the network design is difficult; hop counters and timestamps help but are not enough — and it is not only the data packets that must die, <em>all the acknowledgements must be dead too</em> .</li>\n<li>So the rule is: <strong>do not reuse a sequence number within twice the maximum segment lifetime</strong> (2T = 240 seconds), deriving the initial sequence number from a clock.</li>\n<li>That raises its own issue: keeping sequence numbers out of the <strong>forbidden region</strong> . A host that sends too much data too fast runs its sequence numbers into the forbidden curve; a host that sends slower than the clock rate also gets into trouble.</li>\n</ul>\n<p><strong>Why the three-way handshake solves it.</strong> Because no state survives from a previous connection, <strong>both hosts contribute fresh sequence numbers each time a connection is set up</strong>:</p>\n<ol>\n<li>Host 1 chooses a sequence number x and sends CR(x).</li>\n<li>Host 2 replies with ACK(x) and its own fresh sequence number y.</li>\n<li>Host 1 acknowledges host 2's choice with ACK(y), and data flows.</li>\n</ol>\n<p>Now test it against the bad cases. If an <em>old duplicate CR</em> arrives out of nowhere, host 2 replies with a fresh y, but host 1 — which never opened a connection — rejects it, so nothing is established. If an <em>old duplicate CR and an old duplicate data packet</em> both arrive, the stale data acknowledges some old sequence number z rather than the freshly chosen y, so it is rejected too. The freshness of y is what makes replay impossible.</p>",
   "points": [
    "Loss and corruption are handled by ARQ and checksums; that part is easy.",
    "Preventing packets from looping by restricting the network design is difficult; hop counters and timestamps help but are not enough — and it is not only the data packets …",
@@ -4037,9 +3317,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-117",
+  "id": "x-pyq-96",
   "kind": "pyq",
-  "num": 117,
+  "num": 96,
   "unitId": 3,
   "lessonId": "transport-layer",
   "format": "written",
@@ -4071,9 +3351,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-118",
+  "id": "x-pyq-97",
   "kind": "pyq",
-  "num": 118,
+  "num": 97,
   "unitId": 3,
   "lessonId": "transport-layer",
   "format": "written",
@@ -4114,9 +3394,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-119",
+  "id": "x-pyq-98",
   "kind": "pyq",
-  "num": 119,
+  "num": 98,
   "unitId": 3,
   "lessonId": "transport-layer",
   "format": "written",
@@ -4151,83 +3431,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-120",
+  "id": "x-pyq-99",
   "kind": "pyq",
-  "num": 120,
-  "unitId": 3,
-  "lessonId": "transport-layer",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q2",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>EstimatedRTT = 50 ms, DevRTT = 4 ms, the latest RTT sample is 60 ms, α = 0.125 and β = 0.25. What is the next timeout interval?</p>",
-  "options": [
-   "67.25 ms",
-   "72.00 ms",
-   "51.25 ms",
-   "70.75 ms"
-  ],
-  "answer": "<p><strong>Answer: (b) 72.00 ms.</strong></p>\n<p><strong>Step 1 — update the smoothed RTT.</strong> Here α weights the <em>new sample</em>:<br>\nEstimatedRTT = (1 − α)·EstimatedRTT + α·SampleRTT = 0.875 × 50 + 0.125 × 60 = 43.75 + 7.5 = <strong>51.25 ms</strong></p>\n<p><strong>Step 2 — update the deviation</strong>, using the <em>newly updated</em> EstimatedRTT:<br>\nDevRTT = (1 − β)·DevRTT + β·|SampleRTT − EstimatedRTT| = 0.75 × 4 + 0.25 × |60 − 51.25| = 3 + 0.25 × 8.75 = 3 + 2.1875 = <strong>5.1875 ms</strong></p>\n<p><strong>Step 3 — the timeout.</strong><br>\nTimeoutInterval = EstimatedRTT + 4 × DevRTT = 51.25 + 4 × 5.1875 = 51.25 + 20.75 = <strong>72.00 ms</strong></p>\n<p>The trap in the distractors</p>\n<p><strong>(c) 51.25</strong> is the new EstimatedRTT alone — the answer if you forget the <em>+ 4 × DevRTT</em>.<br>\n<strong>(a) 67.25</strong> is 51.25 + 4 × 4 — the answer if you keep the <em>old</em> DevRTT instead of updating it.<br>\nNote also the ordering question: RFC 6298 computes RTTVAR <em>before</em> updating SRTT, using the old SRTT, which would give 0.75 × 4 + 0.25 × |50 − 60| = 5.5 and a timeout of 73.25 ms. That value is not offered, so the intended convention is the textbook one above — update EstimatedRTT first, then use it in DevRTT. In an exam, state which order you used.</p>\n<p><strong>Why the formula looks like this:</strong> acknowledgement arrival times in TCP have a much flatter probability density than in the link layer, so the variation matters as much as the mean; adding four deviations makes a needless retransmission unlikely while still reacting quickly when the network is stable.</p>",
-  "points": [
-   "Final answer: (a) 67.25 is 51.25 + 4 × 4 — the answer if you keep the old DevRTT instead of updating it.",
-   "Step 1 — update the smoothed RTT.",
-   "Step 2 — update the deviation, using the newly updated EstimatedRTT: DevRTT = (1 − β)·DevRTT + β·|SampleRTT − EstimatedRTT| = 0.75 × 4 + 0.25 × |60 − 51.25| = 3 + 0.25 × …",
-   "Step 3 — the timeout: TimeoutInterval = EstimatedRTT + 4 × DevRTT = 51.25 + 4 × 5.1875 = 51.25 + 20.75 = 72.00 ms",
-   "(c) 51.25 is the new EstimatedRTT alone — the answer if you forget the + 4 × DevRTT.",
-   "Why the formula looks like this: acknowledgement arrival times in TCP have a much flatter probability density than in the link layer, so the variation matters as much as the mean; adding four deviations makes a needless retransmission unlikely while still …"
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-121",
-  "kind": "pyq",
-  "num": 121,
-  "unitId": 3,
-  "lessonId": "transport-layer",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN Mid-sem 2025",
-    "ref": "Q4",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The LangOS networking group is debugging a connection and prints out part of the TCP header. One of the junior engineers claims: \"The TCP header must always include an ACK number, otherwise the receiver won't know which byte to expect next.\" They wanted to know the correct explanation from you.</p>",
-  "options": [
-   "ACK field is always present in the TCP header, but the ACK bit in the flags determines if the value is valid",
-   "The ACK field is included only when the ACK bit is set; otherwise, it is not part of the header",
-   "The ACK number exists only in the three-way handshake and is dropped after connection setup",
-   "The ACK field is optional and used only if the application enables reliability"
-  ],
-  "answer": "<p><strong>Answer: (a).</strong> The TCP header has a <em>fixed</em> 20-byte base layout, and the 32-bit acknowledgement number is one of its fixed fields — it occupies those four bytes in every segment, including the very first SYN. What varies is whether its contents mean anything, and that is what the <strong>ACK flag</strong> says: ACK = 1 means the acknowledgement number is valid.</p>\n<p>So in the first SYN of a connection the ACK bit is 0 and the field is ignored; in the SYN-ACK and in every segment thereafter the ACK bit is 1 and the field carries the next byte expected.</p>\n<p><strong>Why the others are wrong.</strong> (b) would make the header variable in a way the fixed layout does not allow — optional data goes in the options area, after the fixed fields, which is what the header-length field measures. (c) is wrong because acknowledgements continue for the whole connection; that is how the sliding window advances. (d) is wrong because reliability is not an application switch: TCP is always reliable, and an application that wants no reliability uses UDP instead.</p>",
-  "points": [
-   "Final answer: Answer: (a): The TCP header has a fixed 20-byte base layout, and the 32-bit acknowledgement number is one of its fixed fields — it occupies those four bytes in every segment, including the very first SYN.",
-   "Why the others are wrong: (b) would make the header variable in a way the fixed layout does not allow — optional data goes in the options area, after the fixed fields, which is what the header-length field measures."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-122",
-  "kind": "pyq",
-  "num": 122,
+  "num": 99,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "written",
@@ -4257,9 +3463,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-123",
+  "id": "x-pyq-100",
   "kind": "pyq",
-  "num": 123,
+  "num": 100,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "written",
@@ -4294,9 +3500,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-124",
+  "id": "x-pyq-101",
   "kind": "pyq",
-  "num": 124,
+  "num": 101,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "written",
@@ -4326,9 +3532,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-125",
+  "id": "x-pyq-102",
   "kind": "pyq",
-  "num": 125,
+  "num": 102,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "written",
@@ -4363,9 +3569,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-126",
+  "id": "x-pyq-103",
   "kind": "pyq",
-  "num": 126,
+  "num": 103,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "written",
@@ -4400,9 +3606,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-127",
+  "id": "x-pyq-104",
   "kind": "pyq",
-  "num": 127,
+  "num": 104,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "numeric",
@@ -4432,9 +3638,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-128",
+  "id": "x-pyq-105",
   "kind": "pyq",
-  "num": 128,
+  "num": 105,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "written",
@@ -4476,42 +3682,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-129",
+  "id": "x-pyq-106",
   "kind": "pyq",
-  "num": 129,
-  "unitId": 4,
-  "lessonId": "memory-management",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q2a",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": true,
-  "weakReason": "asked once, in the scenario-style paper; the answer is section 8 and section 13 applied to a new wording.",
-  "question": "<p>The Mem Team has considered multiple policies for memory virtualization, and finally, they have decided to use Paging. However, they are not sure about certain aspects and require your suggestions: a. The team is thinking of dividing the virtual memory into pages of different sizes and then mapping them to physical memory, where, again, it is divided into blocks of different sizes to support different processes that may have different memory requirements. What are your observations and comments on this approach?</p>",
-  "options": [],
-  "answer": "<p><strong>Observation:</strong> with variable-sized units this is no longer paging; it is variable-partition allocation (or segmentation) under another name, and it brings back the problems paging was introduced to remove.</p>\n<ol>\n<li><strong>External fragmentation returns.</strong> Paging has none only because every frame is the same size, so any free frame fits any page. With blocks of different sizes, free memory again breaks into holes that are too small for the next request, and compaction is needed.</li>\n<li><strong>Allocation becomes a search.</strong> Finding a block for a page is again the dynamic storage-allocation problem (first-fit, best-fit, worst-fit) instead of taking any frame from a free list.</li>\n<li><strong>Translation gets slower and larger.</strong> With one fixed power-of-two size, the page number and offset are just bit fields of the address. With variable sizes each entry needs a base and a length, and every reference needs a comparison and an addition.</li>\n</ol>\n<p><strong>Comment:</strong> different memory requirements are already handled by giving a process a different <em>number</em> of equal pages. If logical units of different sizes are wanted, the established answer is segmentation with paging: variable-sized segments for the user's view, each cut into fixed-size pages for allocation.</p>\n<p>No official key exists for this paper; this is my own answer.</p>",
-  "points": [
-   "External fragmentation returns.",
-   "Allocation becomes a search.",
-   "Translation gets slower and larger.",
-   "Observation: with variable-sized units this is no longer paging; it is variable-partition allocation (or segmentation) under another name, and it brings back the problems paging was introduced to remove.",
-   "Comment: different memory requirements are already handled by giving a process a different number of equal pages."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-130",
-  "kind": "pyq",
-  "num": 130,
+  "num": 106,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "written",
@@ -4540,9 +3713,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-131",
+  "id": "x-pyq-107",
   "kind": "pyq",
-  "num": 131,
+  "num": 107,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "numeric",
@@ -4579,9 +3752,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-132",
+  "id": "x-pyq-108",
   "kind": "pyq",
-  "num": 132,
+  "num": 108,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "numeric",
@@ -4611,9 +3784,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-133",
+  "id": "x-pyq-109",
   "kind": "pyq",
-  "num": 133,
+  "num": 109,
   "unitId": 4,
   "lessonId": "memory-management",
   "format": "written",
@@ -4647,142 +3820,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-134",
+  "id": "x-pyq-110",
   "kind": "pyq",
-  "num": 134,
-  "unitId": 4,
-  "lessonId": "memory-management",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q2c",
-    "marks": "4 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The team is considering a 32-bit address space with 2 KB pages. The team estimates each entry in the page table to consume 4 bytes. On average, the Mem team estimates any machine to support around 100 processes. This results in a memory overhead. Moreover, for any address translation, the page table needs to be first accessed, and then the page table entry needs to be fetched. This results in two accesses to the memory for each address translation. Is there some better mechanism that you can suggest to the team to handle these issues? Please elaborate on the mechanism.</p>",
-  "options": [],
-  "answer": "<p><strong>Size of the problem.</strong> Page size 2 KB = 2^11, so the offset is 11 bits and the page number is 32 − 11 = 21 bits. A linear page table has 2^21 entries × 4 bytes = 2^23 bytes = <strong>8 MB per process</strong>. For 100 processes that is <strong>800 MB</strong> of page tables, each of which must also be contiguous, although most processes use only a small part of their address space.</p>\n<p><strong>Issue 1, space: a multi-level (hierarchical) page table.</strong> Page the page table. One 2 KB page holds 2048 / 4 = 512 = 2^9 entries, so each level resolves 9 bits. The 21-bit page number becomes 3 + 9 + 9: a small top level, then two levels of one-page tables. Inner tables are allocated only for the parts of the address space a process actually uses; an unused region costs a single invalid entry in the level above. A typical process that uses a little memory at the bottom (code, data) and a little at the top (stack) then needs a handful of 2 KB pages instead of 8 MB. An inverted page table, one entry per physical frame for the whole system, is the other option.</p>\n<p><strong>Issue 2, speed: a translation look-aside buffer (TLB).</strong> A small associative cache of recent ⟨page, frame⟩ pairs, searched in parallel. On a hit the frame number comes from the TLB and the page table is not accessed at all; on a miss the table is walked and the pair is added to the TLB. Because of locality the hit ratio is high, so the effective access time is close to one memory access (for example 122 ns against 100 ns at a 98% hit ratio with a 20 ns TLB).</p>\n<p><strong>Core sentence:</strong> the two mechanisms go together; the multi-level table saves space but makes a miss cost more accesses, and the TLB hides that cost.</p>\n<p>No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "the two mechanisms go together; the multi-level table saves space but makes a miss cost more accesses, and the TLB hides that cost.",
-   "Size of the problem: Page size 2 KB = 2^11, so the offset is 11 bits and the page number is 32 − 11 = 21 bits.",
-   "Issue 1, space: a multi-level (hierarchical) page table.",
-   "Issue 2, speed: a translation look-aside buffer (TLB)."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-135",
-  "kind": "pyq",
-  "num": 135,
-  "unitId": 4,
-  "lessonId": "memory-management",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q3",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>A system uses segmentation with 16-bit virtual addresses. The hardware uses the top 2 bits of the address to select the segment. The segment table is: Code, ID 00, base 0x2000, limit 0x1000; Heap, ID 01, base 0x9000, limit 0x2000; Stack, ID 10, base 0xE000, limit 0x1000. A process generates the virtual address 0x5100. What is the corresponding physical address, and why?</p>",
-  "options": [
-   "0x3100",
-   "0xA100",
-   "0xF100",
-   "Segmentation fault"
-  ],
-  "answer": "<p><strong>Step 1, split the address.</strong> 0x5100 = 0101 0001 0000 0000 in binary. The top 2 bits are <strong>01</strong>, so the segment is the <strong>heap</strong>. The remaining 14 bits are the offset: 01 0001 0000 0000 = <strong>0x1100</strong>.</p>\n<p><strong>Step 2, check the limit.</strong> Offset 0x1100 &#x3C; limit 0x2000, so the reference is legal.</p>\n<p><strong>Step 3, add the base.</strong> Physical address = 0x9000 + 0x1100 = <strong>0xA100</strong>.</p>\n<p><strong>Answer: (b) 0xA100.</strong></p>\n<p><strong>Traps.</strong> (1) The offset is 14 bits, not 12: masking off only the top hex digit gives 0x100 and the wrong address 0x9100. Remove the top two <em>bits</em>: 0x5100 − 0x4000 = 0x1100. (2) The limit is compared with the <em>offset</em>, not with the whole virtual address; comparing 0x5100 with 0x2000 wrongly suggests a segmentation fault, which is option (d). (3) Check the limit before adding the base.</p>\n<p>No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "Final answer: Answer: (b) 0xA100.",
-   "Step 1, split the address: 0x5100 = 0101 0001 0000 0000 in binary.",
-   "Step 2, check the limit: Offset 0x1100 &#x3C; limit 0x2000, so the reference is legal.",
-   "Step 3, add the base: Physical address = 0x9000 + 0x1100 = 0xA100.",
-   "Traps: (1) The offset is 14 bits, not 12: masking off only the top hex digit gives 0x100 and the wrong address 0x9100."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-136",
-  "kind": "pyq",
-  "num": 136,
-  "unitId": 4,
-  "lessonId": "virtual-memory",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q1b",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The fork team learned from the Mem Team that they might be using Paging for Memory management. Assuming that it will be paging, Team fork wants your input on how the memory management will work when performing calls like repl() and execute().</p>",
-  "options": [],
-  "answer": "<p><strong>repl() (fork).</strong> The child must appear to have a copy of the parent's whole address space. With paging the kernel does not copy the pages; it creates a new page table for the child whose entries point to the <em>same frames</em> as the parent's, and marks those pages read-only in both tables (<strong>copy-on-write</strong>). Parent and child run sharing every page. When either one writes to a shared page, the write traps, the kernel takes a free frame (from the pool of zeroed-out pages), copies that one page, updates the writer's page table to point at the copy and makes it writable, and restarts the instruction. Only modified pages are ever copied.</p>\n<p><strong>execute() (exec).</strong> The process keeps its identity but its memory image is replaced. The kernel discards the old address space (the page-table entries are dropped and frames no longer shared are freed) and builds a new page table for the new program, with every entry initially invalid. Nothing is loaded up front: pages of the new executable are brought in by <strong>demand paging</strong> as the program touches them.</p>\n<p><strong>Core sentence:</strong> because a fork is usually followed at once by an exec, copying the parent's memory at fork would be wasted work; copy-on-write makes the fork cost only a page-table copy, and demand paging makes the exec cost only the pages actually used.</p>\n<p>No official key exists for this paper; this is my own answer.</p>",
-  "points": [
-   "because a fork is usually followed at once by an exec, copying the parent's memory at fork would be wasted work; copy-on-write makes the fork cost only a page-table copy, and demand paging makes the exec cost only the pages actually used.",
-   "repl() (fork): The child must appear to have a copy of the parent's whole address space.",
-   "execute() (exec): The process keeps its identity but its memory image is replaced."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-137",
-  "kind": "pyq",
-  "num": 137,
-  "unitId": 4,
-  "lessonId": "virtual-memory",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q4a",
-    "marks": "5 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>A new kernel uses paging with a software-managed TLB. On a TLB miss the page translation may not be in the TLB, and after the TLB miss the page may not be present in physical memory either. Design an algorithm or pseudocode for the OS trap handler to resolve the condition where the page is not in memory. It must detail, in sequence, the lifecycle of the event from the moment the trap occurs to the moment the instruction succeeds, and it must explicitly account for CPU efficiency: the CPU cannot sit idle while the disk spins.</p>",
-  "options": [],
-  "answer": "<pre><code>on TLB_MISS trap (virtual address va):            // hardware: save PC, switch to kernel mode\n    save the registers and state of the faulting process P\n    pte = page_table(P)[ page_number(va) ]\n    if va is outside P's address space:            // invalid reference\n        terminate P (addressing error)\n    if pte.present == 1:                           // plain TLB miss\n        TLB.insert(page_number(va), pte.frame)\n        return-from-trap                           // retry the same instruction\n    // ---- page fault: valid page, not in memory ----\n    f = take a frame from the free-frame list\n    if no free frame:\n        v = evictPages()                           // page replacement (clock)\n        if v.modified: schedule a write of v to swap space\n        v.pte.present = 0;  TLB.invalidate(v)\n        f = v.frame\n    issue a disk read: swap location of the page -> frame f      // do not wait\n    P.state = BLOCKED (waiting for paging I/O); put P on the disk's wait queue\n    call the CPU scheduler: dispatch another READY process       // CPU stays busy\n\non DISK_INTERRUPT (read for P complete):           // some other process is running\n    pte.frame = f;  pte.present = 1;  clear reference and modify bits\n    P.state = READY; put P on the ready queue\n\nwhen the scheduler next dispatches P:\n    restore P's registers and PC                   // PC still points at the faulting instruction\n    the instruction is retried -> TLB miss again -> pte.present == 1\n    -> TLB.insert -> retried once more -> succeeds\n</code></pre>\n<p><strong>The points the question is looking for:</strong> (1) distinguish an invalid reference from a not-in-memory page; (2) find a frame, replacing a victim if none is free and writing it out only if modified; (3) <strong>block the faulting process and schedule another one</strong> while the disk works, so the CPU is never idle; (4) on the disk interrupt, update the page table and make the process ready; (5) <strong>restart the faulting instruction</strong>, with the TLB filled on the retry.</p>\n<p>This one handler touches four chapters: the trap and mode switch (Block 1), process states and the scheduler (Blocks 2 and 3), disk I/O (Block 11) and paging itself. No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "The points the question is looking for: (1) distinguish an invalid reference from a not-in-memory page; (2) find a frame, replacing a victim if none is free and writing it out only if modified; (3) …",
-   "on DISK_INTERRUPT (read for P complete):           // some other process is running",
-   "when the scheduler next dispatches P:",
-   "This one handler touches four chapters: the trap and mode switch (Block 1), process states and the scheduler (Blocks 2 and 3), disk I/O (Block 11) and paging itself."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-138",
-  "kind": "pyq",
-  "num": 138,
+  "num": 110,
   "unitId": 4,
   "lessonId": "virtual-memory",
   "format": "written",
@@ -4811,9 +3851,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-139",
+  "id": "x-pyq-111",
   "kind": "pyq",
-  "num": 139,
+  "num": 111,
   "unitId": 4,
   "lessonId": "virtual-memory",
   "format": "numeric",
@@ -4854,9 +3894,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-140",
+  "id": "x-pyq-112",
   "kind": "pyq",
-  "num": 140,
+  "num": 112,
   "unitId": 4,
   "lessonId": "virtual-memory",
   "format": "written",
@@ -4886,106 +3926,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-141",
+  "id": "x-pyq-113",
   "kind": "pyq",
-  "num": 141,
-  "unitId": 4,
-  "lessonId": "virtual-memory",
-  "format": "numeric",
-  "asked": [
-   {
-    "paper": "OSN Mid-sem 2025",
-    "ref": "Q3",
-    "marks": "5 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>You observed that, like many teams, another team has also used paging for memory management, where they have devised a technique using swap space to manage even processes with large virtual address spaces. However, the exact policy for page replacement is yet to be decided. The team has two types of traces of page access in mind, and they are looking at the main memory as a cache with a size of 3 pages: Trace 1: 0, 1, 2, 0, 1, 3, 0, 3, 1, 2, 1; Trace 2: 1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5. The team is deliberating between different memory management policies, but they don't want to consider any random policy, and they do understand that the optimal policy cannot be implemented. Develop the trace table for the different policies - FIFO and LRU, and further, which among them would you recommend and why? What if the main memory can hold 4 pages?</p>",
-  "options": [],
-  "answer": "<p><strong>Trace 1, 3 frames.</strong></p>\n<table>\n<thead>\n<tr>\n<th>ref</th>\n<th>0</th>\n<th>1</th>\n<th>2</th>\n<th>0</th>\n<th>1</th>\n<th>3</th>\n<th>0</th>\n<th>3</th>\n<th>1</th>\n<th>2</th>\n<th>1</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>frame 1</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n<td>2</td>\n<td>2</td>\n</tr>\n<tr>\n<td>frame 2</td>\n<td></td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n</tr>\n<tr>\n<td>frame 3</td>\n<td></td>\n<td></td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n</tr>\n<tr>\n<td>fault?</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>·</td>\n<td>·</td>\n<td>F</td>\n<td>F</td>\n<td>·</td>\n<td>F</td>\n<td>F</td>\n<td>·</td>\n</tr>\n</tbody>\n</table>\n<p><strong>FIFO, 3 frames: 7 page faults</strong>, 4 hits.</p>\n<table>\n<thead>\n<tr>\n<th>ref</th>\n<th>0</th>\n<th>1</th>\n<th>2</th>\n<th>0</th>\n<th>1</th>\n<th>3</th>\n<th>0</th>\n<th>3</th>\n<th>1</th>\n<th>2</th>\n<th>1</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>frame 1</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>0</td>\n<td>2</td>\n<td>2</td>\n</tr>\n<tr>\n<td>frame 2</td>\n<td></td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n</tr>\n<tr>\n<td>frame 3</td>\n<td></td>\n<td></td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n</tr>\n<tr>\n<td>fault?</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>·</td>\n<td>·</td>\n<td>F</td>\n<td>·</td>\n<td>·</td>\n<td>·</td>\n<td>F</td>\n<td>·</td>\n</tr>\n</tbody>\n</table>\n<p><strong>LRU, 3 frames: 5 page faults</strong>, 6 hits.</p>\n<p><strong>Trace 2, 3 frames.</strong></p>\n<table>\n<thead>\n<tr>\n<th>ref</th>\n<th>1</th>\n<th>2</th>\n<th>3</th>\n<th>4</th>\n<th>1</th>\n<th>2</th>\n<th>5</th>\n<th>1</th>\n<th>2</th>\n<th>3</th>\n<th>4</th>\n<th>5</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>frame 1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>4</td>\n<td>4</td>\n<td>4</td>\n<td>5</td>\n<td>5</td>\n<td>5</td>\n<td>5</td>\n<td>5</td>\n<td>5</td>\n</tr>\n<tr>\n<td>frame 2</td>\n<td></td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n</tr>\n<tr>\n<td>frame 3</td>\n<td></td>\n<td></td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>4</td>\n<td>4</td>\n</tr>\n<tr>\n<td>fault?</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>·</td>\n<td>·</td>\n<td>F</td>\n<td>F</td>\n<td>·</td>\n</tr>\n</tbody>\n</table>\n<p><strong>FIFO, 3 frames: 9 page faults</strong>, 3 hits.</p>\n<table>\n<thead>\n<tr>\n<th>ref</th>\n<th>1</th>\n<th>2</th>\n<th>3</th>\n<th>4</th>\n<th>1</th>\n<th>2</th>\n<th>5</th>\n<th>1</th>\n<th>2</th>\n<th>3</th>\n<th>4</th>\n<th>5</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>frame 1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>4</td>\n<td>4</td>\n<td>4</td>\n<td>5</td>\n<td>5</td>\n<td>5</td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n</tr>\n<tr>\n<td>frame 2</td>\n<td></td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>1</td>\n<td>4</td>\n<td>4</td>\n</tr>\n<tr>\n<td>frame 3</td>\n<td></td>\n<td></td>\n<td>3</td>\n<td>3</td>\n<td>3</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>2</td>\n<td>5</td>\n</tr>\n<tr>\n<td>fault?</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n<td>·</td>\n<td>·</td>\n<td>F</td>\n<td>F</td>\n<td>F</td>\n</tr>\n</tbody>\n</table>\n<p><strong>LRU, 3 frames: 10 page faults</strong>, 2 hits.</p>\n<p><strong>With 4 frames.</strong> Trace 1 has only four distinct pages (0, 1, 2, 3), so both policies fault exactly 4 times, once per page. Trace 2 is the slide string: FIFO gives 10 faults and LRU gives 8 (tables in the section above).</p>\n<table>\n<thead>\n<tr>\n<th>Page faults</th>\n<th>Trace 1, 3 frames</th>\n<th>Trace 1, 4 frames</th>\n<th>Trace 2, 3 frames</th>\n<th>Trace 2, 4 frames</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>FIFO</td>\n<td>7</td>\n<td>4</td>\n<td>9</td>\n<td><strong>10</strong></td>\n</tr>\n<tr>\n<td>LRU</td>\n<td>5</td>\n<td>4</td>\n<td>10</td>\n<td>8</td>\n</tr>\n</tbody>\n</table>\n<p><strong>Recommendation: LRU.</strong></p>\n<ul>\n<li>On trace 1, which shows locality (pages 0, 1 and 3 are reused soon after use), LRU gives 5 faults against FIFO's 7. Five is also what the optimal policy achieves on this trace, so LRU cannot be beaten here.</li>\n<li>LRU never shows Belady's anomaly: giving it a fourth frame reduces faults on trace 2 from 10 to 8. FIFO gets <em>worse</em> , from 9 to 10, so with FIFO the team could add memory and lose performance.</li>\n<li>FIFO does win on trace 2 with 3 frames (9 against 10), but that string is a constructed worst case with no locality; the win disappears with one more frame.</li>\n</ul>\n<p>The cost of LRU is implementation: exact LRU needs the time of last use on every reference, so in practice it is approximated with a reference bit (the clock algorithm of section 9).</p>\n<p><strong>Trap in the LRU table.</strong> A hit changes nothing in the frames but it does change recency. On trace 1, when page 2 arrives at the tenth reference, the frames hold 0, 1, 3 and the least recently used is 0 (last used at reference 7; 3 was used at 8 and 1 at 9), so 0 is the victim, not 1 or 3.</p>\n<p>No official key exists for either paper; this is my own solution.</p>",
-  "points": [
-   "Final answer: With 4 frames: Trace 1 has only four distinct pages (0, 1, 2, 3), so both policies fault exactly 4 times, once per page.",
-   "On trace 1, which shows locality (pages 0, 1 and 3 are reused soon after use), LRU gives 5 faults against FIFO's 7.",
-   "LRU never shows Belady's anomaly: giving it a fourth frame reduces faults on trace 2 from 10 to 8.",
-   "FIFO does win on trace 2 with 3 frames (9 against 10), but that string is a constructed worst case with no locality; the win disappears with one more frame.",
-   "Trace 1, 3 frames.",
-   "FIFO, 3 frames: 7 page faults, 4 hits."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-142",
-  "kind": "pyq",
-  "num": 142,
-  "unitId": 4,
-  "lessonId": "virtual-memory",
-  "format": "numeric",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q2b",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": true,
-  "weakReason": "the same trace and the same working as the question above; only the wording differs.",
-  "question": "<p>The team is planning to use a FIFO approach for page replacement where the system has a cache size of 3. The team claims that FIFO is the best policy for page replacement by considering an example trace: 0, 1, 2, 0, 1, 3, 0, 3, 1, 2, 1. The team would like to know your opinion.</p>",
-  "options": [],
-  "answer": "<p><strong>The claim is wrong.</strong> On this trace with 3 frames (tables in the question above):</p>\n<table>\n<thead>\n<tr>\n<th>Policy</th>\n<th>Faults</th>\n<th>Hits</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>FIFO</td>\n<td>7</td>\n<td>4</td>\n</tr>\n<tr>\n<td>LRU</td>\n<td>5</td>\n<td>6</td>\n</tr>\n<tr>\n<td>Optimal</td>\n<td>5</td>\n<td>6</td>\n</tr>\n</tbody>\n</table>\n<p>FIFO evicts page 0 at the sixth reference only because it is the oldest, although it was used two references earlier and is needed again immediately; the same happens with page 1. Those evictions cause the extra faults. LRU keeps the recently used pages and reaches the optimal 5 faults.</p>\n<p><strong>Opinion:</strong> FIFO is the simplest policy, not the best. It ignores how pages are used, and it can suffer Belady's anomaly. Recommend LRU, or its clock approximation if the hardware offers only a reference bit.</p>",
-  "points": [
-   "The claim is wrong: On this trace with 3 frames (tables in the question above):",
-   "Opinion: FIFO is the simplest policy, not the best.",
-   "The claim is wrong."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-143",
-  "kind": "pyq",
-  "num": 143,
-  "unitId": 4,
-  "lessonId": "virtual-memory",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q4b",
-    "marks": "5 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>A virtual memory subsystem has performance issues when memory becomes full. Design the page-replacement policy under two constraints: (i) the hardware does not support a timestamp register for every page access; (ii) the hardware provides a single reference bit per page-table entry. Outline the algorithm for the evictPages() routine that decides which pages to evict. Does your algorithm degenerate to FIFO under specific circumstances?</p>",
-  "options": [],
-  "answer": "<p><strong>Choice.</strong> Exact LRU needs the time of last use, which constraint (i) rules out. With one reference bit the right policy is the <strong>second-chance (clock) algorithm</strong>, an approximation of LRU.</p>\n<pre><code>hand = 0                                  // persists between calls; frames form a circle\n\nevictPages(k):                            // free k frames\n    freed = 0\n    while freed &#x3C; k:\n        p = page in frame[hand]\n        if p.pte.reference == 1:          // used since the hand last passed\n            p.pte.reference = 0           // second chance: clear the bit, keep the page\n        else:                             // not used for a whole revolution\n            if p.pte.modified:\n                write p to swap space     // only dirty pages cost a disk write\n            p.pte.present = 0             // next access will page-fault\n            invalidate p's TLB entry\n            add frame[hand] to the free list\n            freed = freed + 1\n        hand = (hand + 1) mod NFRAMES\n</code></pre>\n<p><strong>Why it approximates LRU.</strong> The hardware sets a page's reference bit whenever the page is accessed. A page whose bit is still 0 when the hand returns has not been used during one full revolution, so it is among the least recently used. Pages in active use keep getting their bit set again and survive.</p>\n<p><strong>Degenerating to FIFO: yes.</strong> If <em>all</em> reference bits are 1 when the routine runs (every page in memory has been referenced since the hand last passed, which is typical when memory is heavily overcommitted), the hand clears every bit in one full sweep, arrives back where it started, and evicts that page. Victims are then chosen purely in circular order of position, with no regard to use, which is FIFO.</p>\n<p><strong>Refinement worth one line.</strong> Use the modify bit as well (enhanced second chance): prefer (0, 0) pages, which need no disk write, over (0, 1) pages.</p>\n<p>No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "Choice: Exact LRU needs the time of last use, which constraint (i) rules out.",
-   "Why it approximates LRU: The hardware sets a page's reference bit whenever the page is accessed.",
-   "Degenerating to FIFO: yes: If all reference bits are 1 when the routine runs (every page in memory has been referenced since the hand last passed, which is typical when memory is heavily overcommitted), the hand clears every bit …",
-   "Refinement worth one line: Use the modify bit as well (enhanced second chance): prefer (0, 0) pages, which need no disk write, over (0, 1) pages."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-144",
-  "kind": "pyq",
-  "num": 144,
+  "num": 113,
   "unitId": 4,
   "lessonId": "virtual-memory",
   "format": "numeric",
@@ -5016,9 +3959,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-145",
+  "id": "x-pyq-114",
   "kind": "pyq",
-  "num": 145,
+  "num": 114,
   "unitId": 4,
   "lessonId": "virtual-memory",
   "format": "tf",
@@ -5062,9 +4005,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-146",
+  "id": "x-pyq-115",
   "kind": "pyq",
-  "num": 146,
+  "num": 115,
   "unitId": 4,
   "lessonId": "virtual-memory",
   "format": "written",
@@ -5096,9 +4039,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-147",
+  "id": "x-pyq-116",
   "kind": "pyq",
-  "num": 147,
+  "num": 116,
   "unitId": 5,
   "lessonId": "storage-and-raid",
   "format": "written",
@@ -5127,9 +4070,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-148",
+  "id": "x-pyq-117",
   "kind": "pyq",
-  "num": 148,
+  "num": 117,
   "unitId": 5,
   "lessonId": "storage-and-raid",
   "format": "written",
@@ -5166,9 +4109,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-149",
+  "id": "x-pyq-118",
   "kind": "pyq",
-  "num": 149,
+  "num": 118,
   "unitId": 5,
   "lessonId": "storage-and-raid",
   "format": "written",
@@ -5197,113 +4140,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-150",
+  "id": "x-pyq-119",
   "kind": "pyq",
-  "num": 150,
-  "unitId": 5,
-  "lessonId": "storage-and-raid",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q8",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The F&#x26;D team wants IndixOS to have support for RAIDs as the OS will primarily be used in the data centre machines. The team is expecting the system to have workloads with more random reads and writes as opposed to sequential reads and writes. Which of the following RAID levels do you recommend and why?</p>",
-  "options": [
-   "RAID 0",
-   "RAID 1",
-   "RAID 4",
-   "RAID 5"
-  ],
-  "answer": "<p><strong>Answer: (b) RAID 1 and (d) RAID 5 are suitable; (a) and (c) are not.</strong></p>\n<ul>\n<li><strong>RAID 0 rejected:</strong> no redundancy at all, so any single disk failure loses data. It fails the fault-tolerance goal.</li>\n<li><strong>RAID 4 rejected:</strong> random small writes each update the single parity disk, so all writes queue on one disk, which is the bottleneck.</li>\n<li><strong>RAID 5:</strong> block-level striping lets independent random reads run on different disks in parallel, and distributing the parity removes RAID 4's bottleneck, so random writes to different stripes also proceed in parallel. Storage overhead is only one disk's worth, which suits the efficiency goal.</li>\n<li><strong>RAID 1:</strong> the best random-write performance (a write is two parallel writes, with no parity read-modify-write), reads can be served by either copy, and recovery is fast. Its cost is 100% storage overhead.</li>\n</ul>\n<p><strong>Recommendation:</strong> RAID 5 if storage efficiency matters and the workload is read-heavy; RAID 1 (or 1+0) if random writes dominate, since each small RAID 5 write costs 4 I/Os against RAID 1's 2.</p>\n<p>No official key exists for this paper; this is my own answer.</p>",
-  "points": [
-   "Final answer: Storage overhead is only one disk's worth, which suits the efficiency goal.",
-   "RAID 0 rejected: no redundancy at all, so any single disk failure loses data.",
-   "RAID 4 rejected: random small writes each update the single parity disk, so all writes queue on one disk, which is the bottleneck.",
-   "RAID 5: block-level striping lets independent random reads run on different disks in parallel, and distributing the parity removes RAID 4's bottleneck, so random writes to different stripes also proceed …",
-   "RAID 1: the best random-write performance (a write is two parallel writes, with no parity read-modify-write), reads can be served by either copy, and recovery is fast.",
-   "Recommendation: RAID 5 if storage efficiency matters and the workload is read-heavy; RAID 1 (or 1+0) if random writes dominate, since each small RAID 5 write costs 4 I/Os against RAID 1's 2."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-151",
-  "kind": "pyq",
-  "num": 151,
-  "unitId": 5,
-  "lessonId": "storage-and-raid",
-  "format": "numeric",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q8c",
-    "marks": "4 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The team decides to move the file system onto a Network Attached Storage (NAS) array consisting of 8 disks of 4 TB each. They are debating between using RAID 1 and RAID 5. They want your suggestion on what to use, considering the need for high storage efficiency and the fact that the system is expected to have a larger number of random small writes. Reason by calculating the usable capacity under both RAID setups and demonstrating performance under write/read workloads.</p>",
-  "options": [],
-  "answer": "<p><strong>Usable capacity.</strong> Raw capacity = 8 × 4 TB = 32 TB.</p>\n<table>\n<thead>\n<tr>\n<th></th>\n<th>RAID 1</th>\n<th>RAID 5</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Usable capacity</td>\n<td>Half the disks are mirrors: 8 / 2 × 4 = <strong>16 TB</strong></td>\n<td>One disk's worth of parity: (8 − 1) × 4 = <strong>28 TB</strong></td>\n</tr>\n<tr>\n<td>Storage efficiency</td>\n<td>16 / 32 = <strong>50%</strong></td>\n<td>28 / 32 = <strong>87.5%</strong></td>\n</tr>\n<tr>\n<td>Small random write</td>\n<td>Write both copies: <strong>2 I/Os</strong>, done in parallel</td>\n<td>Read old data, read old parity, write new data, write new parity: <strong>4 I/Os</strong> (new parity = old parity ⊕ old data ⊕ new data)</td>\n</tr>\n<tr>\n<td>Random write throughput, 8 disks, one I/O per disk at a time</td>\n<td>8 / 2 = up to <strong>4</strong> small writes in parallel</td>\n<td>8 / 4 = up to <strong>2</strong> small writes in parallel</td>\n</tr>\n<tr>\n<td>Random reads</td>\n<td>Either copy can serve: up to 8 in parallel</td>\n<td>Data on all 8 disks: up to 8 in parallel</td>\n</tr>\n<tr>\n<td>Failure and rebuild</td>\n<td>Survives a disk failure (and more if failures hit different pairs); rebuild copies one disk</td>\n<td>Survives one failure; rebuild reads all 7 other disks, and a second failure during rebuild loses data</td>\n</tr>\n</tbody>\n</table>\n<p><strong>Recommendation.</strong> The two requirements pull in opposite directions. RAID 5 meets \"high storage efficiency\" (28 TB, 87.5%), but under many small random writes it has half the write throughput of RAID 1 because of the 4-I/O small-write penalty. If capacity is the binding constraint, choose <strong>RAID 5</strong> and absorb the small writes with an NVRAM write-back cache in the array (writes are acknowledged from cache and parity updates are batched). If write performance is the binding constraint, choose <strong>RAID 1</strong> (as 1+0) and accept 16 TB. Reads perform about the same either way.</p>\n<p>No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "Final answer: If write performance is the binding constraint, choose RAID 1 (as 1+0) and accept 16 TB.",
-   "Usable capacity: Raw capacity = 8 × 4 TB = 32 TB.",
-   "Recommendation: The two requirements pull in opposite directions."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-152",
-  "kind": "pyq",
-  "num": 152,
-  "unitId": 5,
-  "lessonId": "storage-and-raid",
-  "format": "written",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q4c",
-    "marks": "2 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>Given that the file system may issue an operation to read from or write to blocks of disks, what are some mechanisms that the file system, in tandem with the disk controller, can use to improve the efficiency of the reads and writes?</p>",
-  "options": [],
-  "answer": "<ul>\n<li><strong>Disk scheduling:</strong> the OS or controller orders the request queue (SSTF, SCAN, C-LOOK, or Linux's deadline scheduler) to minimize seek distance, the dominant cost.</li>\n<li><strong>Caching and buffering:</strong> a buffer cache in main memory (and a cache in the controller) serves repeated reads without disk I/O.</li>\n<li><strong>Delayed (write-back) writes:</strong> writes go to the cache and are flushed later in batches, so they can be reordered and combined, and a block written twice is written once.</li>\n<li><strong>Read-ahead and clustering:</strong> read the following blocks of a file in the same operation, and allocate a file's blocks contiguously in clusters, so one seek serves many blocks.</li>\n<li><strong>DMA:</strong> the controller transfers blocks directly to memory without involving the CPU per byte.</li>\n<li><strong>RAID striping:</strong> spread blocks across disks so large transfers and independent requests run in parallel.</li>\n</ul>\n<p><strong>Core sentence:</strong> make fewer disk accesses (cache, delayed writes), make each access do more (clustering, read-ahead) and make the unavoidable ones cheaper (scheduling, striping, DMA).</p>\n<p>No official key exists for this paper; this is my own answer.</p>",
-  "points": [
-   "make fewer disk accesses (cache, delayed writes), make each access do more (clustering, read-ahead) and make the unavoidable ones cheaper (scheduling, striping, DMA).",
-   "Disk scheduling: the OS or controller orders the request queue (SSTF, SCAN, C-LOOK, or Linux's deadline scheduler) to minimize seek distance, the dominant cost.",
-   "Caching and buffering: a buffer cache in main memory (and a cache in the controller) serves repeated reads without disk I/O.",
-   "Delayed (write-back) writes: writes go to the cache and are flushed later in batches, so they can be reordered and combined, and a block written twice is written once.",
-   "Read-ahead and clustering: read the following blocks of a file in the same operation, and allocate a file's blocks contiguously in clusters, so one seek serves many blocks.",
-   "DMA: the controller transfers blocks directly to memory without involving the CPU per byte."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-153",
-  "kind": "pyq",
-  "num": 153,
+  "num": 119,
   "unitId": 5,
   "lessonId": "storage-and-raid",
   "format": "written",
@@ -5333,9 +4172,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-154",
+  "id": "x-pyq-120",
   "kind": "pyq",
-  "num": 154,
+  "num": 120,
   "unitId": 5,
   "lessonId": "file-systems",
   "format": "written",
@@ -5367,9 +4206,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-155",
+  "id": "x-pyq-121",
   "kind": "pyq",
-  "num": 155,
+  "num": 121,
   "unitId": 5,
   "lessonId": "file-systems",
   "format": "written",
@@ -5400,9 +4239,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-156",
+  "id": "x-pyq-122",
   "kind": "pyq",
-  "num": 156,
+  "num": 122,
   "unitId": 5,
   "lessonId": "file-systems",
   "format": "written",
@@ -5437,9 +4276,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-157",
+  "id": "x-pyq-123",
   "kind": "pyq",
-  "num": 157,
+  "num": 123,
   "unitId": 5,
   "lessonId": "file-systems",
   "format": "written",
@@ -5474,9 +4313,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-158",
+  "id": "x-pyq-124",
   "kind": "pyq",
-  "num": 158,
+  "num": 124,
   "unitId": 5,
   "lessonId": "file-systems",
   "format": "written",
@@ -5507,9 +4346,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-159",
+  "id": "x-pyq-125",
   "kind": "pyq",
-  "num": 159,
+  "num": 125,
   "unitId": 5,
   "lessonId": "file-systems",
   "format": "written",
@@ -5539,9 +4378,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-160",
+  "id": "x-pyq-126",
   "kind": "pyq",
-  "num": 160,
+  "num": 126,
   "unitId": 5,
   "lessonId": "file-systems",
   "format": "written",
@@ -5573,76 +4412,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-161",
+  "id": "x-pyq-127",
   "kind": "pyq",
-  "num": 161,
-  "unitId": 5,
-  "lessonId": "file-systems",
-  "format": "numeric",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q4a, Q4b",
-    "marks": "3 + 5 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The F&#x26;D Team is developing a simple file system module for the IndixOS. The team is now developing a small proof of concept with a disk that has eight tracks, each comprising eight blocks of size 4 KB. The team wants to support storage of different files and directories with the given disk space (as well as their metadata). The F&#x26;D team wants the disk to support storage and retrieval of 224KB of data. They seek your opinion on how certain aspects of the file system can be implemented: a. According to you, what is the maximum number of files/directories that can be created on the disk based on the constraints (assuming that the metadata of the file or directory consumes 256 bytes), and what does this imply? b. The team wants to implement a read access operation to \"/user1/file.txt\" (e.g., cat /user1/file.txt). They would like your opinion on handling the read access in this simple file system. Further, how many reads and writes on the disks will be performed when performing this read operation?</p>",
-  "options": [],
-  "answer": "<p><strong>(a)</strong></p>\n<ul>\n<li>Total blocks = 8 × 8 = <strong>64</strong> ; total = 64 × 4 KB = 256 KB.</li>\n<li>Data region = 224 KB ÷ 4 KB = <strong>56 blocks</strong> , leaving 64 − 56 = <strong>8 blocks</strong> for metadata.</li>\n<li>Of those: 1 superblock, 1 inode bitmap, 1 data bitmap, leaving <strong>5 blocks</strong> for the inode table.</li>\n<li>Inodes per block = 4096 ÷ 256 = 16, so 5 × 16 = <strong>80 inodes</strong> .</li>\n</ul>\n<p><strong>Answer: at most 80 files and directories.</strong></p>\n<p><strong>Implication:</strong> the number of files is fixed when the file system is created, however much data space is free. Here there are 80 inodes but only 56 data blocks, so with one block per file the disk runs out of data blocks after 56 files and 24 inodes can never be used. Directories also consume inodes. The inode-to-data ratio chosen at format time is a bet on the average file size.</p>\n<p><strong>(b)</strong> Assume file.txt is one block. The path is resolved one component at a time, starting from the root, whose i-number is well known (2 in most UNIX file systems).</p>\n<table>\n<thead>\n<tr>\n<th>Step</th>\n<th>I/O</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Read the root inode</td>\n<td>read 1</td>\n</tr>\n<tr>\n<td>Read the root directory's data to find \"user1\" and its i-number</td>\n<td>read 2</td>\n</tr>\n<tr>\n<td>Read user1's inode</td>\n<td>read 3</td>\n</tr>\n<tr>\n<td>Read user1's data to find \"file.txt\" and its i-number</td>\n<td>read 4</td>\n</tr>\n<tr>\n<td>Read file.txt's inode; open() returns a file descriptor</td>\n<td>read 5</td>\n</tr>\n<tr>\n<td>read(): read the inode for the block's location</td>\n<td>read 6</td>\n</tr>\n<tr>\n<td>Read the data block</td>\n<td>read 7</td>\n</tr>\n<tr>\n<td>Update the inode's last-accessed time</td>\n<td><strong>write 1</strong></td>\n</tr>\n</tbody>\n</table>\n<p><strong>Answer: 7 reads and 1 write.</strong> Each extra block of the file adds 3 I/Os (inode read, data read, inode write); each extra directory in the path adds 2 reads. The bitmaps are never touched, because a read allocates nothing.</p>\n<p>No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "Final answer: Answer: 7 reads and 1 write: Each extra block of the file adds 3 I/Os (inode read, data read, inode write); each extra directory in the path adds 2 reads.",
-   "Each extra block of the file adds 3 I/Os (inode read, data read, inode write); each extra directory in the path adds 2 reads.",
-   "Total blocks = 8 × 8 = 64 ; total = 64 × 4 KB = 256 KB.",
-   "Data region = 224 KB ÷ 4 KB = 56 blocks , leaving 64 − 56 = 8 blocks for metadata.",
-   "Of those: 1 superblock, 1 inode bitmap, 1 data bitmap, leaving 5 blocks for the inode table.",
-   "Inodes per block = 4096 ÷ 256 = 16, so 5 × 16 = 80 inodes ."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-162",
-  "kind": "pyq",
-  "num": 162,
-  "unitId": 5,
-  "lessonId": "file-systems",
-  "format": "numeric",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2025",
-    "ref": "Q8a, Q8b",
-    "marks": "3 + 3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": true,
-  "outReason": null,
-  "weak": false,
-  "weakReason": null,
-  "question": "<p>The AgentOS media engineering team is designing a custom file system, SL-FS, optimized for a high-throughput video streaming server. The underlying storage cluster consists of 16 TB (Terabytes) of raw disk space. The SL-FS design specifications are as follows: i) Block size: 8 KB (8192); ii) Pointer size: 64-bit (8 bytes) addresses are used for all block pointers; iii) inode size: 256 bytes; iv) inode structure: To optimize for large media files, the inode contains 12 direct pointers, 1 single-indirect pointer, and 1 double-indirect pointer. Further, for metadata allocation, the system reserves exactly 2% of the total disk capacity specifically for the inode Table (where inodes are stored). The remaining 98% is for data blocks. a. Given the allocation policy above, what is the maximum number of files that can be stored in this file system? Scenario: If the users strictly store small text logs of size 1 KB each, will the system run out of Data Blocks or inodes first? Justify your answer mathematically. b. Calculate the maximum file size (in GB or TB) that a single file can reach in SL-FS. (Show your derivation for Direct, Single-Indirect, and Double-Indirect capacities separately. You may assume 1 KB = 2^10 bytes, 1 MB = 2^20 bytes, etc., for calculation.)</p>",
-  "options": [],
-  "answer": "<p><strong>(a)</strong> Disk = 16 TB = 2^44 bytes = 17,592,186,044,416 bytes.</p>\n<ul>\n<li>Inode table = 2% × 2 ^44 = 351,843,720,888 bytes; inodes = ÷ 256 = <strong>1,374,389,535 ≈ 1.37 × 10^9</strong> . This is the maximum number of files (and directories).</li>\n<li>Data = 98% × 2 ^44 = 17,240,342,323,528 bytes; data blocks = ÷ 8192 = <strong>2,104,534,951 ≈ 2.10 × 10^9</strong> .</li>\n</ul>\n<p>A 1 KB log still occupies one whole 8 KB block (7 KB of internal fragmentation), so each file takes exactly one inode and one data block. Since 1.37 × 10^9 inodes &#x3C; 2.10 × 10^9 blocks, the system <strong>runs out of inodes first</strong>, with about 0.73 × 10^9 blocks (about 5.6 TB) still free but unusable.</p>\n<p><strong>(b)</strong> Pointers per block = 8 KB ÷ 8 B = <strong>1024</strong>.</p>\n<table>\n<thead>\n<tr>\n<th>Pointer</th>\n<th>Blocks reachable</th>\n<th>Capacity</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>12 direct</td>\n<td>12</td>\n<td>12 × 8 KB = <strong>96 KB</strong></td>\n</tr>\n<tr>\n<td>1 single indirect</td>\n<td>1,024</td>\n<td>1024 × 8 KB = <strong>8 MB</strong></td>\n</tr>\n<tr>\n<td>1 double indirect</td>\n<td>1,048,576</td>\n<td>1024^2 × 8 KB = <strong>8 GB</strong></td>\n</tr>\n<tr>\n<td><strong>Total</strong></td>\n<td>1,049,612</td>\n<td><strong>8 GB + 8 MB + 96 KB ≈ 8.01 GB</strong> (8,598,421,504 bytes)</td>\n</tr>\n</tbody>\n</table>\n<p><strong>Check and comment:</strong> 14 pointers × 8 B = 112 B fits in the 256-byte inode. For a video server an 8 GB file limit is tight; a triple-indirect pointer (another × 1024, to about 8 TB) or extents would fix it.</p>\n<p>No official key exists for this paper; this is my own solution.</p>",
-  "points": [
-   "Final answer: (b) Pointers per block = 8 KB ÷ 8 B = 1024.",
-   "Inode table = 2% × 2 ^44 = 351,843,720,888 bytes; inodes = ÷ 256 = 1,374,389,535 ≈ 1.37 × 10^9 .",
-   "Data = 98% × 2 ^44 = 17,240,342,323,528 bytes; data blocks = ÷ 8192 = 2,104,534,951 ≈ 2.10 × 10^9 .",
-   "(a) Disk = 16 TB = 2^44 bytes = 17,592,186,044,416 bytes.",
-   "Check and comment: 14 pointers × 8 B = 112 B fits in the 256-byte inode."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-163",
-  "kind": "pyq",
-  "num": 163,
+  "num": 127,
   "unitId": 5,
   "lessonId": "file-systems",
   "format": "written",
@@ -5682,9 +4454,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-164",
+  "id": "x-pyq-128",
   "kind": "pyq",
-  "num": 164,
+  "num": 128,
   "unitId": 5,
   "lessonId": "hdfs",
   "format": "written",
@@ -5714,9 +4486,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-165",
+  "id": "x-pyq-129",
   "kind": "pyq",
-  "num": 165,
+  "num": 129,
   "unitId": 5,
   "lessonId": "hdfs",
   "format": "written",
@@ -5746,9 +4518,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-166",
+  "id": "x-pyq-130",
   "kind": "pyq",
-  "num": 166,
+  "num": 130,
   "unitId": 5,
   "lessonId": "hdfs",
   "format": "written",
@@ -5780,9 +4552,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-167",
+  "id": "x-pyq-131",
   "kind": "pyq",
-  "num": 167,
+  "num": 131,
   "unitId": 5,
   "lessonId": "mapreduce",
   "format": "written",
@@ -5811,9 +4583,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-168",
+  "id": "x-pyq-132",
   "kind": "pyq",
-  "num": 168,
+  "num": 132,
   "unitId": 5,
   "lessonId": "cloud-and-distributed",
   "format": "written",
@@ -5842,9 +4614,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-169",
+  "id": "x-pyq-133",
   "kind": "pyq",
-  "num": 169,
+  "num": 133,
   "unitId": 5,
   "lessonId": "virtual-machines",
   "format": "written",
@@ -5883,46 +4655,9 @@
   "answerSource": "professor's key"
  },
  {
-  "id": "x-pyq-170",
+  "id": "x-pyq-134",
   "kind": "pyq",
-  "num": 170,
-  "unitId": "other",
-  "lessonId": "other",
-  "format": "mcq",
-  "asked": [
-   {
-    "paper": "OSN End-sem 2023",
-    "ref": "Q11",
-    "marks": "3 marks"
-   }
-  ],
-  "times": 1,
-  "reworded": null,
-  "basedOn": null,
-  "inSyllabus": false,
-  "outReason": "application layer; not in the end-sem networking list",
-  "weak": true,
-  "weakReason": "application layer; not in the end-sem networking list",
-  "question": "<p>The Net team has built the application layer support in their OS network stack by providing support mainly for HTTP/1.1. Before opening IndixOS to the public, the team wanted to do a final test where multiple systems using IndixOS are connected to an extensive network. One machine was designated as the server, and other machines as the clients. The team observed that since many client machines were sending HTTP requests to the server, the server was not able to handle the load, and it crashed. What do you think is the quick solution that the team can implement to proceed with the test, and how?</p>",
-  "options": [
-   "The team can make use of cookies",
-   "Web caches can be leveraged",
-   "The team should use HTTP/1.0 instead",
-   "Make use of proxies"
-  ],
-  "answer": "<p><strong>Answer: (b) web caches, and (d) proxies used as caches.</strong></p>\n<ul>\n<li>A web cache (a caching proxy placed between the clients and the server) keeps copies of recently fetched pages. Repeated requests for the same objects are answered by the cache, so far fewer requests reach the server and it no longer crashes. This can be set up quickly without changing the server.</li>\n<li>(a) Cookies only let the server keep state about users; they do not reduce the load.</li>\n<li>(c) HTTP/1.0 uses a new TCP connection per object, so it increases the load on the server.</li>\n</ul>",
-  "points": [
-   "Web caches (or caching proxies) as the quick fix.",
-   "Repeated requests answered from the cache, reducing server load.",
-   "Cookies do not reduce load.",
-   "HTTP/1.0 makes it worse (a connection per object)."
-  ],
-  "answerSource": "written by Claude, no key"
- },
- {
-  "id": "x-pyq-171",
-  "kind": "pyq",
-  "num": 171,
+  "num": 134,
   "unitId": "other",
   "lessonId": "other",
   "format": "tf",
@@ -5952,9 +4687,9 @@
   "answerSource": "written by Claude, no key"
  },
  {
-  "id": "x-pyq-172",
+  "id": "x-pyq-135",
   "kind": "pyq",
-  "num": 172,
+  "num": 135,
   "unitId": "other",
   "lessonId": "other",
   "format": "written",
@@ -6043,7 +4778,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-2, PYQ-3",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-2, PYQ-3",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6297,7 +5032,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-23, PYQ-24",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-23",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6321,7 +5056,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-27, PYQ-28, PYQ-29, PYQ-30",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-24, PYQ-25, PYQ-26, PYQ-27",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6348,7 +5083,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-33",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6372,7 +5107,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-34, PYQ-35",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-30, PYQ-31",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6398,7 +5133,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-34, PYQ-35",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-30, PYQ-31",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6423,7 +5158,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-34, PYQ-35",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-30, PYQ-31",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6502,7 +5237,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-36, PYQ-37",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-32, PYQ-33",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6527,7 +5262,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-38, PYQ-39",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-34, PYQ-35",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6553,7 +5288,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-40, PYQ-41",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-36, PYQ-37",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6579,7 +5314,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-40, PYQ-41",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-36, PYQ-37",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6605,7 +5340,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to Blocks 9 and 10; same section as PYQ-40, PYQ-41",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to Blocks 9 and 10; same section as PYQ-36, PYQ-37",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6630,7 +5365,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-43",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-39",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6656,7 +5391,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-44",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-40",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6682,7 +5417,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-44",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-40",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6707,7 +5442,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-44",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-40",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6732,7 +5467,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-46, PYQ-47, PYQ-48",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-42",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6758,7 +5493,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-54",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-47",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6783,7 +5518,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-55",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-48",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6808,7 +5543,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6859,7 +5594,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-61",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-52",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6960,7 +5695,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-62, PYQ-63",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-53, PYQ-54",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -6987,7 +5722,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-64",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-55",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7012,7 +5747,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-64",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-55",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7038,7 +5773,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-65",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7064,7 +5799,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-65",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7089,7 +5824,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-65",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7114,7 +5849,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to Block 5; same section as PYQ-73, PYQ-74",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to Block 5; same section as PYQ-61, PYQ-62",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7140,7 +5875,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to Blocks 3 and 14; same section as PYQ-73, PYQ-74",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to Blocks 3 and 14; same section as PYQ-61, PYQ-62",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7216,7 +5951,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-80",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-67",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7241,7 +5976,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-80",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-67",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7268,7 +6003,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-75, PYQ-81",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-63, PYQ-68",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7348,7 +6083,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-82",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-69",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7400,7 +6135,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7428,7 +6163,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-88, PYQ-89, PYQ-90",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-74, PYQ-75, PYQ-76",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7453,7 +6188,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-91, PYQ-92, PYQ-93",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-77, PYQ-78, PYQ-79",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7478,7 +6213,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-94",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-80",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7529,7 +6264,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-105, PYQ-106, PYQ-107, PYQ-108",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-91, PYQ-92, PYQ-93, PYQ-94",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7556,7 +6291,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-109, PYQ-112, PYQ-113",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7608,7 +6343,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-120, PYQ-121",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7635,7 +6370,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-120, PYQ-121",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7661,7 +6396,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-122, PYQ-123",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-99, PYQ-100",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7687,7 +6422,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7713,7 +6448,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-124",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-101",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7739,7 +6474,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-125",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-102",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7764,7 +6499,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-126",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-103",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7789,7 +6524,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-128",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-105",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7817,7 +6552,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-128",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-105",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7842,7 +6577,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-129",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7867,7 +6602,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-129",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7893,7 +6628,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-130",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-106",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7920,7 +6655,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-130",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-106",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7945,7 +6680,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to processes and threads; same section as PYQ-130",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to processes and threads; same section as PYQ-106",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -7997,7 +6732,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-131, PYQ-132, PYQ-133, PYQ-134",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-107, PYQ-108, PYQ-109",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8022,7 +6757,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-135",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8126,7 +6861,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-139",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-111",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8152,7 +6887,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-136",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8178,7 +6913,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-141, PYQ-142",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8203,7 +6938,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-141, PYQ-142",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8228,7 +6963,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-143, PYQ-144",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-113",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8254,7 +6989,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-143, PYQ-144",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-113",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8282,7 +7017,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-145",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-114",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8310,7 +7045,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8386,7 +7121,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8463,7 +7198,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8516,7 +7251,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8702,7 +7437,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-147, PYQ-148, PYQ-149",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-116, PYQ-117, PYQ-118",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8729,7 +7464,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-150, PYQ-151, PYQ-152, PYQ-153",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-119",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8754,7 +7489,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-154",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-120",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8781,7 +7516,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-159",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-125",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8806,7 +7541,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to memory management; same section as PYQ-159",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to memory management; same section as PYQ-125",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8834,7 +7569,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8860,7 +7595,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-160",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-126",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8885,7 +7620,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-162",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8912,7 +7647,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-163",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-127",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8937,7 +7672,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to HDFS; same section as PYQ-163",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to HDFS; same section as PYQ-127",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -8989,7 +7724,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-164",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-128",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9014,7 +7749,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-165",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-129",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9066,7 +7801,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-166",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-130",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9092,7 +7827,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to RAID; same section as PYQ-166",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to RAID; same section as PYQ-130",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9224,7 +7959,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-167",
+  "basedOn": "imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-131",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9249,7 +7984,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to memory, disks and file systems; same section as PYQ-167",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to memory, disks and file systems; same section as PYQ-131",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9402,7 +8137,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9556,7 +8291,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9633,7 +8368,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9658,7 +8393,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9762,7 +8497,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9867,7 +8602,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-169",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-133",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9893,7 +8628,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-169",
+  "basedOn": "imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-133",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9918,7 +8653,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to Block 4; same section as PYQ-169",
+  "basedOn": "end-sem syllabus item 5, \"high-level questions may be given by connecting the topics discussed in several chapters\"; connects to Block 4; same section as PYQ-133",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,
@@ -9995,7 +8730,7 @@
   "asked": [],
   "times": 0,
   "reworded": null,
-  "basedOn": "imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)",
+  "basedOn": "imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)",
   "inSyllabus": true,
   "outReason": null,
   "weak": false,

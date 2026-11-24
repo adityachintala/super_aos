@@ -2,7 +2,7 @@
 
 ## Secondary Storage and RAID
 
-### PYQ-147
+### PYQ-116
 Unit: 5 Storage and Distributed Systems
 Topic: Secondary Storage and RAID
 Type: written
@@ -25,7 +25,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-148
+### PYQ-117
 Unit: 5 Storage and Distributed Systems
 Topic: Secondary Storage and RAID
 Type: written
@@ -55,7 +55,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-149
+### PYQ-118
 Unit: 5 Storage and Distributed Systems
 Topic: Secondary Storage and RAID
 Type: written
@@ -83,97 +83,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: its answer is the two RAID questions above put together; learn those and write this from them.
 
-### PYQ-150
-Unit: 5 Storage and Distributed Systems
-Topic: Secondary Storage and RAID
-Type: MCQ
-Asked in: OSN End-sem 2023, Q8 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The F&D team wants IndixOS to have support for RAIDs as the OS will primarily be used in the data centre machines. The team is expecting the system to have workloads with more random reads and writes as opposed to sequential reads and writes. Which of the following RAID levels do you recommend and why?
-Options: A) RAID 0 B) RAID 1 C) RAID 4 D) RAID 5
-Answer: **Answer: (b) RAID 1 and (d) RAID 5 are suitable; (a) and (c) are not.**
-
-- **RAID 0 rejected:** no redundancy at all, so any single disk failure loses data. It fails the fault-tolerance goal.
-- **RAID 4 rejected:** random small writes each update the single parity disk, so all writes queue on one disk, which is the bottleneck.
-- **RAID 5:** block-level striping lets independent random reads run on different disks in parallel, and distributing the parity removes RAID 4's bottleneck, so random writes to different stripes also proceed in parallel. Storage overhead is only one disk's worth, which suits the efficiency goal.
-- **RAID 1:** the best random-write performance (a write is two parallel writes, with no parity read-modify-write), reads can be served by either copy, and recovery is fast. Its cost is 100% storage overhead.
-
-**Recommendation:** RAID 5 if storage efficiency matters and the workload is read-heavy; RAID 1 (or 1+0) if random writes dominate, since each small RAID 5 write costs 4 I/Os against RAID 1's 2.
-
-No official key exists for this paper; this is my own answer.
-Marking points:
-- Final answer: Storage overhead is only one disk's worth, which suits the efficiency goal.
-- RAID 0 rejected: no redundancy at all, so any single disk failure loses data.
-- RAID 4 rejected: random small writes each update the single parity disk, so all writes queue on one disk, which is the bottleneck.
-- RAID 5: block-level striping lets independent random reads run on different disks in parallel, and distributing the parity removes RAID 4's bottleneck, so random writes to different stripes also proceed …
-- RAID 1: the best random-write performance (a write is two parallel writes, with no parity read-modify-write), reads can be served by either copy, and recovery is fast.
-- Recommendation: RAID 5 if storage efficiency matters and the workload is read-heavy; RAID 1 (or 1+0) if random writes dominate, since each small RAID 5 write costs 4 I/Os against RAID 1's 2.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-151
-Unit: 5 Storage and Distributed Systems
-Topic: Secondary Storage and RAID
-Type: numerical
-Asked in: OSN End-sem 2025, Q8c (4 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The team decides to move the file system onto a Network Attached Storage (NAS) array consisting of 8 disks of 4 TB each. They are debating between using RAID 1 and RAID 5. They want your suggestion on what to use, considering the need for high storage efficiency and the fact that the system is expected to have a larger number of random small writes. Reason by calculating the usable capacity under both RAID setups and demonstrating performance under write/read workloads.
-Answer: **Usable capacity.** Raw capacity = 8 × 4 TB = 32 TB.
-
-|  | RAID 1 | RAID 5 |
-| --- | --- | --- |
-| Usable capacity | Half the disks are mirrors: 8 / 2 × 4 = **16 TB** | One disk's worth of parity: (8 − 1) × 4 = **28 TB** |
-| Storage efficiency | 16 / 32 = **50%** | 28 / 32 = **87.5%** |
-| Small random write | Write both copies: **2 I/Os**, done in parallel | Read old data, read old parity, write new data, write new parity: **4 I/Os** (new parity = old parity ⊕ old data ⊕ new data) |
-| Random write throughput, 8 disks, one I/O per disk at a time | 8 / 2 = up to **4** small writes in parallel | 8 / 4 = up to **2** small writes in parallel |
-| Random reads | Either copy can serve: up to 8 in parallel | Data on all 8 disks: up to 8 in parallel |
-| Failure and rebuild | Survives a disk failure (and more if failures hit different pairs); rebuild copies one disk | Survives one failure; rebuild reads all 7 other disks, and a second failure during rebuild loses data |
-
-**Recommendation.** The two requirements pull in opposite directions. RAID 5 meets "high storage efficiency" (28 TB, 87.5%), but under many small random writes it has half the write throughput of RAID 1 because of the 4-I/O small-write penalty. If capacity is the binding constraint, choose **RAID 5** and absorb the small writes with an NVRAM write-back cache in the array (writes are acknowledged from cache and parity updates are batched). If write performance is the binding constraint, choose **RAID 1** (as 1+0) and accept 16 TB. Reads perform about the same either way.
-
-No official key exists for this paper; this is my own solution.
-Marking points:
-- Final answer: If write performance is the binding constraint, choose RAID 1 (as 1+0) and accept 16 TB.
-- Usable capacity: Raw capacity = 8 × 4 TB = 32 TB.
-- Recommendation: The two requirements pull in opposite directions.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-152
-Unit: 5 Storage and Distributed Systems
-Topic: Secondary Storage and RAID
-Type: written
-Asked in: OSN End-sem 2023, Q4c (2 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: Given that the file system may issue an operation to read from or write to blocks of disks, what are some mechanisms that the file system, in tandem with the disk controller, can use to improve the efficiency of the reads and writes?
-Answer:
-- **Disk scheduling:** the OS or controller orders the request queue (SSTF, SCAN, C-LOOK, or Linux's deadline scheduler) to minimize seek distance, the dominant cost.
-- **Caching and buffering:** a buffer cache in main memory (and a cache in the controller) serves repeated reads without disk I/O.
-- **Delayed (write-back) writes:** writes go to the cache and are flushed later in batches, so they can be reordered and combined, and a block written twice is written once.
-- **Read-ahead and clustering:** read the following blocks of a file in the same operation, and allocate a file's blocks contiguously in clusters, so one seek serves many blocks.
-- **DMA:** the controller transfers blocks directly to memory without involving the CPU per byte.
-- **RAID striping:** spread blocks across disks so large transfers and independent requests run in parallel.
-
-**Core sentence:** make fewer disk accesses (cache, delayed writes), make each access do more (clustering, read-ahead) and make the unavoidable ones cheaper (scheduling, striping, DMA).
-
-No official key exists for this paper; this is my own answer.
-Marking points:
-- make fewer disk accesses (cache, delayed writes), make each access do more (clustering, read-ahead) and make the unavoidable ones cheaper (scheduling, striping, DMA).
-- Disk scheduling: the OS or controller orders the request queue (SSTF, SCAN, C-LOOK, or Linux's deadline scheduler) to minimize seek distance, the dominant cost.
-- Caching and buffering: a buffer cache in main memory (and a cache in the controller) serves repeated reads without disk I/O.
-- Delayed (write-back) writes: writes go to the cache and are flushed later in batches, so they can be reordered and combined, and a block written twice is written once.
-- Read-ahead and clustering: read the following blocks of a file in the same operation, and allocate a file's blocks contiguously in clusters, so one seek serves many blocks.
-- DMA: the controller transfers blocks directly to memory without involving the CPU per byte.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-153
+### PYQ-119
 Unit: 5 Storage and Distributed Systems
 Topic: Secondary Storage and RAID
 Type: written
@@ -203,7 +113,7 @@ Weak / low priority: yes: multimedia systems is not in this end-sem's list; only
 Unit: 5 Storage and Distributed Systems
 Topic: Secondary Storage and RAID
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A disk spins at 10,000 RPM, has an average seek time of 6 ms, a transfer rate of 2 Gb/s and a controller overhead of 0.2 ms. Find (a) the average rotational latency, (b) the average I/O time for one 8 KB block, and (c) the fraction of that time spent actually transferring data.
 Answer: **(a)** One rotation = 60 / 10,000 s = 6 ms. Average latency = ½ × 6 = **3 ms**.
@@ -250,7 +160,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Secondary Storage and RAID
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A disk has 5,000 cylinders, numbered 0 to 4,999. The head is at cylinder 143 and the previous request was at 125. The queue, in FIFO order, is 86, 1470, 913, 1774, 948, 1509, 1022, 1750, 130. Starting from the current position, find the total head movement for FCFS, SSTF, SCAN, LOOK, C-SCAN and C-LOOK.
 Answer: The previous request was at 125 and the head is at 143, so the arm is **moving upward** (toward 4,999).
@@ -412,7 +322,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Secondary Storage and RAID
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-147, PYQ-148, PYQ-149
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-116, PYQ-117, PYQ-118
 In syllabus: yes
 Question: Both RAID 0+1 and RAID 1+0 combine striping and mirroring. Explain the difference, and justify the slide's claim that "RAID 1+0 fault tolerance is more".
 Answer: **RAID 0+1** first stripes the data over a set of disks, then mirrors the whole stripe set: two striped arrays that are copies of each other. **RAID 1+0** first mirrors disks in pairs, then stripes the data across the pairs.
@@ -437,7 +347,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Secondary Storage and RAID
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-150, PYQ-151, PYQ-152, PYQ-153
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-119
 In syllabus: yes
 Question: TRUE or FALSE, correct if false and justify: "A RAID 5 array protects stored data against corruption."
 Answer: **FALSE.** Corrected: RAID protects against disk *failures*; RAID alone does not prevent or detect data corruption or other errors.
@@ -452,7 +362,7 @@ Weak / low priority: no
 
 ## File Systems
 
-### PYQ-154
+### PYQ-120
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
@@ -482,7 +392,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: research-paper question; the end-sem topic list names no research papers
 
-### PYQ-155
+### PYQ-121
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
@@ -507,7 +417,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: yes: research-paper question; the end-sem topic list names no research papers
 
-### PYQ-156
+### PYQ-122
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
@@ -535,7 +445,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-157
+### PYQ-123
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
@@ -563,7 +473,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-158
+### PYQ-124
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
@@ -590,7 +500,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: a UNIX-paper question from the midsem portion; the end-sem list names no papers. Keep it for the buffer-cache idea, which section 9 needs.
 
-### PYQ-159
+### PYQ-125
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
@@ -616,7 +526,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-160
+### PYQ-126
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
@@ -650,90 +560,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: a UNIX-paper question; the paper is not in the end-sem list, but the delayed-write trade-off it tests is in this section.
 
-### PYQ-161
-Unit: 5 Storage and Distributed Systems
-Topic: File Systems
-Type: numerical
-Asked in: OSN End-sem 2023, Q4a, Q4b (3 + 5 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The F&D Team is developing a simple file system module for the IndixOS. The team is now developing a small proof of concept with a disk that has eight tracks, each comprising eight blocks of size 4 KB. The team wants to support storage of different files and directories with the given disk space (as well as their metadata). The F&D team wants the disk to support storage and retrieval of 224KB of data. They seek your opinion on how certain aspects of the file system can be implemented: a. According to you, what is the maximum number of files/directories that can be created on the disk based on the constraints (assuming that the metadata of the file or directory consumes 256 bytes), and what does this imply? b. The team wants to implement a read access operation to "/user1/file.txt" (e.g., cat /user1/file.txt). They would like your opinion on handling the read access in this simple file system. Further, how many reads and writes on the disks will be performed when performing this read operation?
-Answer: **(a)**
-
-- Total blocks = 8 × 8 = **64** ; total = 64 × 4 KB = 256 KB.
-- Data region = 224 KB ÷ 4 KB = **56 blocks** , leaving 64 − 56 = **8 blocks** for metadata.
-- Of those: 1 superblock, 1 inode bitmap, 1 data bitmap, leaving **5 blocks** for the inode table.
-- Inodes per block = 4096 ÷ 256 = 16, so 5 × 16 = **80 inodes** .
-
-**Answer: at most 80 files and directories.**
-
-**Implication:** the number of files is fixed when the file system is created, however much data space is free. Here there are 80 inodes but only 56 data blocks, so with one block per file the disk runs out of data blocks after 56 files and 24 inodes can never be used. Directories also consume inodes. The inode-to-data ratio chosen at format time is a bet on the average file size.
-
-**(b)** Assume file.txt is one block. The path is resolved one component at a time, starting from the root, whose i-number is well known (2 in most UNIX file systems).
-
-| Step | I/O |
-| --- | --- |
-| Read the root inode | read 1 |
-| Read the root directory's data to find "user1" and its i-number | read 2 |
-| Read user1's inode | read 3 |
-| Read user1's data to find "file.txt" and its i-number | read 4 |
-| Read file.txt's inode; open() returns a file descriptor | read 5 |
-| read(): read the inode for the block's location | read 6 |
-| Read the data block | read 7 |
-| Update the inode's last-accessed time | **write 1** |
-
-**Answer: 7 reads and 1 write.** Each extra block of the file adds 3 I/Os (inode read, data read, inode write); each extra directory in the path adds 2 reads. The bitmaps are never touched, because a read allocates nothing.
-
-No official key exists for this paper; this is my own solution.
-Marking points:
-- Final answer: Answer: 7 reads and 1 write: Each extra block of the file adds 3 I/Os (inode read, data read, inode write); each extra directory in the path adds 2 reads.
-- Each extra block of the file adds 3 I/Os (inode read, data read, inode write); each extra directory in the path adds 2 reads.
-- Total blocks = 8 × 8 = 64 ; total = 64 × 4 KB = 256 KB.
-- Data region = 224 KB ÷ 4 KB = 56 blocks , leaving 64 − 56 = 8 blocks for metadata.
-- Of those: 1 superblock, 1 inode bitmap, 1 data bitmap, leaving 5 blocks for the inode table.
-- Inodes per block = 4096 ÷ 256 = 16, so 5 × 16 = 80 inodes .
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-162
-Unit: 5 Storage and Distributed Systems
-Topic: File Systems
-Type: numerical
-Asked in: OSN End-sem 2025, Q8a, Q8b (3 + 3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The AgentOS media engineering team is designing a custom file system, SL-FS, optimized for a high-throughput video streaming server. The underlying storage cluster consists of 16 TB (Terabytes) of raw disk space. The SL-FS design specifications are as follows: i) Block size: 8 KB (8192); ii) Pointer size: 64-bit (8 bytes) addresses are used for all block pointers; iii) inode size: 256 bytes; iv) inode structure: To optimize for large media files, the inode contains 12 direct pointers, 1 single-indirect pointer, and 1 double-indirect pointer. Further, for metadata allocation, the system reserves exactly 2% of the total disk capacity specifically for the inode Table (where inodes are stored). The remaining 98% is for data blocks. a. Given the allocation policy above, what is the maximum number of files that can be stored in this file system? Scenario: If the users strictly store small text logs of size 1 KB each, will the system run out of Data Blocks or inodes first? Justify your answer mathematically. b. Calculate the maximum file size (in GB or TB) that a single file can reach in SL-FS. (Show your derivation for Direct, Single-Indirect, and Double-Indirect capacities separately. You may assume 1 KB = 2^10 bytes, 1 MB = 2^20 bytes, etc., for calculation.)
-Answer: **(a)** Disk = 16 TB = 2^44 bytes = 17,592,186,044,416 bytes.
-
-- Inode table = 2% × 2 ^44 = 351,843,720,888 bytes; inodes = ÷ 256 = **1,374,389,535 ≈ 1.37 × 10^9** . This is the maximum number of files (and directories).
-- Data = 98% × 2 ^44 = 17,240,342,323,528 bytes; data blocks = ÷ 8192 = **2,104,534,951 ≈ 2.10 × 10^9** .
-
-A 1 KB log still occupies one whole 8 KB block (7 KB of internal fragmentation), so each file takes exactly one inode and one data block. Since 1.37 × 10^9 inodes < 2.10 × 10^9 blocks, the system **runs out of inodes first**, with about 0.73 × 10^9 blocks (about 5.6 TB) still free but unusable.
-
-**(b)** Pointers per block = 8 KB ÷ 8 B = **1024**.
-
-| Pointer | Blocks reachable | Capacity |
-| --- | --- | --- |
-| 12 direct | 12 | 12 × 8 KB = **96 KB** |
-| 1 single indirect | 1,024 | 1024 × 8 KB = **8 MB** |
-| 1 double indirect | 1,048,576 | 1024^2 × 8 KB = **8 GB** |
-| **Total** | 1,049,612 | **8 GB + 8 MB + 96 KB ≈ 8.01 GB** (8,598,421,504 bytes) |
-
-**Check and comment:** 14 pointers × 8 B = 112 B fits in the 256-byte inode. For a video server an 8 GB file limit is tight; a triple-indirect pointer (another × 1024, to about 8 TB) or extents would fix it.
-
-No official key exists for this paper; this is my own solution.
-Marking points:
-- Final answer: (b) Pointers per block = 8 KB ÷ 8 B = 1024.
-- Inode table = 2% × 2 ^44 = 351,843,720,888 bytes; inodes = ÷ 256 = 1,374,389,535 ≈ 1.37 × 10^9 .
-- Data = 98% × 2 ^44 = 17,240,342,323,528 bytes; data blocks = ÷ 8192 = 2,104,534,951 ≈ 2.10 × 10^9 .
-- (a) Disk = 16 TB = 2^44 bytes = 17,592,186,044,416 bytes.
-- Check and comment: 14 pointers × 8 B = 112 B fits in the 256-byte inode.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-163
+### PYQ-127
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
@@ -759,7 +586,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-154
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-120
 In syllabus: yes
 Question: In an acyclic-graph directory a file can have several names. Explain the issues that arise when one name is deleted, and how hard links and symbolic links each handle them.
 Answer: **The issue.** If deleting a name immediately freed the file's space, the other names would point to freed blocks that might be reallocated to another file, which is a dangling reference and a protection hole. If deleting a name never freed the space, the file would never disappear.
@@ -784,7 +611,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-159
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-125
 In syllabus: yes
 Question: A file of 100 blocks has its FCB in memory, and no other blocks are cached. How many disk reads are needed to read block 50 (counting from 1) under contiguous, linked and single-level indexed allocation? What changes with a FAT that is cached in memory?
 Answer:
@@ -807,7 +634,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to memory management; same section as PYQ-159
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to memory management; same section as PYQ-125
 In syllabus: yes
 Question: Show that the UNIX inode's multi-level index and a multi-level page table solve the same problem in the same way. Compare their costs.
 Answer:
@@ -835,7 +662,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A 1 TB disk uses 4 KB blocks. How large is its free-space bit vector? Is it practical to keep in memory? What if the blocks were clustered in groups of four?
 Answer: Number of blocks = 2^40 / 2^12 = 2^28. One bit per block: 2^28 bits = 2^25 bytes = **32 MB**.
@@ -855,7 +682,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-160
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-126
 In syllabus: yes
 Question: TRUE or FALSE, correct if false and justify: "A journaling file system writes metadata only once, which is why it is both faster and more reliable than a file system that relies on fsck."
 Answer: **FALSE.** Corrected: a journaling file system writes each metadata change twice (first to the log, then to its home location); it is more reliable and recovers much faster, but it does not save writes.
@@ -872,7 +699,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-162
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: On the vsfs disk (4 KB blocks, 256-byte inodes, inode table starting at 12 KB, 512-byte sectors), which block of the inode table and which disk sector hold inode 50? At what byte offset inside that block does it start?
 Answer: Byte offset into the inode region = 50 × 256 = 12,800.
@@ -897,7 +724,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-163
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-127
 In syllabus: yes
 Question: In vsfs with no caching, the file /foo/bar is already open. (a) How many disk reads and writes does one write() that appends a new block cost, and which structures are touched? (b) How many does creat("/foo/new") cost, assuming /foo's directory block has room for the new entry?
 Answer: **(a) Append one block: 5 I/Os (2 reads, 3 writes).** Read the data bitmap and write it (to find and allocate a free block); read the inode and write it (to record the new block's address and the new size); write the data block itself.
@@ -927,7 +754,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: File Systems
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to HDFS; same section as PYQ-163
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to HDFS; same section as PYQ-127
 In syllabus: yes
 Question: In vsfs the superblock, inodes and data blocks share one disk, and a single machine owns them all. Explain why that arrangement breaks when the data no longer fits on one machine, and how HDFS reorganizes it. Which consistency semantics does HDFS then offer?
 Answer: **Why it breaks.** With petabytes of data spread over thousands of machines, every path lookup in vsfs style would need inode and directory reads from whichever machine held them, and every machine would need to coordinate allocation (the bitmaps) with every other. Metadata operations, which are small and frequent, would be scattered and slow, and consistency of the namespace would require distributed locking.
@@ -947,7 +774,7 @@ Weak / low priority: no
 
 ## Hadoop Distributed File System
 
-### PYQ-164
+### PYQ-128
 Unit: 5 Storage and Distributed Systems
 Topic: Hadoop Distributed File System
 Type: written
@@ -971,7 +798,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-165
+### PYQ-129
 Unit: 5 Storage and Distributed Systems
 Topic: Hadoop Distributed File System
 Type: written
@@ -991,7 +818,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-166
+### PYQ-130
 Unit: 5 Storage and Distributed Systems
 Topic: Hadoop Distributed File System
 Type: written
@@ -1051,7 +878,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Hadoop Distributed File System
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-164
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-128
 In syllabus: yes
 Question: The NameNode persists the namespace (inodes and the list of blocks of each file) in its checkpoint and journal, but not the locations of block replicas. Justify this design, and explain how the NameNode learns the locations after a restart.
 Answer: **Why not persist them:** replica locations change constantly and the NameNode is not the authority on them. A DataNode can fail, a disk can lose replicas, the balancer moves replicas, re-replication creates new ones, and a node can be decommissioned. Any saved map would be stale at restart and could direct clients to replicas that no longer exist. Persisting them would also add a journal write for every replica change.
@@ -1070,7 +897,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Hadoop Distributed File System
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-165
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-129
 In syllabus: yes
 Question: Justify the observation: "The NameNode does not directly call DataNodes; it uses replies to heartbeats to send instructions."
 Answer: A single NameNode serves thousands of DataNodes. If it initiated connections to them, it would need to track each node's state, open and time out connections to dead nodes, and could block waiting on a slow node, which would make the one critical server the bottleneck and expose it to every failure in the cluster. With heartbeats, every DataNode contacts the NameNode every 3 seconds anyway, so commands (replicate blocks, remove replicas, re-register or shut down, send a block report) can be piggybacked on the replies at no extra cost. A dead node never asks, so it is never given work, and its silence is itself the failure signal.
@@ -1108,7 +935,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Hadoop Distributed File System
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-166
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-130
 In syllabus: yes
 Question: Justify HDFS's default placement of a block's replicas: first on the writer's node, second and third on two different nodes of one other rack. Why not all three on different racks, or the first two on the same rack?
 Answer: **Against a rack failure:** with replicas on two racks, the loss of a whole rack (a switch or power failure) still leaves at least one copy.
@@ -1130,7 +957,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Hadoop Distributed File System
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to RAID; same section as PYQ-166
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to RAID; same section as PYQ-130
 In syllabus: yes
 Question: Compare HDFS block replication with RAID 1 and RAID 5 (Block 11). What do they have in common, and why does HDFS choose replication across machines over parity across disks?
 Answer:
@@ -1157,7 +984,7 @@ Weak / low priority: no
 
 ## MapReduce
 
-### PYQ-167
+### PYQ-131
 Unit: 5 Storage and Distributed Systems
 Topic: MapReduce
 Type: written
@@ -1282,7 +1109,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: MapReduce
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-167
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-131
 In syllabus: yes
 Question: TRUE or FALSE, correct if false and justify: "A combiner can be used with any Reduce function, and it changes the final output of the job."
 Answer: **FALSE.** Corrected: a combiner can be used only when the Reduce function is commutative and associative, and it must not change the final output; it only reduces the data sent over the network.
@@ -1299,7 +1126,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: MapReduce
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to memory, disks and file systems; same section as PYQ-167
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to memory, disks and file systems; same section as PYQ-131
 In syllabus: yes
 Question: "Move the computation to the data, not the data to the computation." Show how the MapReduce locality optimization applies the same principle as caching and virtual memory (Blocks 9 and 10) and as large disk blocks (Block 11), and explain what HDFS must provide for it to work.
 Answer: **The common principle:** keep the expensive transfer off the critical path by working where the data already is.
@@ -1320,7 +1147,7 @@ Weak / low priority: no
 
 ## Cloud and Distributed Computing
 
-### PYQ-168
+### PYQ-132
 Unit: 5 Storage and Distributed Systems
 Topic: Cloud and Distributed Computing
 Type: written
@@ -1445,7 +1272,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Cloud and Distributed Computing
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A processor has four cores A, B, C, D. A and D have the same speed; B is twice as fast as A, C three times as fast. Squaring one array element takes 1 time unit on A or D. A program squares 256 elements, divided as A: 32, B: 128, C: 64, D: 32. (a) What is the total execution time? (b) What is the processor utilization? (c) How should the work be divided instead? (Chapter 1, problem 1.5.)
 Answer: **(a)** Time per element: A and D 1 unit, B 1/2 unit, C 1/3 unit.
@@ -1586,7 +1413,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Cloud and Distributed Computing
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A program spends 25% of its time in code that cannot be parallelized. (a) Using Amdahl's law, find the speedup and efficiency on 4, 16 and 256 processors. (b) What is the maximum possible speedup? (c) If instead the problem size is scaled with the number of processors, find the speedup and efficiency on 256 processors. (d) Explain why the two answers differ so much.
 Answer: **(a)** α = 0.25. S = 1 / [α + (1 − α)/n], E = S/n.
@@ -1651,7 +1478,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Cloud and Distributed Computing
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: (a) A server has MTTF = 1,000 hours and MTTR = 10 hours. Find its availability. What is the availability if MTTR is cut to 1 hour? (b) A service needs all of 100 such servers (at 99.9% each) to be up. What is the service's availability? (c) Use (b) to explain why availability decreases with system size, and how clusters and HDFS avoid it.
 Answer: **(a)** A = MTTF / (MTTF + MTTR) = 1000 / 1010 = **99.01%**. With MTTR = 1 h: 1000 / 1001 = **99.90%**. Cutting repair time is as effective as making failures rarer.
@@ -1672,7 +1499,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Cloud and Distributed Computing
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: Using E = Ceff f v^2 t, explain what DVFS does. A task that needs a fixed number of cycles runs at 1.0 V; during its slack time, the voltage can be lowered to 0.7 V (which, with vt = 0.3 V, cuts the frequency to about 47%). By how much does the task's energy fall, and what is the cost?
 Answer: **What DVFS does:** it dynamically lowers a CPU's voltage and frequency when the task has slack (it would otherwise finish early and idle), so the task runs slower but still meets its deadline, using less energy.
@@ -1715,7 +1542,7 @@ Weak / low priority: no
 
 ## Virtual Machines
 
-### PYQ-169
+### PYQ-133
 Unit: 5 Storage and Distributed Systems
 Topic: Virtual Machines
 Type: written
@@ -1788,7 +1615,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Virtual Machines
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: (a) Why could early x86 CPUs not be virtualized by trap-and-emulate alone? Use popf. (b) How does binary translation fix it, and why does VMware cache translations? (c) Booting Windows XP as a guest caused 950,000 translations at 3 µs each, a 5% slowdown. How long would the boot take natively?
 Answer: **(a)** Trap-and-emulate needs every sensitive instruction to trap in user mode. popf loads the flags register from the stack: in kernel mode it replaces all flags (including the interrupt-enable flag), in user mode only some, and **no trap is generated**. So a guest kernel running in real user mode that executes popf to re-enable interrupts silently fails, and the VMM never learns of it: fidelity is broken. Such "special instructions" made x86 trap-and-emulate considered impossible until 1998.
@@ -1874,7 +1701,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Virtual Machines
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-169
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-133
 In syllabus: yes
 Question: x86 has a hardware-walked, untagged TLB. Explain Xen's two decisions about memory management, how a guest updates its page tables safely, and why these are cheaper than VMware's shadow page tables.
 Answer: **The problem:** TLB misses are serviced by hardware walking the page tables, so valid translations must be in hardware-visible page tables; and since the TLB is untagged, every address-space switch flushes it.
@@ -1898,7 +1725,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Virtual Machines
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-169
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-133
 In syllabus: yes
 Question: In Xen, a guest's system calls can go straight to the guest OS, but page faults must always be delivered through Xen. Explain both, and how Xen keeps the fast handler safe.
 Answer: **System calls:** they are the most frequent exception. Xen lets each guest register a "fast" exception handler that the processor invokes directly, without indirecting through ring 0; the application traps from ring 3 straight into the guest OS in ring 1. This keeps the system-call path almost as fast as native.
@@ -1917,7 +1744,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Virtual Machines
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to Block 4; same section as PYQ-169
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to Block 4; same section as PYQ-133
 In syllabus: yes
 Question: Describe Xen's asynchronous I/O ring. Show that it is an instance of the bounded-buffer (producer–consumer) problem of Block 4, and explain why requests carry identifiers and why notifications are decoupled from producing entries.
 Answer: **Structure:** a circular queue of descriptors, allocated by the domain but accessible from Xen. Descriptors do not contain data; they point to I/O buffers allocated by the guest. Two pairs of pointers: the guest advances the **request producer** pointer as it queues requests, Xen advances the **request consumer** as it takes them; Xen advances the **response producer** as it places responses, the guest advances the **response consumer** as it reads them.
@@ -1982,7 +1809,7 @@ Weak / low priority: no
 Unit: 5 Storage and Distributed Systems
 Topic: Virtual Machines
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: (a) List the steps of live migration. (b) A guest with 4 GB of memory is migrated over a link that sends 125 MB/s (1 Gb/s). While running, it dirties 10 MB of memory per second. Assume every dirtied byte must be resent and each round sends what was dirtied during the previous round. How long are the first four rounds, and how long is the guest paused if the VMM freezes it after the round that takes under 50 ms? (c) When does pre-copy fail to converge?
 Answer: **(a)** (1) The source VMM connects to the target VMM. (2) The target creates a new guest (new VCPU, etc.). (3) The source sends all read-only memory pages. (4) The source sends all read-write pages, marking them clean. (5) It repeats step 4 for pages the guest dirtied meanwhile. (6) When the cycle of 4 and 5 becomes very short, the source freezes the guest, sends the VCPU's final state, other state and the final dirty pages, and tells the target to start the guest. (7) Once the target acknowledges that the guest is running, the source terminates its copy.

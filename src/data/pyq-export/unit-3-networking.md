@@ -2,7 +2,7 @@
 
 ## Networks and the Data Link Layer
 
-### PYQ-83
+### PYQ-70
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -22,7 +22,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-84
+### PYQ-71
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -54,7 +54,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-85
+### PYQ-72
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -72,7 +72,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-86
+### PYQ-73
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -95,39 +95,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-87
-Unit: 3 Networking
-Topic: Networks and the Data Link Layer
-Type: written
-Asked in: OSN End-sem 2023, Q5b, Q5c (4 + 3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The Net team has developed a simple web application to test their TCP implementation. The web application is a simple process that will be sending a stream of data 11100110011001101101010101010101 to another process in a different machine (running IndixOS). Moreover, the team also would like to develop some mechanisms to guarantee reliability during the transfer. However, they are still determining how this can be implemented, and they require your suggestions: b. How can the process in the destination machine validate the incoming data? c. Further, how can the Net team provide guarantees on data reliability and flow control?
-Answer: **(b) Validating the data — error-detecting codes.** The sender adds structured redundancy computed over the bits, and the receiver recomputes it:
-
-- **Parity** : a single bit making the count of 1s even or odd; catches any odd number of bit errors, cheap but weak.
-- **Checksum** : the data is treated as numbers and summed (the Internet checksum is a 16-bit one's-complement sum); carried in the TCP/IP headers.
-- **CRC (cyclic redundancy code)** : the frame is treated as a polynomial and divided by a generator polynomial; the remainder is appended. This is what the data link layer actually uses, because it catches all burst errors shorter than the CRC and is cheap in hardware.
-
-If the recomputed value disagrees, the frame is discarded as damaged. Error *correction* codes (Hamming, convolutional, Reed–Solomon, LDPC) are the alternative when retransmission is too expensive, for example on a wireless or satellite link.
-
-**(c) Reliability** is error control: the receiver *acknowledges* frames that arrive correctly; the sender starts a *timer* when it sends and *retransmits* if no ack arrives (ARQ, automatic repeat request); and every frame and ack carries a *sequence number* so that a retransmission is not mistaken for a new frame and duplicates are discarded. For stop-and-wait, one bit of sequence number is enough.
-
-**Flow control** stops a fast sender outpacing a slow receiver. Feedback-based control has the receiver grant permission to send — in its simplest form stop-and-wait (one frame outstanding), and in general a **sliding window** whose size bounds the number of unacknowledged frames. Rate-based control instead limits the sending rate directly, with no feedback.
-
-**Core sentence:** validation is done by redundancy (CRC/checksum); reliability by acknowledgements, timers and sequence numbers; flow control by the receiver's window.
-Marking points:
-- validation is done by redundancy (CRC/checksum); reliability by acknowledgements, timers and sequence numbers; flow control by the receiver's window.
-- Parity : a single bit making the count of 1s even or odd; catches any odd number of bit errors, cheap but weak.
-- Checksum : the data is treated as numbers and summed (the Internet checksum is a 16-bit one's-complement sum); carried in the TCP/IP headers.
-- CRC (cyclic redundancy code) : the frame is treated as a polynomial and divided by a generator polynomial; the remainder is appended.
-- (b) Validating the data — error-detecting codes.
-- (c) Reliability is error control: the receiver acknowledges frames that arrive correctly; the sender starts a timer when it sends and retransmits if no ack arrives (ARQ, automatic repeat request); and every frame and ack …
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-88
+### PYQ-74
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -165,7 +133,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-89
+### PYQ-75
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -192,7 +160,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-90
+### PYQ-76
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -213,7 +181,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-91
+### PYQ-77
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -236,7 +204,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-92
+### PYQ-78
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -260,7 +228,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-93
+### PYQ-79
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -281,7 +249,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-94
+### PYQ-80
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: true/false
@@ -301,7 +269,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-95
+### PYQ-81
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -324,7 +292,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: physical layer; the end-sem networking list covers only the data link, MAC, network and transport layers
 
-### PYQ-96
+### PYQ-82
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -348,7 +316,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: physical layer; the end-sem networking list covers only the data link, MAC, network and transport layers
 
-### PYQ-97
+### PYQ-83
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: true/false
@@ -368,7 +336,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: yes: physical layer; the end-sem networking list covers only the data link, MAC, network and transport layers
 
-### PYQ-98
+### PYQ-84
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -391,7 +359,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: physical layer; the end-sem networking list covers only the data link, MAC, network and transport layers
 
-### PYQ-99
+### PYQ-85
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
@@ -420,7 +388,7 @@ Weak / low priority: yes: physical layer; the end-sem networking list covers onl
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-88, PYQ-89, PYQ-90
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-74, PYQ-75, PYQ-76
 In syllabus: yes
 Question: A 10 Mbps link has a one-way propagation delay of 20 ms and carries 1250-byte frames. What window size keeps the link fully utilized? What is the utilization if stop-and-wait is used instead?
 Answer: **Frame transmission time** = 1250 bytes × 8 = 10,000 bits ÷ 10 Mbps = **1 ms**.
@@ -443,7 +411,7 @@ Weak / low priority: no
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-91, PYQ-92, PYQ-93
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-77, PYQ-78, PYQ-79
 In syllabus: yes
 Question: What does CSMA/CD add to CSMA, and why must a transmitting station keep listening for at least 2τ? Why is classic Ethernet's backoff *exponential*?
 Answer: **What CD adds.** In plain CSMA, if two stations sense idle and both begin, the signals collide and each station still transmits its *entire* frame, wasting the whole frame time. With collision detection, a station listens while transmitting, detects the collision quickly, **aborts immediately**, waits a random period and tries again. That saves time and bandwidth, so the channel alternates between contention periods, transmission periods and idle periods.
@@ -462,7 +430,7 @@ Weak / low priority: no
 Unit: 3 Networking
 Topic: Networks and the Data Link Layer
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-94
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-80
 In syllabus: yes
 Question: Explain the backward learning algorithm used by a learning bridge. What does the bridge do with a frame whose destination it has not yet learned, and why must learned entries be forgotten?
 Answer: **Backward learning.** When a frame arrives on a port, the bridge associates the frame's *source* address with that *input* port and stores the pair in a table. Later, a frame whose *destination* matches a learned address is sent only to that learned port, so traffic between two machines on the same port never crosses the bridge at all. The scheme needs **no configuration**: the bridge builds its table from the traffic it already carries.
@@ -482,7 +450,7 @@ Weak / low priority: no
 
 ## The Network Layer
 
-### PYQ-100
+### PYQ-86
 Unit: 3 Networking
 Topic: The Network Layer
 Type: numerical
@@ -534,7 +502,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-101
+### PYQ-87
 Unit: 3 Networking
 Topic: The Network Layer
 Type: true/false
@@ -553,7 +521,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-102
+### PYQ-88
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
@@ -581,7 +549,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-103
+### PYQ-89
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
@@ -607,7 +575,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-104
+### PYQ-90
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
@@ -628,7 +596,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-105
+### PYQ-91
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
@@ -655,7 +623,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-106
+### PYQ-92
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
@@ -684,7 +652,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-107
+### PYQ-93
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
@@ -718,7 +686,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-108
+### PYQ-94
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
@@ -737,177 +705,6 @@ Marking points:
 - Why admission control matters: A guarantee is only credible if the network refuses work it cannot do.
 - Why QoS matters.
 - The alternative to QoS is overprovisioning — buying far more capacity than is needed — which works but is expensive.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-109
-Unit: 3 Networking
-Topic: The Network Layer
-Type: written
-Asked in: OSN End-sem 2023, Q6a, Q6b (5 + 5 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The Net Team has completed the network stack development following the OSI model. Now, they want to perform some tests to check if everything is working fine. They have a machine with an IP address 192.168.1.25, MAC 9B:8C:6D:5E:3E:2F, with a subnet mask of /24. The public IP address of the network is 17.84.18.65, and the IP address of the router is 172.18.12.92; MAC address ID: 7G:98:1C:1A:2D. The team wants to understand how the data transfer can be achieved in the following cases: a. The destination machine has an IP address of 192.168.1.32 with a subnet mask 255.255.255.0, MAC 8A:9B:1C:2F:9F:6D. From L2 perspective, can you help the team understand how this communication can work with reasoning. b. The destination machine has an IP address of 10.8.17.65 with a subnet mask of 255.255.255.0 and a MAC address of 1A:2B:3C:4D:9C:5A. The machine is in a network with an outgoing IP address of the router being 18.72.19.85 and the internal address of the router is 10.8.17.89 /24. Can you explain to the team how the data transfer works in this scenario? (Hint: Think about both L2 and L3)
-Answer: **(a) Same subnet.** The host ANDs its own address and the destination with the /24 mask (255.255.255.0): both give 192.168.1.0, so the destination is on the same subnet and can be reached *directly*, with no router.
-
-- It needs a MAC address to build the frame, so it checks its **ARP cache** ; on a miss it broadcasts an ARP request, "who has 192.168.1.32?", to the whole LAN.
-- Only 192.168.1.32 replies, with its MAC address, which the sender caches.
-- The frame goes out with destination MAC = B's MAC and destination IP = B's IP. A switch forwards it on the learned port; **one hop, nothing is rewritten** .
-
-**(b) Different subnet.** Masking 10.8.17.65 with /24 gives 10.8.17.0 ≠ 192.168.1.0, so the destination is elsewhere and the packet must go to the **default gateway**.
-
-- Layer 3: the IP header carries source 192.168.1.25 and destination 10.8.17.65 — **unchanged for the whole journey** . Each router looks up the destination in its routing table, decrements TTL and recomputes the header checksum.
-- Layer 2: the host ARPs for the *gateway's* MAC address, not the destination's, and sends a frame addressed to the router. The router strips that frame, and builds a **new** frame on the next link with its own outgoing interface's MAC as source and the next hop's MAC as destination — found by ARP on that link.
-- So the **MAC source and destination are rewritten at every hop** , while the IP addresses and the port numbers stay the same.
-
-**Core sentence (this is the MCQ answer from mid 2025):** MAC addresses are link-local and change at every hop; IP addresses and port numbers are end-to-end and do not change.
-
-The one exception to quote: if the packet passes through a **NAT** box on the way to the public Internet, the NAT rewrites the private source IP and the source port to its own public address and a mapped port — which is precisely why NAT is described as violating layering.
-Marking points:
-- MAC addresses are link-local and change at every hop; IP addresses and port numbers are end-to-end and do not change.
-- It needs a MAC address to build the frame, so it checks its ARP cache ; on a miss it broadcasts an ARP request, "who has 192.168.1.32?", to the whole …
-- Only 192.168.1.32 replies, with its MAC address, which the sender caches.
-- The frame goes out with destination MAC = B's MAC and destination IP = B's IP.
-- Layer 3: the IP header carries source 192.168.1.25 and destination 10.8.17.65 — unchanged for the whole journey .
-- Layer 2: the host ARPs for the gateway's MAC address, not the destination's, and sends a frame addressed to the router.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-110
-Unit: 3 Networking
-Topic: The Network Layer
-Type: MCQ
-Asked in: OSN Mid-sem 2025, Q6 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The LangOS network team wants to check the end-to-end network communication capabilities. The team is investigating a scenario of a process on Machine A with IP 192.168.1.10 and MAC AA:BB:CC:DD:EE:01 running on Port number 5000, sends data to a process on Machine B with an IP address of 10.0.0.20, MAC AA:BB:CC:DD:EE:02 on Port number 6000. The packet travels through a router R with two interfaces: LAN side: IP = 192.168.1.1, MAC = AA:BB:CC:DD:EE:11; WAN side: IP = 10.0.0.1, MAC = AA:BB:CC:DD:EE:22. Given this scenario, in your opinion, which of the following statements is correct with respect to the OSI layer?
-Options: A) MAC source/destination addresses are rewritten at every hop B) The IP addresses of the source and destination change at each router, but others remain the same C) The port numbers are reassigned by the router (to avoid conflicts), while the IP and MAC addresses remain the same D) Both IP and MAC addresses change at every hop, but the port numbers remain unchanged
-Answer: **Answer: (a).**
-
-- Layer 2 addresses are local to one link. When R forwards the frame from the LAN to the WAN, it removes the old Ethernet header and builds a new one: on the LAN the frame goes AA:...:01 to AA:...:11; on the WAN it goes AA:...:22 to AA:...:02. So the MAC source and destination are rewritten at every hop.
-- Layer 3 addresses are end to end: the packet carries 192.168.1.10 to 10.0.0.20 on both links (no NAT is mentioned). So (b) and (d) are wrong.
-- Layer 4 port numbers (5000 to 6000) are end to end too and are not touched by a router; ports are rewritten only by a NAT device. So (c) is wrong.
-Marking points:
-- Chooses (a).
-- MAC addresses are per link and rewritten at each router.
-- IP addresses stay the same end to end (no NAT).
-- Ports are not changed by a router.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-111
-Unit: 3 Networking
-Topic: The Network Layer
-Type: MCQ
-Asked in: OSN End-sem 2023, Q7 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The Net Team, in order to test their network stack, has decided to connect a machine with IndixOS to a network (172.18.20.x/24). However, the team wanted to check with you how the host machine can get an IP address in the given network. What can be the protocol that can be leveraged, and how does it work?
-Options: A) DNS B) HTTP C) DHCP D) ARP
-Answer: **Answer: (c) DHCP.**
-
-How it works (four messages, all over UDP, ports 67 and 68):
-
-1. **DHCPDISCOVER:** the host has no address yet, so it broadcasts to 255.255.255.255 from 0.0.0.0.
-2. **DHCPOFFER:** a DHCP server on the 172.18.20.x/24 network offers a free address, for example 172.18.20.57.
-3. **DHCPREQUEST:** the host broadcasts that it accepts that offer.
-4. **DHCPACK:** the server confirms. The address is leased for a fixed time and must be renewed.
-
-Along with the IP address, DHCP gives the subnet mask (/24), the default gateway and the DNS servers.
-
-Why not the others: DNS maps names to IP addresses; ARP maps an IP address to a MAC address on the LAN; HTTP is an application protocol.
-Marking points:
-- Chooses DHCP.
-- DISCOVER, OFFER, REQUEST, ACK, with broadcast at the start.
-- Lease with renewal.
-- Also gives mask, gateway, DNS.
-- Why DNS, ARP, HTTP do not assign addresses.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-112
-Unit: 3 Networking
-Topic: The Network Layer
-Type: written
-Asked in: OSN End-sem 2025, Q6 (10 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes (part b also touches DNS, an application-layer protocol)
-Question: A node running AgentOS connects to a network without having any IP address assigned. Immediately after joining, a user process attempts to send an HTTP request to http://anotherdomain.com (server IP: 179.20.10.6). The AgentOS team requires your help in understanding the end-to-end sequence of steps from the moment the node connects until the HTTP request is ready to leave the link layer and move toward the next hop. a. Describe what the Operating System must provide to enable network communication. b. Explain the mechanisms the node uses to acquire its own IP address and to resolve the destination server's IP address. c. Describe the activities at the link layer that prepare the HTTP request for transmission toward the next hop (excluding network-layer routing details).
-Answer: **(a) What the OS must provide (2).** The protocol stack itself — implementations of TCP/UDP, IP, ARP and the link-layer protocol — living in the kernel; **device drivers** for the network interface card; a **socket API** (the Berkeley sockets primitives: socket, bind, listen, connect, send, receive, close) so that user processes can reach the stack through system calls; buffers for send and receive queues, with the associated blocking and interrupt handling; and the configuration state: its own IP address, mask, default gateway, DNS server and ARP cache.
-
-**(b) Getting an address, then resolving one (4).**
-
-- **DHCP** gives the node its own address. With no IP address it cannot be addressed individually, so it *broadcasts* a DHCP DISCOVER from 0.0.0.0 to 255.255.255.255; a DHCP server replies with an OFFER; the node sends a REQUEST for that offer; the server confirms with an ACK. The reply carries not only the IP address but the subnet mask, the default gateway and the DNS server's address, and it is a **lease** with a finite lifetime that must be renewed.
-- **DNS** resolves the name. The node sends a DNS query for `anotherdomain.com` (normally UDP to port 53) to the resolver it just learned from DHCP. The resolver walks the hierarchy — root, then the .com servers, then the domain's authoritative server — and returns **179.20.10.6** , which is cached for its TTL.
-
-**(c) Down the stack, layer by layer (4).**
-
-- **Application** : the browser builds the HTTP request text — `GET / HTTP/1.1` with a Host header — and writes it to a socket opened to 179.20.10.6 port 80.
-- **Transport** : TCP first establishes a connection with the *three-way handshake* (SYN, SYN-ACK, ACK), choosing an ephemeral source port. It then segments the byte stream, adds the TCP header with source and destination ports, sequence and acknowledgement numbers, window and checksum, and keeps the data buffered until it is acknowledged.
-- **Network** : IP adds a header with source = the node's new address, destination = 179.20.10.6, plus TTL and a header checksum. Masking shows the destination is outside the local subnet, so the packet is sent to the default gateway.
-- **Link** : the node needs the gateway's MAC address, so it **ARPs** for it (broadcast query, unicast reply, cached). The frame is then built with source MAC = the node's NIC, destination MAC = the gateway, a CRC appended, and the MAC sublayer waits for the medium before transmitting.
-
-**The sentence that ties it together:** the packet leaves carrying the *end-to-end* IP address of the server but the *link-local* MAC address of the very next hop.
-Marking points:
-- DHCP gives the node its own address.
-- DNS resolves the name.
-- Application : the browser builds the HTTP request text — GET / HTTP/1.1 with a Host header — and writes it to a socket opened to 179.20.10.6 port 80.
-- Transport : TCP first establishes a connection with the three-way handshake (SYN, SYN-ACK, ACK), choosing an ephemeral source port.
-- Network : IP adds a header with source = the node's new address, destination = 179.20.10.6, plus TTL and a header checksum.
-- Link : the node needs the gateway's MAC address, so it ARPs for it (broadcast query, unicast reply, cached).
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-113
-Unit: 3 Networking
-Topic: The Network Layer
-Type: written
-Asked in: OSN End-sem 2025, Q9b(i), Q9b(ii) (4 + 3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes (part ii, OSPF vs BGP, is network-layer routing; BGP is covered in Tanenbaum, less in the slides)
-Question: The router described above is in an Autonomous System (AS 300). Considering a node with a public IP address 179.81.26.18 in this autonomous system wants to send data to another node in another autonomous system (AS 700) with an IP address 17.65.21.89. Given this scenario: i. Explain how such a communication can work using different protocols. ii. Do we need different protocols like OSPF and BGP, or will one protocol suffice for the entire internet routing? Explain.
-Answer: **(i) How it works.** An *autonomous system* is a network under one administrative authority with its own routing policy. Inside AS 300, routers use an **interior gateway protocol** — OSPF, a link-state algorithm: each router discovers its neighbours, floods link-state packets describing its links and costs, builds the complete map and runs a shortest-path computation. The packet is forwarded hop by hop on that basis to the AS's border router.
-
-Between autonomous systems, the border routers speak **BGP**, an exterior gateway protocol of the path-vector family: each AS advertises which prefixes it can reach *and the full AS path* to them, so AS 300's border router learns that AS 700's prefix is reachable via, say, AS 300 → AS 500 → AS 700. BGP chooses among such paths by *policy* — business agreements about whose traffic an AS will carry — not simply by shortest distance, and the AS path also makes loops detectable, since an AS rejects any path already containing itself. Inside AS 700, OSPF again carries the packet to the destination host. Through all of this, the IP addresses stay fixed while each hop's MAC addresses are rewritten and the TTL falls.
-
-**(ii) Why two protocols are needed.** One protocol would not do, for three reasons:
-
-- **Scale.** A link-state protocol requires every router to hold a map of the whole area and recompute shortest paths when anything changes. Running that over the entire Internet is impossible in memory, CPU and bandwidth — this is exactly the argument for hierarchical routing, and AS-level routing *is* that hierarchy.
-- **Policy versus metric.** Inside one AS the goal is simply performance, so a shortest-path metric is right. Between ASes the goal is to honour commercial relationships: an AS may refuse to carry transit traffic for a competitor even though that path is shorter. A metric-only protocol cannot express "do not route this through that neighbour".
-- **Autonomy and trust.** Each AS wants to choose its own internal protocol and metrics, and must not be forced to reveal its internal topology to others. BGP exchanges only reachability and AS paths, keeping internals private.
-
-**Core sentence:** OSPF optimizes a path inside one administrative domain; BGP chooses a path between domains by policy. Those are different problems, so they need different protocols.
-Marking points:
-- OSPF optimizes a path inside one administrative domain; BGP chooses a path between domains by policy.
-- Policy versus metric.
-- Autonomy and trust.
-- (i) How it works: An autonomous system is a network under one administrative authority with its own routing policy.
-- (ii) Why two protocols are needed: One protocol would not do, for three reasons:
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-114
-Unit: 3 Networking
-Topic: The Network Layer
-Type: written
-Asked in: OSN Mid-sem 2025, Bonus 1 (2 (bonus))
-Times asked: 1
-Reworded versions: none
-In syllabus: yes (IPv6 is network layer)
-Question: Bonus: The LangOS team has been thinking of using IPv6 and would like to know some details from you. What part of the IPv6 header can be used to track the path of a package in a network? How is it able to track it?
-Answer: Two fields of the IPv6 base header are relevant:
-
-- **Flow Label (20 bits):** the source puts the same label on every packet of one flow. Routers can recognise the packets of that flow without looking deeper into the packet and keep per-flow state, so the flow can be followed and handled consistently along its path (for example, kept on the same path, or given its reserved quality of service).
-- **Hop Limit (8 bits):** set by the source and decremented by one at every router; the packet is discarded when it reaches 0. Tools such as traceroute send packets with Hop Limit 1, 2, 3, ...; each router where the limit runs out returns an ICMPv6 "time exceeded" message, which reveals the routers on the path one by one.
-Marking points:
-- Names the Flow Label and what it does.
-- Names the Hop Limit, decremented per router.
-- Explains traceroute-style path discovery with ICMPv6 time exceeded.
 Answer source: written by Claude, no key
 Weak / low priority: no
 
@@ -934,7 +731,7 @@ Weak / low priority: no
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-105, PYQ-106, PYQ-107, PYQ-108
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-91, PYQ-92, PYQ-93, PYQ-94
 In syllabus: yes
 Question: Distinguish congestion control from flow control. When a router must shed load, how does it decide which packets to drop?
 Answer: **Congestion control** concerns the whole network: it involves the behaviour of all hosts and all routers, and the problem is that the total offered load exceeds what the network can carry. **Flow control** concerns the traffic between one particular sender and one particular receiver, and the problem is that the receiver cannot keep up. The two are independent: a fast receiver on a congested network still needs congestion control, and a slow receiver on an idle network still needs flow control.
@@ -958,7 +755,7 @@ Weak / low priority: no
 Unit: 3 Networking
 Topic: The Network Layer
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-109, PYQ-112, PYQ-113
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)
 In syllabus: yes
 Question: A host is configured as 172.18.20.37/24. Which of 172.18.20.200 and 172.18.21.5 are on its own subnet? What happens differently for the other one?
 Answer: The /24 mask is 255.255.255.0, so the network part is the first three octets.
@@ -983,44 +780,13 @@ Weak / low priority: no
 
 ## The Transport Layer
 
-### PYQ-115
+### PYQ-95
 Unit: 3 Networking
 Topic: The Transport Layer
 Type: written
-Asked in: OSN End-sem 2023, Q5a (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The web application is a simple process that will be sending a stream of data 11100110011001101101010101010101 to another process in a different machine (running IndixOS). a. The Net Team would first like to understand what kind of APIs the OS needs to provide to make this communication happen (based on Unix implementation) and what is the role of the OS when such communication happens.
-Answer: **The API: Berkeley sockets**, the primitives that began with TCP on UNIX, where a *socket* is a transport endpoint identified by an IP address plus a port number.
-
-| Primitive | Meaning |
-| --- | --- |
-| SOCKET | Create a new communication endpoint |
-| BIND | Associate a local address with the socket |
-| LISTEN | Announce willingness to accept connections; set the queue size |
-| ACCEPT | Passively establish an incoming connection |
-| CONNECT | Actively attempt to establish a connection |
-| SEND / RECEIVE | Send and receive data over the connection |
-| CLOSE | Release the connection |
-
-**The OS's role.** The protocol stack itself lives in the kernel: TCP/UDP, IP, ARP and the link layer are kernel code, reached through system calls, so the application never touches the network directly. The OS owns the device drivers for the network interface and handles its interrupts; it maintains the send and receive **buffers** for every connection, blocking the process when a buffer is full or empty and waking it when the state changes; it keeps the per-connection state (sequence numbers, window, timers) and runs the retransmission timers; it demultiplexes arriving segments to the right socket by port number; and it enforces protection — ports below 1024 can only be bound by privileged users.
-
-**Core sentence:** the OS turns an unreliable packet network into a reliable byte stream that a process can use with ordinary read and write calls, and sockets are the interface where that happens.
-Marking points:
-- the OS turns an unreliable packet network into a reliable byte stream that a process can use with ordinary read and write calls, and sockets are the interface where that happens.
-- The API: Berkeley sockets, the primitives that began with TCP on UNIX, where a socket is a transport endpoint identified by an IP address plus a port number.
-- The OS's role: The protocol stack itself lives in the kernel: TCP/UDP, IP, ARP and the link layer are kernel code, reached through system calls, so the application never touches the network directly.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-116
-Unit: 3 Networking
-Topic: The Transport Layer
-Type: written
-Asked in: OSN Quiz 9 2020, Q3 (6 marks); OSN End-sem 2022, Q10 (5 marks); OSN End-sem 2025, Q5 (3 marks)
-Times asked: 3
-Reworded versions: "Issues in connection establishment and how the three-way handshake solves them (the question text is only partly legible in the scan; the key answers with the forbidden region and fresh sequence numbers)." (OSN End-sem 2022); "As part of diagnosing intermittent network failures in AgentOS, the networking team asks you to verify whether the system is correctly following the TCP three-way handshake. A TCP client module P in AgentOS initiates a connection to a remote TCP service Q. Let Np denote the sequence number in the SYN sent from P to Q, and let Nq denote the acknowledgement number in the SYN-ACK sent from Q back to P. Based on standard TCP behaviour, which of the following statements is/are CORRECT and why? (a) The sequence number Np is randomly chosen (b) The sequence number is set to 0 (c) The acknowledgement number is Nq = Np (d) The acknowledgement number is Nq = Np + 1" (OSN End-sem 2025)
+Asked in: OSN Quiz 9 2020, Q3 (6 marks); OSN End-sem 2022, Q10 (5 marks)
+Times asked: 2
+Reworded versions: "Issues in connection establishment and how the three-way handshake solves them (the question text is only partly legible in the scan; the key answers with the forbidden region and fresh sequence numbers)." (OSN End-sem 2022)
 In syllabus: yes
 Question: What are the issues of implementing "Connection Establishment" in the transport protocol? Explain the justification of employing three-way hand shake.
 Answer: **The issues.** The network may lose, corrupt, delay and duplicate packets, and the key danger is the **delayed duplicate**: a connection request takes the longest route, the sender times out and sends it again, and the receiver eventually gets both. If the stale copy is accepted as new, a connection is opened that nobody asked for, and stale *data* from a previous connection can be accepted inside it.
@@ -1037,8 +803,6 @@ Answer: **The issues.** The network may lose, corrupt, delay and duplicate packe
 3. Host 1 acknowledges host 2's choice with ACK(y), and data flows.
 
 Now test it against the bad cases. If an *old duplicate CR* arrives out of nowhere, host 2 replies with a fresh y, but host 1 — which never opened a connection — rejects it, so nothing is established. If an *old duplicate CR and an old duplicate data packet* both arrive, the stale data acknowledges some old sequence number z rather than the freshly chosen y, so it is rejected too. The freshness of y is what makes replay impossible.
-
-**For the MCQ:** the initial sequence number Np is *randomly chosen* (precisely so that it cannot be guessed or replayed), and the acknowledgement number in the SYN-ACK is **Np + 1**, not Np, because an acknowledgement names the next byte expected and the SYN flag consumes one sequence number.
 Marking points:
 - Loss and corruption are handled by ARQ and checksums; that part is easy.
 - Preventing packets from looping by restricting the network design is difficult; hop counters and timestamps help but are not enough — and it is not only the data packets …
@@ -1049,7 +813,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-117
+### PYQ-96
 Unit: 3 Networking
 Topic: The Transport Layer
 Type: written
@@ -1082,7 +846,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-118
+### PYQ-97
 Unit: 3 Networking
 Topic: The Transport Layer
 Type: written
@@ -1106,7 +870,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-119
+### PYQ-98
 Unit: 3 Networking
 Topic: The Transport Layer
 Type: written
@@ -1129,65 +893,6 @@ Marking points:
 - What a desirable allocation looks like: It must be efficient (high goodput, low delay — pushing past the knee of the goodput curve only adds queueing delay and eventually causes collapse); it must be fair, in the max-min sense that no …
 - The difficulty: The sender cannot see the network's state; it only gets signals (loss, delay, or an explicit mark such as ECN), and those arrive a round trip late.
 - One caveat to add: AIMD assumes loss means congestion.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-120
-Unit: 3 Networking
-Topic: The Transport Layer
-Type: MCQ
-Asked in: OSN End-sem 2025, Q2 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: EstimatedRTT = 50 ms, DevRTT = 4 ms, the latest RTT sample is 60 ms, α = 0.125 and β = 0.25. What is the next timeout interval?
-Options: A) 67.25 ms B) 72.00 ms C) 51.25 ms D) 70.75 ms
-Answer: **Answer: (b) 72.00 ms.**
-
-**Step 1 — update the smoothed RTT.** Here α weights the *new sample*:  
- EstimatedRTT = (1 − α)·EstimatedRTT + α·SampleRTT = 0.875 × 50 + 0.125 × 60 = 43.75 + 7.5 = **51.25 ms**
-
-**Step 2 — update the deviation**, using the *newly updated* EstimatedRTT:  
- DevRTT = (1 − β)·DevRTT + β·|SampleRTT − EstimatedRTT| = 0.75 × 4 + 0.25 × |60 − 51.25| = 3 + 0.25 × 8.75 = 3 + 2.1875 = **5.1875 ms**
-
-**Step 3 — the timeout.**  
- TimeoutInterval = EstimatedRTT + 4 × DevRTT = 51.25 + 4 × 5.1875 = 51.25 + 20.75 = **72.00 ms**
-
-The trap in the distractors
-
-**(c) 51.25** is the new EstimatedRTT alone — the answer if you forget the *+ 4 × DevRTT*.  
- **(a) 67.25** is 51.25 + 4 × 4 — the answer if you keep the *old* DevRTT instead of updating it.  
- Note also the ordering question: RFC 6298 computes RTTVAR *before* updating SRTT, using the old SRTT, which would give 0.75 × 4 + 0.25 × |50 − 60| = 5.5 and a timeout of 73.25 ms. That value is not offered, so the intended convention is the textbook one above — update EstimatedRTT first, then use it in DevRTT. In an exam, state which order you used.
-
-**Why the formula looks like this:** acknowledgement arrival times in TCP have a much flatter probability density than in the link layer, so the variation matters as much as the mean; adding four deviations makes a needless retransmission unlikely while still reacting quickly when the network is stable.
-Marking points:
-- Final answer: (a) 67.25 is 51.25 + 4 × 4 — the answer if you keep the old DevRTT instead of updating it.
-- Step 1 — update the smoothed RTT.
-- Step 2 — update the deviation, using the newly updated EstimatedRTT: DevRTT = (1 − β)·DevRTT + β·|SampleRTT − EstimatedRTT| = 0.75 × 4 + 0.25 × |60 − 51.25| = 3 + 0.25 × …
-- Step 3 — the timeout: TimeoutInterval = EstimatedRTT + 4 × DevRTT = 51.25 + 4 × 5.1875 = 51.25 + 20.75 = 72.00 ms
-- (c) 51.25 is the new EstimatedRTT alone — the answer if you forget the + 4 × DevRTT.
-- Why the formula looks like this: acknowledgement arrival times in TCP have a much flatter probability density than in the link layer, so the variation matters as much as the mean; adding four deviations makes a needless retransmission unlikely while still …
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-121
-Unit: 3 Networking
-Topic: The Transport Layer
-Type: MCQ
-Asked in: OSN Mid-sem 2025, Q4 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The LangOS networking group is debugging a connection and prints out part of the TCP header. One of the junior engineers claims: "The TCP header must always include an ACK number, otherwise the receiver won't know which byte to expect next." They wanted to know the correct explanation from you.
-Options: A) ACK field is always present in the TCP header, but the ACK bit in the flags determines if the value is valid B) The ACK field is included only when the ACK bit is set; otherwise, it is not part of the header C) The ACK number exists only in the three-way handshake and is dropped after connection setup D) The ACK field is optional and used only if the application enables reliability
-Answer: **Answer: (a).** The TCP header has a *fixed* 20-byte base layout, and the 32-bit acknowledgement number is one of its fixed fields — it occupies those four bytes in every segment, including the very first SYN. What varies is whether its contents mean anything, and that is what the **ACK flag** says: ACK = 1 means the acknowledgement number is valid.
-
-So in the first SYN of a connection the ACK bit is 0 and the field is ignored; in the SYN-ACK and in every segment thereafter the ACK bit is 1 and the field carries the next byte expected.
-
-**Why the others are wrong.** (b) would make the header variable in a way the fixed layout does not allow — optional data goes in the options area, after the fixed fields, which is what the header-length field measures. (c) is wrong because acknowledgements continue for the whole connection; that is how the sliding window advances. (d) is wrong because reliability is not an application switch: TCP is always reliable, and an application that wants no reliability uses UDP instead.
-Marking points:
-- Final answer: Answer: (a): The TCP header has a fixed 20-byte base layout, and the 32-bit acknowledgement number is one of its fixed fields — it occupies those four bytes in every segment, including the very first SYN.
-- Why the others are wrong: (b) would make the header variable in a way the fixed layout does not allow — optional data goes in the options area, after the fixed fields, which is what the header-length field measures.
 Answer source: written by Claude, no key
 Weak / low priority: no
 
@@ -1214,7 +919,7 @@ Weak / low priority: no
 Unit: 3 Networking
 Topic: The Transport Layer
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-120, PYQ-121
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)
 In syllabus: yes
 Question: Explain the silly window syndrome. How do Clark's algorithm and Nagle's algorithm each attack the problem, and why are two different fixes needed?
 Answer: **The syndrome.** The receiving application reads data one byte at a time. Each read frees one byte of buffer, so the receiver advertises a window of one byte; the sender immediately sends a one-byte segment, which is 21 bytes of TCP plus an IP header, and gets a 40-byte acknowledgement back. The connection does an enormous amount of work per byte — the slide counts 162 bytes of bandwidth and four segments for a single character.
@@ -1239,7 +944,7 @@ Weak / low priority: no
 Unit: 3 Networking
 Topic: The Transport Layer
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-120, PYQ-121
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)
 In syllabus: yes
 Question: Describe the phases of TCP congestion control. Why does TCP react differently to a timeout than to three duplicate acknowledgements?
 Answer: **The congestion window** (cwnd) limits how many segments may be in the network; the rate is cwnd / RTT, and arriving acknowledgements form an *ACK clock* that paces the sender.

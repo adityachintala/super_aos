@@ -106,7 +106,7 @@
       }
       const total = ids.length;
       return { ...u, done, revisit, total, left: total - done, pct: pct(done, total) };
-    }),
+    }).filter((r) => r.total > 0), // e.g. "Other" while predicted questions are hidden
   );
   const total = $derived(rows.reduce((n, r) => n + r.total, 0));
   const done = $derived(rows.reduce((n, r) => n + r.done, 0));

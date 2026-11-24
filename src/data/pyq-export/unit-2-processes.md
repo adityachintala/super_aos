@@ -25,74 +25,6 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
-Asked in: OSN Mid-sem 2025, Q1 (5 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: As a first step to process virtualisation, the team has identified that a process at any point can be in one of the three states: ready, running or blocked. Since you know Unix OS principles, they wanted to check with you when a process should alternate these states. Considering the scenario of two different processes, i) Interactive collaborative coding sessions (user-driven, lots of I/O); and ii) Periodic retraining of language models (assume these are purely CPU-intensive jobs with no disk or network I/O), please explain briefly (with a diagram) the states and their transitions. Briefly describe the conditions under which transitions occur, considering the above two examples.
-Answer: **Diagram:** Ready → Running (scheduled), Running → Ready (descheduled: time slice expires or preempted), Running → Blocked (initiates I/O or waits for an event), Blocked → Ready (I/O or event completes).
-
-**Coding session.** It runs for short bursts, then waits for keystrokes, file saves or network sync, so it moves Running → Blocked very often. When the input or I/O completes it goes Blocked → Ready, and is scheduled Ready → Running quickly. It rarely uses up its time slice.
-
-**Retraining job.** It never blocks, because it does no I/O. It cycles only between Ready and Running: scheduled Ready → Running, and when its slice expires, the timer interrupt forces Running → Ready. A good scheduler also preempts it when the interactive process becomes ready, to keep the session responsive.
-Marking points:
-- Diagram: Ready → Running (scheduled), Running → Ready (descheduled: time slice expires or preempted), Running → Blocked (initiates I/O or waits for an event), Blocked → Ready (I/O or event completes).
-- Coding session: It runs for short bursts, then waits for keystrokes, file saves or network sync, so it moves Running → Blocked very often.
-- Retraining job: It never blocks, because it does no I/O.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-25
-Unit: 2 Processes
-Topic: Processes and IPC
-Type: written
-Asked in: OSN End-sem 2023, Q1c (4 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: At any given point, there will be many processes executing in the IndixOS. At present, the team relies on the cooperative approach to pass control back to the OS. However, the team is unclear about how a pre-emptive approach can be implemented to get control back to the OS during process execution. For instance, assume that process B is getting executed, and if it makes some system call during execution, then as per their current implementation the OS will be able to get control and execute some other process C. Apart from this, the team requires the OS to have a better mechanism which allows the OS to get control as and when required. The team requires your suggestion based on your understanding of Unix about the mechanism and protocol that the OS needs to use to ensure that it can seamlessly switch between multiple processes.
-Answer: **Mechanism: the timer interrupt.** At boot, in kernel mode, the OS installs its interrupt handlers in the interrupt vector and starts a hardware timer. Both are privileged operations. The timer interrupts every few milliseconds regardless of what the process is doing, so even a process in an infinite loop cannot keep the CPU.
-
-**Protocol when the timer fires while process B runs:**
-
-- Hardware saves B's user registers, switches to kernel mode, and jumps to the timer handler.
-- The OS scheduler decides whether to keep B or switch to C.
-- To switch, it saves B's context in B's PCB and loads C's saved context from C's PCB (a context switch).
-- A return-from-trap instruction restores C's registers, switches back to user mode, and resumes C.
-Marking points:
-- Hardware saves B's user registers, switches to kernel mode, and jumps to the timer handler.
-- The OS scheduler decides whether to keep B or switch to C.
-- To switch, it saves B's context in B's PCB and loads C's saved context from C's PCB (a context switch).
-- A return-from-trap instruction restores C's registers, switches back to user mode, and resumes C.
-- Mechanism: the timer interrupt: At boot, in kernel mode, the OS installs its interrupt handlers in the interrupt vector and starts a hardware timer.
-- Protocol when the timer fires while process B runs:
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-26
-Unit: 2 Processes
-Topic: Processes and IPC
-Type: MCQ
-Asked in: OSN Mid-sem 2025, Q5 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: In LangOS, a user process issues a send() system call to transmit data over a TCP socket. Considering the following possible statements, which among these do you think captures what may happen in such a scenario?
-Options: A) A context switch always happens immediately because every system call requires the process to be de-scheduled B) A context switch may happen if the kernel's TCP send buffer is full causing the process to block until space is available C) A context switch never happens because TCP send is handled entirely in user space D) A context switch occurs only if the receiver is on the same machine as inter-process communication requires switching between processes
-Answer: **(b).** send() is a blocking system call. If there is room in the kernel's send buffer, the data is copied in and the call returns, with only a *mode* switch. If the buffer is full, the process moves Running → Blocked and the scheduler runs another process, which is a *context* switch.
-
-(a) confuses a mode switch with a context switch. (c) is wrong because TCP is implemented in the kernel. (d) is wrong because blocking depends on buffer space, not on where the receiver is.
-Marking points:
-- Final answer: (b): send() is a blocking system call.
-- If there is room in the kernel's send buffer, the data is copied in and the call returns, with only a mode switch.
-- If the buffer is full, the process moves Running → Blocked and the scheduler runs another process, which is a context switch.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-27
-Unit: 2 Processes
-Topic: Processes and IPC
-Type: written
 Asked in: AOS End-sem 2025, Q3 (5 marks); AOS Mid-sem 2025, Q1d (3 marks); OSN Quiz 1 2022, Q7 (2 marks); AOS Quiz 1 2025, Q7 (2 marks)
 Times asked: 4
 Reworded versions: "Explain why the medium-term scheduler is introduced." (AOS Mid-sem 2025); "Justify the requirement of medium-term scheduler." (OSN Quiz 1 2022)
@@ -118,7 +50,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-28
+### PYQ-25
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
@@ -136,7 +68,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-29
+### PYQ-26
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
@@ -154,7 +86,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-30
+### PYQ-27
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
@@ -176,7 +108,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-31
+### PYQ-28
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
@@ -205,7 +137,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-32
+### PYQ-29
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
@@ -226,28 +158,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-33
-Unit: 2 Processes
-Topic: Processes and IPC
-Type: written
-Asked in: OSN End-sem 2023, Q1a (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The fork team have created two APIs for supporting process virtualization: i) repl(), which is similar to fork(); ii) execute(), which is the same as the exec() and iii) wait as offered by the standard Unix OS. The team has developed a kernel and a shell on top of it. However, they want to implement support for a new shell command, "fwc" which takes a file name as input and gives out the number of words in the file as output (eg: fwc file.txt gives "20" as output indicating 20 words). Since shell itself is an executing process, they want your suggestion on implementing this command. Please explain how the existing system calls can be used to achieve this.
-Answer: The shell reads and parses the command line, then calls fork(). In the child (fork returned 0), it calls exec() with the fwc program and the argument file.txt; the child's memory is replaced by fwc, which opens the file, reads and counts the words, writes the count to standard output, and calls exit(). In the parent (fork returned the child's pid), the shell calls wait() until the child finishes, collects its exit status, and prints the prompt again. If the command ends with &, the shell skips wait() and continues immediately.
-
-fork() and exec() are separate so the child can adjust its environment between them, for example redirecting output to a file or a pipe, before the new program starts.
-Marking points:
-- The shell reads and parses the command line, then calls fork().
-- In the child (fork returned 0), it calls exec() with the fwc program and the argument file.txt; the child's memory is replaced by fwc, which opens the file, reads and counts the words, writes the count to standard output …
-- In the parent (fork returned the child's pid), the shell calls wait() until the child finishes, collects its exit status, and prints the prompt again.
-- If the command ends with &, the shell skips wait() and continues immediately.
-- fork() and exec() are separate so the child can adjust its environment between them, for example redirecting output to a file or a pipe, before the new program starts.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-34
+### PYQ-30
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
@@ -267,7 +178,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-35
+### PYQ-31
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
@@ -295,7 +206,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-23, PYQ-24
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-23
 In syllabus: yes
 Question: TRUE or FALSE, correct if false and justify: "A process in the waiting state moves directly to the running state when its I/O completes."
 Answer: **False.** Corrected: when the I/O completes, the process moves from waiting to *ready*. The completion interrupt only makes it eligible to run; the CPU may be busy with another process, and the short-term scheduler must pick it from the ready queue before it runs.
@@ -309,7 +220,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-27, PYQ-28, PYQ-29, PYQ-30
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-24, PYQ-25, PYQ-26, PYQ-27
 In syllabus: yes
 Question: Why must the short-term scheduler be fast, while the long-term scheduler can afford to be slow? Support your answer with a calculation.
 Answer: The short-term scheduler runs at least once every 100 ms, and every run is overhead. If each decision took 10 ms, then 10/(100+10) ≈ 9% of CPU time would be spent just choosing, not executing. So it must be very fast.
@@ -328,7 +239,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-33
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: A program calls fork() once and then prints 200 lines, each containing its pid. How many lines appear in total, and in what order? If a program calls fork() three times in sequence, how many processes exist at the end?
 Answer: **400 lines.** After fork(), parent and child both continue at the next statement, each with its own copy of the address space, so each prints 200 lines with its own pid. The order is unpredictable: the lines interleave according to how the scheduler switches between the two processes.
@@ -344,7 +255,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-34, PYQ-35
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-30, PYQ-31
 In syllabus: yes
 Question: In the shared-memory bounded-buffer solution with buffer size N, why can the buffer hold at most N − 1 items? What are the weaknesses of this solution?
 Answer: The empty condition is `in == out`. If all N slots could be filled, `in` would wrap around to equal `out` again, and "full" would look identical to "empty". So "full" is defined as `(in+1) % N == out`, one slot early, and one slot always stays unused.
@@ -362,7 +273,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-34, PYQ-35
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-30, PYQ-31
 In syllabus: yes
 Question: Compare direct and indirect communication in message passing. P1, P2 and P3 share mailbox A; P1 sends and both P2 and P3 execute receive. Who gets the message? Give the possible solutions.
 Answer: **Direct:** processes name each other (send(P, msg), receive(Q, msg)). The link is established automatically, with exactly one link per pair. Addressing can be symmetric or asymmetric (receive(id, msg) from any sender). Disadvantage: names are hard-coded, so changing a process's name breaks every process that refers to it.
@@ -381,7 +292,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Processes and IPC
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-34, PYQ-35
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-30, PYQ-31
 In syllabus: yes
 Question: Process P must continue only after its message has actually reached Q. The link has bounded capacity. Is send() enough? If not, what must P and Q do? What changes with zero capacity?
 Answer: With non-zero capacity, send() returns once the message is queued in the link, so P does not know whether Q has received it. P and Q need an explicit acknowledgment: P does send(Q, msg) and then receive(Q, ack); Q does receive(P, msg) and then send(P, "ack"). P continues only after the ack arrives.
@@ -436,7 +347,7 @@ Weak / low priority: no
 
 ## Threads
 
-### PYQ-36
+### PYQ-32
 Unit: 2 Processes
 Topic: Threads
 Type: written
@@ -456,7 +367,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-37
+### PYQ-33
 Unit: 2 Processes
 Topic: Threads
 Type: written
@@ -478,7 +389,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-38
+### PYQ-34
 Unit: 2 Processes
 Topic: Threads
 Type: written
@@ -501,7 +412,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-39
+### PYQ-35
 Unit: 2 Processes
 Topic: Threads
 Type: written
@@ -530,7 +441,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-40
+### PYQ-36
 Unit: 2 Processes
 Topic: Threads
 Type: written
@@ -548,7 +459,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-41
+### PYQ-37
 Unit: 2 Processes
 Topic: Threads
 Type: true/false
@@ -569,7 +480,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Threads
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-36, PYQ-37
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-32, PYQ-33
 In syllabus: yes
 Question: What do threads of one process share, and what do they keep private? Why is creating a thread much cheaper than creating a process?
 Answer: **Shared:** code section, data section, heap, open files and other OS resources of the process. **Private per thread:** thread id, program counter, register set and stack.
@@ -588,7 +499,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Threads
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-38, PYQ-39
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-34, PYQ-35
 In syllabus: yes
 Question: Compare the many-to-one, one-to-one and many-to-many multithreading models. Which does a modern OS use, and why?
 Answer:
@@ -612,7 +523,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Threads
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-40, PYQ-41
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-36, PYQ-37
 In syllabus: yes
 Question: A multithreaded process calls fork() and then exec(). What should fork duplicate, and why does the answer depend on whether exec follows?
 Answer: Some systems provide two versions of fork: one that duplicates **all** threads and one that duplicates only the **calling** thread.
@@ -632,7 +543,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Threads
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-40, PYQ-41
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-36, PYQ-37
 In syllabus: yes
 Question: Distinguish asynchronous and deferred thread cancellation. Why do systems prefer deferred cancellation?
 Answer: **Asynchronous cancellation:** the target thread is terminated immediately. **Deferred cancellation:** the target checks periodically at cancellation points and terminates itself in an orderly way.
@@ -650,7 +561,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Threads
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to Blocks 9 and 10; same section as PYQ-40, PYQ-41
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to Blocks 9 and 10; same section as PYQ-36, PYQ-37
 In syllabus: yes
 Question: Using Blocks 9 and 10, explain why a context switch between two threads of the same process is much cheaper than one between two processes.
 Answer: **Same in both:** save and restore registers, program counter and stack pointer (in the PCB or thread control block), and run the scheduler.
@@ -667,7 +578,7 @@ Weak / low priority: no
 
 ## CPU Scheduling
 
-### PYQ-42
+### PYQ-38
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -694,7 +605,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-43
+### PYQ-39
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -716,7 +627,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-44
+### PYQ-40
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -738,7 +649,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-45
+### PYQ-41
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: true/false
@@ -761,7 +672,7 @@ Marking points:
 Answer source: student answers
 Weak / low priority: no
 
-### PYQ-46
+### PYQ-42
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -792,66 +703,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-47
-Unit: 2 Processes
-Topic: CPU Scheduling
-Type: numerical
-Asked in: OSN Mid-sem 2025, Q2 (8 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The LangOS process virtualisation team is considering the different workload types in the system to decide on a scheduling policy. The team is planning to build a scenario-based scheduling policy selector that dynamically selects a policy based on a given scenario. The team has identified two broad scenarios: a. Scenario A: Three identical system processes, each requiring 20ms execution time, arrive simultaneously. b. Scenario B: Three processes with different execution requirements: Process 1 (10ms), Process 2 (20ms), Process 3 (30ms) arrive simultaneously. Based on the above scenarios, the team wants your help and support in deciding on which scheduling policy to use: a. In your opinion, what will be the benefit of using SJF and FIFO schedulers for scenario A, considering the different metrics? b. For Scenario B, express your opinion by calculating the metrics for SJF, FIFO, and Round Robin (time slice = 1ms) schedulers. Show your work clearly. c. According to you, under what characteristics would SJF deliver the same turnaround times as FIFO in LangOS? d. For what types of workloads and quantum lengths would SJF deliver the same response times as Round Robin?
-Answer: **(a)** None. With identical bursts SJF and FIFO make the same decisions: turnaround 20, 40, 60, average 40 ms; response 0, 20, 40, average 20 ms.
-
-**(b)** Turnaround = completion − arrival; response = first run − arrival.
-
-| Policy | Completions | Avg turnaround | Avg response |
-| --- | --- | --- | --- |
-| FIFO (10, 20, 30) | 10, 30, 60 | (10 + 30 + 60)/3 = **33.3 ms** | (0 + 10 + 30)/3 = **13.3 ms** |
-| SJF (same order) | 10, 30, 60 | **33.3 ms** (optimal) | **13.3 ms** |
-| RR, q = 1 ms | 28, 49, 60 | (28 + 49 + 60)/3 = **45.7 ms** | (0 + 1 + 2)/3 = **1 ms** |
-
-RR detail: for the first 30 ms the three alternate, so the 10 ms job finishes at its tenth slice, 3 × 9 + 1 = **28**; the other two then alternate, and the 20 ms job finishes at 30 + 2 × 9 + 1 = **49**; the 30 ms job runs alone to **60**. RR gives by far the best response (good for interactive users) and the worst turnaround (plus context-switch overhead, ignored here).
-
-**(c)** SJF equals FIFO in turnaround when jobs arrive in non-decreasing order of burst (or all bursts are equal): shortest-first is then the arrival order. SJF equals RR in response time when every job's burst is no longer than the quantum (each finishes in its first slice), or with a single job.
-
-No official key exists for this paper; this is my own solution.
-Marking points:
-- Final answer: (c) SJF equals FIFO in turnaround when jobs arrive in non-decreasing order of burst (or all bursts are equal): shortest-first is then the arrival order.
-- (b) Turnaround = completion − arrival; response = first run − arrival.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-48
-Unit: 2 Processes
-Topic: CPU Scheduling
-Type: MCQ
-Asked in: OSN End-sem 2025, Q1 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The AgentOS team is evaluating whether Round Robin (RR) is a suitable scheduler for their workloads. They consider three processes: P1, which arrives at time 0 ms and requires 5 ms of CPU time; P2, which arrives at 1 ms and exhibits mixed behaviour with a 2 ms CPU burst, followed by a 4 ms I/O operation, and then another 2 ms CPU burst; and P3, which arrives at 3 ms and requires 4 ms of CPU time. The team simulates Round Robin scheduling with 1 ms time quantum and no context-switch overhead, and they want to determine the resulting average turnaround time. What is the correct value and why?
-Options: A) 10.00 ms B) 8.66 ms C) 11.33 ms D) 9.00 ms
-Answer: **Convention (state it):** when a process's quantum expires at the same instant another arrives, the preempted process goes to the tail before the newcomer. (With the opposite convention the answer is 10.67 ms, which is not an option, so the paper uses this one.)
-
-| Time | 0–1 | 1–2 | 2–3 | 3–4 | 4–5 | 5–6 | 6–7 | 7–8 | 8–9 | 9–10 | 10–11 | 11–12 | 12–13 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Runs | P1 | P1 | P2 | P1 | P2 | P3 | P1 | P3 | P1 | P3 | P2 | P3 | P2 |
-
-P2's first burst ends at 5, so it does I/O 5–9 and rejoins the queue at 9. P1 finishes at **9**, P3 at **12**, P2 at **13**.
-
-Turnaround: P1 9 − 0 = 9, P2 13 − 1 = 12, P3 12 − 3 = 9. Average = 30 / 3 = **10.00 ms: option (a)**.
-
-The I/O time counts in P2's turnaround (turnaround is completion − arrival), but during it P2 is not in the ready queue. No official key exists; this is my own solution.
-Marking points:
-- Final answer: Average = 30 / 3 = 10.00 ms: option (a).
-- Convention (state it): when a process's quantum expires at the same instant another arrives, the preempted process goes to the tail before the newcomer.
-- (With the opposite convention the answer is 10.67 ms, which is not an option, so the paper uses this one.)
-- P2's first burst ends at 5, so it does I/O 5–9 and rejoins the queue at 9.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-49
+### PYQ-43
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -871,28 +723,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-50
-Unit: 2 Processes
-Topic: CPU Scheduling
-Type: MCQ
-Asked in: OSN End-sem 2023, Q10 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The Fork team wants to check how IndixOS can seamlessly switch between different running processes at any given point. The team expects IndixOS to have a mix of workloads with a lot of I/O-intensive workloads and some CPU-intensive workloads. Assuming that, as in any real case, there will not be any information on the completion time of each process and any process can arrive at any time, the team wants to check with you which could be a better policy to use for scheduling. Which one of the following scheduling policies do you recommend and why?
-Options: A) Multi-level feedback queues B) First come, first serve C) Round Robin D) Shortest Completion time first
-Answer: **(a) Multilevel feedback queues.** It needs no advance knowledge of burst lengths: it *learns* each process's behaviour from how it uses its quantum. I/O-intensive processes use short bursts and stay in the high-priority, short-quantum queues, so they get fast response and keep the devices busy; CPU-intensive processes are demoted to lower queues with longer quanta, which reduces context switches for them; aging prevents their starvation. New arrivals at any time enter the top queue and get served quickly.
-
-**Why not the others:** (b) FCFS gives the convoy effect, I/O-bound processes waiting behind CPU-bound ones; (c) RR is fair and responsive but treats both kinds the same, so I/O-bound processes wait behind full quanta of CPU-bound ones; (d) needs completion times, which are unknown (and with arrivals at any time, it can starve long jobs).
-
-No official key; this is my own solution.
-Marking points:
-- Final answer: (a) Multilevel feedback queues: It needs no advance knowledge of burst lengths: it learns each process's behaviour from how it uses its quantum.
-- Why not the others: (b) FCFS gives the convoy effect, I/O-bound processes waiting behind CPU-bound ones; (c) RR is fair and responsive but treats both kinds the same, so I/O-bound processes wait behind full quanta of CPU-bound ones; (d) …
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-51
+### PYQ-44
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: true/false
@@ -913,7 +744,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-52
+### PYQ-45
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -933,7 +764,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-53
+### PYQ-46
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -957,7 +788,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-54
+### PYQ-47
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: true/false
@@ -974,7 +805,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-55
+### PYQ-48
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -995,7 +826,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-56
+### PYQ-49
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -1026,7 +857,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-57
+### PYQ-50
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -1049,7 +880,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-58
+### PYQ-51
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
@@ -1070,61 +901,11 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: from the UNIX research paper; the end-sem list names no research papers. The idea (priority from recent CPU usage) is still worth one line in the I/O-bound questions.
 
-### PYQ-59
-Unit: 2 Processes
-Topic: CPU Scheduling
-Type: written
-Asked in: OSN End-sem 2025, Q10 (bonus) (4 (bonus))
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: Bonus Question: Many CPU-scheduling algorithms are parameterized. For example, the RR algorithm requires a parameter to indicate the time slice. Multilevel feedback queues require parameters to define the number of queues, the scheduling algorithms for each queue, the criteria used to move processes between queues, and so on. These algorithms are thus really sets of algorithms (for example, the set of RR algorithms for all time slices, and so on). One set of algorithms may include another (for example, the FCFS algorithm is the RR algorithm with an infinite time quantum). What (if any) relation holds between the following pairs of algorithm sets? a. Priority and SJF b. Multilevel feedback queues and FCFS c. Priority and FCFS d. RR and SJF
-Answer: Each scheduling algorithm is really a set of algorithms (one per parameter value), so the question is which set contains which.
-
-| Pair | Relation | Reason |
-| --- | --- | --- |
-| a. Priority and SJF | SJF is a subset of Priority | SJF is priority scheduling with priority = the (predicted) length of the next CPU burst: the shortest job has the highest priority. |
-| b. MLFQ and FCFS | FCFS is a subset of MLFQ | An MLFQ with a single queue scheduled FCFS (or with an infinite quantum) is FCFS; the lowest queue of a typical MLFQ is FCFS too. |
-| c. Priority and FCFS | FCFS is a subset of Priority | FCFS is priority scheduling with priority = arrival time: the job that has been waiting longest has the highest priority. |
-| d. RR and SJF | No relation | Neither contains the other: RR ignores burst length, and SJF never preempts a job to share the CPU in turns. |
-Marking points:
-- SJF is a special case of Priority (priority = next CPU burst).
-- FCFS is a special case of MLFQ (one queue, FCFS).
-- FCFS is a special case of Priority (priority = arrival time).
-- RR and SJF: no relation, with a reason.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-60
-Unit: 2 Processes
-Topic: CPU Scheduling
-Type: MCQ
-Asked in: OSN Mid-sem 2025, Bonus 2 (3 (bonus))
-Times asked: 1
-Reworded versions: none
-In syllabus: yes (Linux CFS is in the textbook CPU-scheduling chapter)
-Question: Bonus: The team is considering using a CFS scheduler, but they have a curiosity. What was the main reason the CFS scheduler replaced the Linux O(1) scheduler? Justify your answer. (option d is cut off in the scan)
-Options: A) Scheduling a task under high loads took an unpredictable amount of time B) Low-priority task could wait indefinitely and starve C) Interactive tasks could wait for unpredictable amounts of time to be scheduled
-Answer: **Answer: (c).**
-
-The O(1) scheduler had to guess which tasks were interactive, using complicated heuristics based on sleep time, and then boost their priority. These heuristics were often wrong, so interactive tasks could wait for unpredictable amounts of time and desktop responsiveness was poor.
-
-CFS (Completely Fair Scheduler) dropped the heuristics. It gives every task a share of the CPU in proportion to its weight (its nice value): it tracks each task's virtual runtime and always runs the task with the smallest virtual runtime, kept in a red-black tree. A task that sleeps (an interactive one) has a small virtual runtime, so it is picked quickly when it wakes. Fairness, and with it good interactive latency, follows naturally.
-
-Options (a) and (b) are not the main reason: the O(1) scheduler's selection time was constant, and it already had mechanisms against indefinite starvation.
-Marking points:
-- Chooses (c).
-- O(1) relied on fragile interactivity heuristics.
-- CFS: proportional share by weight, smallest virtual runtime first, red-black tree.
-- Sleeping tasks get the CPU quickly, so interactivity is good.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
 ### PRED-26
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-43
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-39
 In syllabus: yes
 Question: Define the five scheduling criteria and say which ones a batch system and an interactive system each care about most. Why is the quantum's size a trade-off?
 Answer: **Criteria:** CPU utilization (keep the CPU busy, maximize); throughput (processes completed per unit time, maximize); turnaround time (submission to completion, minimize); waiting time (time in the ready queue, minimize; this is what the scheduler actually affects); response time (request to first response, minimize).
@@ -1144,7 +925,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-44
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-40
 In syllabus: yes
 Question: Processes P1, P2, P3 arrive at time 0 with bursts 24, 3 and 3 ms. Compute average waiting and turnaround time for FCFS (in that order), SJF, and RR with quantum 4 ms.
 Answer:
@@ -1167,7 +948,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-44
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-40
 In syllabus: yes
 Question: P1 (arrival 0, burst 8), P2 (1, 4), P3 (2, 9), P4 (3, 5). Draw Gantt charts and compute the average waiting time for (a) non-preemptive SJF and (b) preemptive SJF (SRTF).
 Answer: **(a) Non-preemptive SJF:** at 0 only P1 is there, so it runs 0–8. Then the shortest waiting: P2 8–12, P4 12–17, P3 17–26.
@@ -1190,7 +971,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-44
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-40
 In syllabus: yes
 Question: With α = 1/2 and τ0 = 10 ms, the actual CPU bursts are 6, 4, 6, 4, 13, 13, 13 ms. Compute the predictions τ1 to τ7. What do α = 0 and α = 1 mean?
 Answer: τn+1 = ½ tn + ½ τn:
@@ -1214,7 +995,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-46, PYQ-47, PYQ-48
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-42
 In syllabus: yes
 Question: Priority scheduling can starve low-priority processes. What is the standard remedy, and why does it work? How is a multilevel feedback queue related?
 Answer: **Remedy: aging.** Gradually increase the priority of a process that has been waiting a long time. Since a waiting process's priority keeps rising, it must eventually become the highest-priority runnable process and be scheduled, so no process waits forever. (The legend: an IBM 7094 shut down in 1973 was found to have a low-priority job submitted in 1967 that had never run.)
@@ -1232,7 +1013,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-54
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-47
 In syllabus: yes
 Question: Distinguish process-contention scope from system-contention scope. Which models use PCS, and what goes wrong for a high-priority thread under PCS?
 Answer: **PCS:** the thread library schedules the user threads of one process onto the available LWPs; threads compete only with threads of the same process, by programmer-assigned priority. Used in the many-to-one and many-to-many models.
@@ -1251,7 +1032,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-55
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-48
 In syllabus: yes
 Question: P1 has period 50 and processing time 25; P2 has period 80 and processing time 35; deadlines equal periods; both arrive at 0. (a) Can rate-monotonic scheduling meet all deadlines? (b) Can EDF? Show the schedules up to time 160.
 Answer: **CPU utilization** = 25/50 + 35/80 = 0.5 + 0.4375 = **0.94**, above the rate-monotonic bound for two processes, 2(2^1/2 − 1) ≈ 0.83, so RMS is not guaranteed to work.
@@ -1272,7 +1053,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: CPU Scheduling
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: On average 7 processes arrive per second, and there are normally 14 processes in the ready queue. What is the average waiting time per process? Why is this result useful even when the distributions are unknown?
 Answer: Little's law n = λ × W gives W = n / λ = 14 / 7 = **2 seconds**.
@@ -1311,7 +1092,7 @@ Weak / low priority: no
 
 ## Synchronization
 
-### PYQ-61
+### PYQ-52
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1332,7 +1113,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-62
+### PYQ-53
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1354,7 +1135,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-63
+### PYQ-54
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1381,7 +1162,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-64
+### PYQ-55
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1403,125 +1184,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: yes: research-paper question; the end-sem topic list names no research papers
 
-### PYQ-65
-Unit: 2 Processes
-Topic: Synchronization
-Type: written
-Asked in: OSN End-sem 2023, Q3 (10 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The sem team responsible for managing concurrency is testing out applications to test the concurrency aspects. They have implemented the notion of semaphore that is made available through the POSIX library. The team plans to test this by creating a simple application similar to Google Docs. However, they want you to test their semaphore implementation. The constraint they have for the application is that multiple threads should be able to read a document at the same time, but only one writer should be able to write at any given instant of time. Moreover, they also want to ensure that there is no starvation of thread that is waiting to write to the document. Can you devise a solution to address these constraints (Pseudocode)? (Clearly state the assumptions made and reason on the solution)
-Answer: **Assumptions:** semaphores are strong (FIFO queues: wakeup order is arrival order); readers and writers are threads of one process sharing the document; a reader never upgrades to a writer.
-
-```
-semaphore rw_mutex = 1;  /* held by a writer, or by the group of readers */
-semaphore mutex    = 1;  /* protects read_count                          */
-semaphore queue    = 1;  /* service order: everyone passes through here  */
-int read_count = 0;
-
-reader() {
-    wait(queue);                 /* take a place in line            */
-    wait(mutex);
-    read_count++;
-    if (read_count == 1) wait(rw_mutex);   /* first reader locks out writers */
-    signal(mutex);
-    signal(queue);               /* let the next in line proceed    */
-    /* read the document */
-    wait(mutex);
-    read_count--;
-    if (read_count == 0) signal(rw_mutex); /* last reader lets writers in    */
-    signal(mutex);
-}
-
-writer() {
-    wait(queue);                 /* take a place in line            */
-    wait(rw_mutex);              /* wait for current readers / writer */
-    signal(queue);
-    /* write the document */
-    signal(rw_mutex);
-}
-```
-
-**Multiple readers:** only the first reader of a group takes rw_mutex, so readers already inside overlap freely.
-
-**One writer at a time:** a writer holds rw_mutex for the whole write, which excludes readers (they need it via the first reader) and other writers.
-
-**No writer starvation:** the extra `queue` semaphore is a turnstile. When a writer arrives it takes `queue` and holds it while waiting for rw_mutex; every reader arriving after it blocks on `queue`, so the stream of new readers stops; the readers already inside finish, the last one signals rw_mutex, and the writer enters. In the first (reader-preference) solution there is no such turnstile, which is exactly why a continuous stream of readers starves the writer there.
-
-**No reader starvation either:** with FIFO semaphores, threads pass `queue` in arrival order, so a reader waits behind at most the writers that arrived before it.
-
-**Trade-off:** slightly less read concurrency (readers behind a waiting writer must wait even though readers are inside). No official key exists for this paper; this is my own solution.
-Marking points:
-- Assumptions: semaphores are strong (FIFO queues: wakeup order is arrival order); readers and writers are threads of one process sharing the document; a reader never upgrades to a writer.
-- Multiple readers: only the first reader of a group takes rw_mutex, so readers already inside overlap freely.
-- One writer at a time: a writer holds rw_mutex for the whole write, which excludes readers (they need it via the first reader) and other writers.
-- No writer starvation: the extra queue semaphore is a turnstile.
-- No reader starvation either: with FIFO semaphores, threads pass queue in arrival order, so a reader waits behind at most the writers that arrived before it.
-- Trade-off: slightly less read concurrency (readers behind a waiting writer must wait even though readers are inside).
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-66
-Unit: 2 Processes
-Topic: Synchronization
-Type: written
-Asked in: OSN End-sem 2025, Q9a (8 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The AgentOS team is in the process of developing a firmware for a high-end Core Router placed at the edge of an Autonomous System (AS). This router maintains a massive Global_Routing Table in shared memory. The router has two critical tasks running as concurrent threads: i) Hundreds of threads representing incoming packets. They need to read the Global_Routing Table to find the "Next Hop" interface. Speed is critical; multiple readers must access the table simultaneously; ii) A background process that receives BGP_UPDATE messages from other ISPs. When a route changes (e.g., a cable cut in some location), this daemon must acquire exclusive access to modify the table to prevent readers from routing packets into a black hole. a. Write pseudocode Lookup_Route(Dest_IP) and Update_BGP_Route(New_Path) using Semaphores and Mutexes.
-Answer: This is the **readers–writers problem with writer priority**: many lookups may read the table at once, but an update needs exclusive access, and an update must not be starved by the endless stream of packet lookups (otherwise packets keep going to a dead route).
-
-```
-semaphore rw_mutex  = 1;   // held by the writer, or by the group of readers
-semaphore mutex     = 1;   // protects read_count
-semaphore turnstile = 1;   // a waiting writer closes it to stop new readers
-int read_count = 0;
-
-Lookup_Route(Dest_IP):
-    wait(turnstile);              // blocks only while an update is waiting
-    signal(turnstile);
-    wait(mutex);
-    read_count = read_count + 1;
-    if (read_count == 1) wait(rw_mutex);   // first reader locks out writers
-    signal(mutex);
-
-    hop = search(Global_Routing_Table, Dest_IP);   // many readers in parallel
-
-    wait(mutex);
-    read_count = read_count - 1;
-    if (read_count == 0) signal(rw_mutex); // last reader lets a writer in
-    signal(mutex);
-    return hop;
-
-Update_BGP_Route(New_Path):
-    wait(turnstile);              // no new readers may enter
-    wait(rw_mutex);               // wait for readers already inside to leave
-    apply(Global_Routing_Table, New_Path);
-    signal(rw_mutex);
-    signal(turnstile);            // readers may enter again
-```
-
-**Why it is correct.**
-
-- Mutual exclusion for updates: the updater holds `rw_mutex`, which the first reader must also acquire, so no lookup runs during an update and no packet is routed on a half-written entry.
-- Concurrency for lookups: only the first reader takes `rw_mutex`, so any number of lookups run together.
-- No writer starvation: once the updater passes `turnstile`, new readers block on it; the readers already inside finish, the last one releases `rw_mutex`, and the update runs.
-- `mutex` makes the update of `read_count` atomic.
-
-**Assumption:** updates are rare compared with lookups. If update latency matters even more, the table can be updated by building a new copy and swapping a pointer (read-copy-update), so readers never block.
-Marking points:
-- Identifies readers–writers with writer priority.
-- Readers share access; first reader locks out writers, last reader releases.
-- Writer gets exclusive access to the table.
-- Turnstile (or equivalent) stops writer starvation.
-- mutex protects read_count.
-- Explains why no packet sees a half-updated route.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-67
+### PYQ-56
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1541,7 +1204,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-68
+### PYQ-57
 Unit: 2 Processes
 Topic: Synchronization
 Type: true/false
@@ -1560,7 +1223,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-69
+### PYQ-58
 Unit: 2 Processes
 Topic: Synchronization
 Type: true/false
@@ -1581,7 +1244,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-70
+### PYQ-59
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1602,7 +1265,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-71
+### PYQ-60
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1622,26 +1285,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-72
-Unit: 2 Processes
-Topic: Synchronization
-Type: MCQ
-Asked in: OSN End-sem 2023, Q9 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: The sem team wants to test their implementation with an I/O intensive operation where they want to create a program that can process a file consisting of 100000 records. In order to make it faster and to test the efficiency of their implementation, the thread team are planning to write a program which will use 10 threads where each thread reads 10000 records and processes them independently, so in total, all the 100000 records will be processed. However, the team is not sure which of these is required to complete the implementation. Which of these do you recommend and why?
-Options: A) Make use of locks. No need for condition variables B) Only condition variables are needed. No need for locks C) Both locks and condition variables are needed D) No need for either locks or condition variables
-Answer: **(d) Neither**, under the stated design: each thread works on a disjoint range of records and processes them independently, so there is no shared mutable data to protect (no race, no need for a lock) and no thread waits for another's result or state change (no need for a condition variable). Each thread can open the file itself and read its own range by offset (pread), and write its results to its own output.
-
-**When the answer changes:** if the threads share one file descriptor and its offset, or update a shared counter or result structure, a **lock** is needed; if one thread must wait for others (for example a main thread waiting for all to finish, or a producer feeding records to workers), a **condition variable** (or join) is needed. State the assumption. No official key; this is my own solution.
-Marking points:
-- Final answer: (d) Neither, under the stated design: each thread works on a disjoint range of records and processes them independently, so there is no shared mutable data to protect (no race, no need for a lock) and no thread waits for another's result or state change …
-- When the answer changes: if the threads share one file descriptor and its offset, or update a shared counter or result structure, a lock is needed; if one thread must wait for others (for example a main thread waiting …
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-73
+### PYQ-61
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1706,7 +1350,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-74
+### PYQ-62
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
@@ -1764,7 +1408,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-61
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-52
 In syllabus: yes
 Question: State the three requirements a solution to the critical-section problem must satisfy. What is a race condition, and why is counter++ unsafe?
 Answer: **Requirements:** *mutual exclusion* (at most one process in its critical section); *progress* (if the section is free, only processes wanting to enter decide who enters, and the decision is not postponed indefinitely); *bounded waiting* (a bound on how many times others may enter after a process has made its request, so no starvation).
@@ -1857,7 +1501,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-62, PYQ-63
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-53, PYQ-54
 In syllabus: yes
 Question: Show that the test-and-set lock satisfies mutual exclusion and progress but not bounded waiting. How is bounded waiting added? Give the priority scenario in which the spinlock deadlocks.
 Answer: **Mutual exclusion:** TestAndSet reads and sets the lock in one indivisible step, so exactly one process can see lock = false and set it to true; every other caller sees true and spins until the holder sets lock = false.
@@ -1882,7 +1526,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-64
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-55
 In syllabus: yes
 Question: What is a counting semaphore versus a binary semaphore? How is a semaphore implemented without busy waiting, and why must wait() and signal() themselves be atomic?
 Answer: **Binary semaphore:** value 0 or 1, behaves like a mutex lock. **Counting semaphore:** unrestricted range, used to count instances of a resource (e.g. five identical printers: initialize to 5; each wait takes one, each signal returns one; a process blocks when the value is 0).
@@ -1901,7 +1545,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-64
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-55
 In syllabus: yes
 Question: A programmer protects a critical section with semaphore mutex = 1. What happens if a process (a) writes signal(mutex) … wait(mutex); (b) writes wait(mutex) … wait(mutex); (c) omits wait(mutex)? What construct was introduced to prevent such errors, and why does it help?
 Answer: **(a)** Mutual exclusion is violated: the process enters without waiting and its signal raises the value, so several processes may be in their CS at once.
@@ -1923,7 +1567,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-65
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)
 In syllabus: yes
 Question: Write the bounded-buffer producer–consumer solution using semaphores. What goes wrong if the producer executes wait(mutex) before wait(empty)?
 Answer:
@@ -1960,7 +1604,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-65
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)
 In syllabus: yes
 Question: Five philosophers sit around a table with one chopstick between each pair; each needs both neighbouring chopsticks to eat. Show how the obvious semaphore solution deadlocks, and give two fixes.
 Answer: **Obvious solution:** `semaphore chopstick[5] = {1,…}`; philosopher i does wait(chopstick[i]); wait(chopstick[(i+1)%5]); eat; signal both.
@@ -1979,7 +1623,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-65
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers)
 In syllabus: yes
 Question: In the readers–writers problem, the first solution gives readers priority. What problem does that cause, and how is it fixed? What is the trade-off?
 Answer: **First (reader-priority) solution:** no reader waits unless a writer already holds the resource. If readers keep arriving, the read count never drops to zero, so the writer waits forever: **writer starvation**.
@@ -1998,7 +1642,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to Block 5; same section as PYQ-73, PYQ-74
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to Block 5; same section as PYQ-61, PYQ-62
 In syllabus: yes
 Question: P0 executes wait(S); wait(Q); and P1 executes wait(Q); wait(S); with S = Q = 1. Show which of the four necessary conditions for deadlock (Block 5) hold, and give two ways to remove the deadlock using Block 5's ideas.
 Answer: If P0 gets S and P1 gets Q, each then waits for the other's semaphore forever. All four conditions hold: **mutual exclusion** (a binary semaphore admits one holder), **hold and wait** (each holds one and waits for the other), **no preemption** (a semaphore cannot be taken back), **circular wait** (P0 → Q held by P1 → S held by P0).
@@ -2016,7 +1660,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Synchronization
 Type: written
-Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to Blocks 3 and 14; same section as PYQ-73, PYQ-74
+Based on: end-sem syllabus item 5, "high-level questions may be given by connecting the topics discussed in several chapters"; connects to Blocks 3 and 14; same section as PYQ-61, PYQ-62
 In syllabus: yes
 Question: Explain why a preemptive kernel on a multiprocessor needs spinlocks rather than disabling interrupts, and how Amdahl's law (Block 14) explains why kernels try to avoid shared locks altogether on many cores.
 Answer: **Spinlocks, not interrupt disabling:** disabling interrupts stops preemption only on the local CPU; another CPU can still enter the same critical section. A spinlock in shared memory, built from an atomic instruction, excludes all CPUs. Because the holder is running on another CPU and kernel critical sections are short, spinning is cheaper than blocking, and a thread holding a spinlock is not preempted (Windows), so others never spin long.
@@ -2032,7 +1676,7 @@ Weak / low priority: no
 
 ## Deadlocks
 
-### PYQ-75
+### PYQ-63
 Unit: 2 Processes
 Topic: Deadlocks
 Type: written
@@ -2064,7 +1708,7 @@ Marking points:
 Answer source: professor's key
 Weak / low priority: no
 
-### PYQ-76
+### PYQ-64
 Unit: 2 Processes
 Topic: Deadlocks
 Type: true/false
@@ -2093,33 +1737,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-77
-Unit: 2 Processes
-Topic: Deadlocks
-Type: MCQ
-Asked in: OSN End-sem 2025, Q7 (3 marks)
-Times asked: 1
-Reworded versions: none
-In syllabus: yes
-Question: Three concurrent processes X, Y and Z update shared variables. X performs Wait
-Options: A) , Wait B) , Wait C) before entering its critical section; Y performs Wait(b), Wait(c), Wait D) ; Z performs Wait(c), Wait(d), Wait(a). All semaphores are binary, initialized to 1. Which order of invoking the Wait() operations is deadlock-free? (a) X: a, b, c Y: b, c, d Z: c, d, a (b) X: b, a, c Y: b, c, d Z: a, c, d (c) X: a, b, c Y: c, b, d Z: a, c, d (d) X: a, b, c Y: b, d, c Z: d, c, a
-Answer: **Answer: (b).**
-
-**Core sentence:** a set of processes is deadlock-free if every process acquires the semaphores in one consistent global order, because that is exactly the circular-wait prevention protocol — impose a total ordering F on the resources and require requests in increasing F.
-
-**Checking (b)** against the order **b < a < c < d**: X takes b, a, c ✓; Y takes b, c, d ✓; Z takes a, c, d ✓. Every process requests in increasing order, so no cycle of "holds one, waits for the next" can form.
-
-**Why the given order deadlocks:** in the original (option a) X holds a and wants b, Y holds b and wants c, Z holds c and wants a — a circular wait, and all four necessary conditions hold. The other options each contain at least one pair whose relative order disagrees with another process's, which re-creates a cycle.
-
-Worth adding in the exam: this is the same idea BSD UNIX's *witness* tool enforces, by recording lock orders and warning when a thread acquires them out of order.
-Marking points:
-- Final answer: Checking (b) against the order b < a < c < d: X takes b, a, c ✓; Y takes b, c, d ✓; Z takes a, c, d ✓.
-- a set of processes is deadlock-free if every process acquires the semaphores in one consistent global order, because that is exactly the circular-wait prevention protocol — impose a total ordering F on the resources and require requests in increasing F.
-- Why the given order deadlocks: in the original (option a) X holds a and wants b, Y holds b and wants c, Z holds c and wants a — a circular wait, and all four necessary conditions hold.
-Answer source: written by Claude, no key
-Weak / low priority: no
-
-### PYQ-78
+### PYQ-65
 Unit: 2 Processes
 Topic: Deadlocks
 Type: true/false
@@ -2140,7 +1758,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-79
+### PYQ-66
 Unit: 2 Processes
 Topic: Deadlocks
 Type: written
@@ -2163,7 +1781,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-80
+### PYQ-67
 Unit: 2 Processes
 Topic: Deadlocks
 Type: true/false
@@ -2183,7 +1801,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-81
+### PYQ-68
 Unit: 2 Processes
 Topic: Deadlocks
 Type: numerical
@@ -2229,7 +1847,7 @@ Marking points:
 Answer source: written by Claude, no key
 Weak / low priority: no
 
-### PYQ-82
+### PYQ-69
 Unit: 2 Processes
 Topic: Deadlocks
 Type: written
@@ -2306,7 +1924,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Deadlocks
 Type: true/false
-Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-80
+Based on: imitates the professor's TRUE/FALSE correct-and-justify items (OSN End 2022 Q1, AOS End 2025 Q1); same section as PYQ-67
 In syllabus: yes
 Question: "An unsafe state is a deadlocked state." True or false? Correct it and justify.
 Answer: **False.** Corrected: an unsafe state is a state in which deadlock is *possible*, not one in which deadlock has occurred.
@@ -2323,7 +1941,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Deadlocks
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-80
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-67
 In syllabus: yes
 Question: In the 12-tape-drive example the system is safe at t0, and becomes unsafe when P2 is granted one more drive. Explain what the mistake was and what the avoidance algorithm should have done.
 Answer: At t0, P0/P1/P2 hold 5/2/2 with maximum needs 10/4/9, so 3 drives are free and <P1, P0, P2> is a safe sequence: P1 needs only 2 more and finishes, returning 4 (free = 5); P0 then takes its 5 and finishes, returning 10 (free = 10); P2 takes its remaining 7.
@@ -2344,7 +1962,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Deadlocks
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-75, PYQ-81
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-63, PYQ-68
 In syllabus: yes
 Question: In the Banker's algorithm, a request passes both checks — it is within the process's Need and within Available — yet the system still refuses it. Explain how that is possible and what the algorithm does next.
 Answer: The two checks only confirm that the request is legal and physically satisfiable. The algorithm then *pretends* to allocate (Available −= Request, Allocation += Request, Need −= Request) and runs the safety algorithm on the resulting state. If no safe sequence exists in that state, the request is refused even though the resources are sitting free.
@@ -2417,7 +2035,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Deadlocks
 Type: written
-Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-82
+Based on: imitates the professor's short explain / justify / compare questions (2020 quizzes, 2022 keys, AOS 2025 papers); same section as PYQ-69
 In syllabus: yes
 Question: Recovery by resource preemption has to address three issues. Name them and explain how each is handled.
 Answer:
@@ -2462,7 +2080,7 @@ Weak / low priority: no
 Unit: 2 Processes
 Topic: Deadlocks
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025)
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025)
 In syllabus: yes
 Question: System with resources A(10), B(5), C(7). Allocation / Max: P0 (0,1,0)/(7,5,3); P1 (2,0,0)/(3,2,2); P2 (3,0,2)/(9,0,2); P3 (2,1,1)/(2,2,2); P4 (0,0,2)/(4,3,3). Is the state safe? What if P1 requests (1,0,2)?
 Answer: **Available** = total − allocated = (10,5,7) − (7,2,5) = **(3,3,2)**. **Need** = Max − Allocation: P0 (7,4,3), P1 (1,2,2), P2 (6,0,0), P3 (0,1,1), P4 (4,3,1).

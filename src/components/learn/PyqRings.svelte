@@ -23,12 +23,14 @@
 
   const pct = (d: number, t: number) => (t ? Math.round((d / t) * 100) : 0);
   const rows = $derived(
-    units.map((u, i) => {
-      const ids = countedIds(u.items, view);
-      const done = ids.filter((id) => statuses[id] === 'completed').length;
-      const r = C - STROKE / 2 - i * (STROKE + GAP);
-      return { ...u, done, total: ids.length, pct: pct(done, ids.length), r, len: 2 * Math.PI * r };
-    }),
+    units
+      .map((u) => ({ ...u, ids: countedIds(u.items, view) }))
+      .filter((u) => u.ids.length > 0) // e.g. "Other" while predicted questions are hidden
+      .map((u, i) => {
+        const done = u.ids.filter((id) => statuses[id] === 'completed').length;
+        const r = C - STROKE / 2 - i * (STROKE + GAP);
+        return { ...u, done, total: u.ids.length, pct: pct(done, u.ids.length), r, len: 2 * Math.PI * r };
+      }),
   );
   const done = $derived(rows.reduce((n, r) => n + r.done, 0));
   const total = $derived(rows.reduce((n, r) => n + r.total, 0));

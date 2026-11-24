@@ -114,7 +114,7 @@ Weak / low priority: no
 Unit: 1 Foundations
 Topic: System Complexity
 Type: numerical
-Based on: imitates the numericals in the past papers (OSN Quiz 6 2020, OSN End 2022, OSN End 2023, OSN End 2025, AOS End 2025); same section as PYQ-2, PYQ-3
+Based on: imitates the professor's numericals (OSN Quiz 6 2020, OSN End 2022, AOS End 2025); same section as PYQ-2, PYQ-3
 In syllabus: yes
 Question: A 20,000-statement program is to be split into modules. Using the slide's model (bugs ∝ N, time to fix a bug ∝ N), by what factor does splitting it into 20 modules reduce debugging time? What assumption does the argument depend on, and which tool provides it?
 Answer: **Monolith:** ≈ N × N = 20,000^2 = 4 × 10^8 units. **20 modules** of 1,000 statements: each costs 1,000^2 = 10^6, total 20 × 10^6 = 2 × 10^7. Reduction factor = 4 × 10^8 / 2 × 10^7 = **20 = K**.
