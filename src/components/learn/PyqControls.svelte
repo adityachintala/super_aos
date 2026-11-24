@@ -3,16 +3,18 @@
   // (J/K next/previous question, Space show/hide answer, C cycle status).
   import { onMount } from 'svelte';
   import Icon from '../Icon.svelte';
-  import { answerCommand, isFilteredOut, loadPyqStatus, loadPyqView, pyqStatus, pyqView, setAllAnswers } from '../../lib/pyq-status';
+  import { answerCommand, clearFilters, DEFAULT_VIEW, isFilteredOut, loadPyqStatus, loadPyqView, pyqStatus, pyqView, setAllAnswers, type Counted } from '../../lib/pyq-status';
   import { currentCard, move, setActive } from '../../lib/pyq-nav';
 
-  let { ids }: { ids: string[] } = $props();
+  let { items }: { items: Counted[] } = $props();
 
   let mounted = $state(false);
   const statuses = $derived(mounted ? $pyqStatus : {});
-  const view = $derived(mounted ? $pyqView : { revisitOnly: false, hideCompleted: false });
-  const revisitCount = $derived(ids.filter((id) => statuses[id] === 'revisit').length);
-  const visibleCount = $derived(ids.filter((id) => !isFilteredOut(view, statuses[id] ?? 'incomplete')).length);
+  const view = $derived(mounted ? $pyqView : DEFAULT_VIEW);
+  const shownItems = $derived(items.filter((x) => !x.predicted || view.showPredicted));
+  const revisitCount = $derived(shownItems.filter((x) => statuses[x.id] === 'revisit').length);
+  const visibleCount = $derived(shownItems.filter((x) => !isFilteredOut(view, statuses[x.id] ?? 'incomplete', x.predicted)).length);
+  const predictedCount = items.filter((x) => x.predicted).length;
   const filtering = $derived(view.revisitOnly || view.hideCompleted);
 
   function typing(t: EventTarget | null) {
@@ -61,14 +63,14 @@
   // Labels show only when the bar is wide enough for them. On narrow phones the buttons
   // become four equal icon-only boxes (container query on .pyq-bar).
   const BTN =
-    'inline-flex h-8 min-w-0 items-center justify-center gap-1 rounded-full border px-2 text-xs font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-outline/50 @min-[22.5rem]:h-7 @min-[22.5rem]:shrink-0 sm:h-8 sm:gap-1.5 sm:px-3 sm:text-sm';
-  const LABEL = 'hidden @min-[22.5rem]:inline';
+    'inline-flex h-8 min-w-0 items-center justify-center gap-1 rounded-full border px-2 text-xs font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-outline/50 @min-[30rem]:h-7 @min-[30rem]:shrink-0 sm:h-8 sm:gap-1.5 sm:px-3 sm:text-sm';
+  const LABEL = 'hidden @min-[30rem]:inline';
   const off = 'border-input bg-background hover:bg-muted dark:bg-input/30';
   const picked = 'border-primary-accent bg-primary-accent/10 text-primary-accent';
 </script>
 
 <div class="pyq-bar @container bg-card/95 sticky top-[57px] z-30 -mx-4 mt-10 border-y px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:px-4 sm:py-2">
-  <div class="grid grid-cols-4 items-center gap-1.5 @min-[22.5rem]:flex @min-[22.5rem]:gap-1 sm:gap-2">
+  <div class="grid grid-cols-5 items-center gap-1.5 @min-[30rem]:flex @min-[30rem]:gap-1 sm:gap-2">
     <button type="button" class="{BTN} {lastAll === 'open' ? picked : off}" aria-label="Open all answers" title="Open all answers" onclick={() => setAllAnswers(true)}>
       <Icon name="eye" class="size-4" /><span class={LABEL}>Open all<span class="hidden sm:inline">{' '}answers</span></span>
     </button>
@@ -97,14 +99,24 @@
     >
       <Icon name="circleCheck" class="size-4" /><span class={LABEL}>Hide{' '}<span class="sm:hidden">done</span><span class="hidden sm:inline">completed</span></span>
     </button>
+    <button
+      type="button"
+      class="{BTN} {view.showPredicted ? 'border-success bg-success text-success-foreground' : off}"
+      aria-pressed={view.showPredicted}
+      aria-label="{view.showPredicted ? 'Hide' : 'Show'} the {predictedCount} predicted questions"
+      title="{view.showPredicted ? 'Hide' : 'Show'} predicted questions"
+      onclick={() => pyqView.update((v) => ({ ...v, showPredicted: !v.showPredicted }))}
+    >
+      <Icon name="bulb" class="size-4" /><span class={LABEL}>Predicted</span>
+    </button>
   </div>
   {#if filtering}
     <p class="text-muted-foreground mt-1 text-xs" role="status">
-      Showing {visibleCount} of {ids.length} questions.
+      Showing {visibleCount} of {shownItems.length} questions.
       {#if visibleCount === 0}
         {view.revisitOnly ? 'Nothing is marked Revisit yet.' : 'Everything here is completed.'}
       {/if}
-      <button type="button" class="text-primary-accent underline underline-offset-2" onclick={() => pyqView.set({ revisitOnly: false, hideCompleted: false })}>Show all</button>
+      <button type="button" class="text-primary-accent underline underline-offset-2" onclick={clearFilters}>Show all</button>
     </p>
   {/if}
 </div>

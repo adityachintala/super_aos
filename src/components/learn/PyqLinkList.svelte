@@ -4,12 +4,13 @@
   // mode "highYield": the most-asked questions, with each one's status.
   import { onMount } from 'svelte';
   import Icon from '../Icon.svelte';
-  import { loadPyqStatus, loadPyqView, pyqStatus, pyqView } from '../../lib/pyq-status';
+  import { clearFilters, DEFAULT_VIEW, loadPyqStatus, loadPyqView, pyqStatus, pyqView } from '../../lib/pyq-status';
 
   interface Link {
     id: string;
     number: number;
-    unitId: number;
+    unitId: number | string;
+    predicted: boolean;
     excerpt: string;
     times: number;
     sources: string[];
@@ -23,8 +24,9 @@
     mounted = true;
   });
   const statuses = $derived(mounted ? $pyqStatus : {});
+  const view = $derived(mounted ? $pyqView : DEFAULT_VIEW);
 
-  const list = $derived(mode === 'revisit' ? items.filter((x) => statuses[x.id] === 'revisit') : items);
+  const list = $derived(mode === 'revisit' ? items.filter((x) => statuses[x.id] === 'revisit' && (!x.predicted || view.showPredicted)) : items);
   const doneCount = $derived(items.filter((x) => statuses[x.id] === 'completed').length);
 
   /** A link to a card that a filter hides first clears the filter, so the jump lands. */
@@ -32,7 +34,8 @@
     const card = document.getElementById(`q-${id}`);
     if (card?.hidden) {
       e.preventDefault();
-      pyqView.set({ revisitOnly: false, hideCompleted: false });
+      clearFilters();
+      if ('predicted' in card.dataset) pyqView.update((v) => ({ ...v, showPredicted: true }));
       requestAnimationFrame(() => card.scrollIntoView({ block: 'start' }));
     }
   }
@@ -60,7 +63,7 @@
       {mode === 'revisit' ? 'Nothing flagged yet. Click a question’s status button twice to mark it Revisit and it will show up here.' : 'No question was asked more than once.'}
     </p>
   {:else}
-    <ol class="mt-3 grid gap-1.5 text-sm {mode === 'revisit' && list.length > 6 ? 'max-h-72 overflow-y-auto pr-1' : ''}">
+    <ol class="mt-3 grid gap-1.5 text-sm {list.length > 8 ? 'max-h-80 overflow-y-auto pr-1' : ''}">
       {#each list as x (x.id)}
         {@const s = statuses[x.id] ?? 'incomplete'}
         <li class="flex items-start gap-2">
@@ -73,7 +76,7 @@
             class="hover:decoration-primary-accent min-w-0 flex-1 underline decoration-[var(--border)] underline-offset-3 {s === 'completed' ? 'text-muted-foreground line-through' : ''}"
             onclick={(e) => open(e, x.id)}
           >
-            <span class="text-muted-foreground font-mono text-xs tabular-nums">U{x.unitId}·Q{x.number}</span>
+            <span class="text-muted-foreground font-mono text-xs tabular-nums">{typeof x.unitId === 'number' ? `U${x.unitId}` : 'Other'}·{x.predicted ? 'P' : 'Q'}{x.number}</span>
             {x.excerpt}
           </a>
           {#if mode === 'highYield'}

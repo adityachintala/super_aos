@@ -51,7 +51,7 @@ export function nextIncomplete(): HTMLElement | null {
   const start = cur ? cards.indexOf(cur) + (cur.dataset.status === 'incomplete' && !activeCard() ? 0 : 1) : 0;
   for (let k = 0; k < cards.length; k++) {
     const c = cards[(start + k) % cards.length];
-    if (c.dataset.status === 'incomplete') return c;
+    if (c.dataset.status === 'incomplete' && !(c.hidden && 'predicted' in c.dataset)) return c;
   }
   return null;
 }

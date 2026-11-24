@@ -59,9 +59,12 @@ export interface PyqView {
   revisitOnly: boolean;
   /** Hide questions marked Completed. */
   hideCompleted: boolean;
+  /** Show predicted questions. Off by default; while off they are hidden and left out of every count. */
+  showPredicted: boolean;
 }
 
-export const pyqView = writable<PyqView>({ revisitOnly: false, hideCompleted: false });
+export const DEFAULT_VIEW: PyqView = { revisitOnly: false, hideCompleted: false, showPredicted: false };
+export const pyqView = writable<PyqView>({ ...DEFAULT_VIEW });
 
 /** Bumped by "Open all answers" / "Close all"; every card follows the latest command. */
 export const answerCommand = writable<{ open: boolean; n: number }>({ open: false, n: 0 });
@@ -70,8 +73,21 @@ export function setAllAnswers(open: boolean) {
   answerCommand.update((c) => ({ open, n: c.n + 1 }));
 }
 
-/** Whether a question with this status is filtered out by the current view. */
-export const isFilteredOut = (v: PyqView, s: PyqStatus) => (v.revisitOnly && s !== 'revisit') || (v.hideCompleted && s === 'completed');
+/** Whether a question is filtered out by the current view. */
+export const isFilteredOut = (v: PyqView, s: PyqStatus, predicted = false) =>
+  (predicted && !v.showPredicted) || (v.revisitOnly && s !== 'revisit') || (v.hideCompleted && s === 'completed');
+
+/** A question as the counting components see it. */
+export interface Counted {
+  id: string;
+  predicted: boolean;
+}
+
+/** The ids that count towards totals: predicted questions only while they are shown. */
+export const countedIds = (list: Counted[], v: PyqView) => list.filter((x) => !x.predicted || v.showPredicted).map((x) => x.id);
+
+/** Clears the Revisit-only and Hide-completed filters, keeping the Predicted choice. */
+export const clearFilters = () => pyqView.update((v) => ({ ...v, revisitOnly: false, hideCompleted: false }));
 
 let viewLoaded = false;
 
@@ -80,7 +96,7 @@ export function loadPyqView() {
   viewLoaded = true;
   try {
     const raw = localStorage.getItem(VIEW_KEY);
-    if (raw) pyqView.set({ revisitOnly: false, hideCompleted: false, ...JSON.parse(raw) });
+    if (raw) pyqView.set({ ...DEFAULT_VIEW, ...JSON.parse(raw) });
   } catch {
     // ignore
   }

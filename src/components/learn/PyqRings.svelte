@@ -2,28 +2,32 @@
   // Concentric progress rings on the /pyq page: one ring per unit (Unit 1 outermost),
   // blue while partly done and green once the unit is complete, with a legend and the total.
   import { onMount } from 'svelte';
-  import { loadPyqStatus, pyqStatus } from '../../lib/pyq-status';
+  import { countedIds, DEFAULT_VIEW, loadPyqStatus, loadPyqView, pyqStatus, pyqView, type Counted } from '../../lib/pyq-status';
 
-  let { units }: { units: { id: number; title: string; ids: string[] }[] } = $props();
+  let { units }: { units: { id: number | string; title: string; items: Counted[] }[] } = $props();
 
   let mounted = $state(false);
   onMount(() => {
     loadPyqStatus();
+    loadPyqView();
     mounted = true;
   });
   const statuses = $derived(mounted ? $pyqStatus : {});
+  const view = $derived(mounted ? $pyqView : DEFAULT_VIEW);
+  const label = (id: number | string) => (typeof id === 'number' ? `Unit ${id}` : 'Other');
 
-  const SIZE = 168;
-  const STROKE = 10;
-  const GAP = 4;
+  const SIZE = 200;
+  const STROKE = 9;
+  const GAP = 3;
   const C = SIZE / 2;
 
   const pct = (d: number, t: number) => (t ? Math.round((d / t) * 100) : 0);
   const rows = $derived(
     units.map((u, i) => {
-      const done = u.ids.filter((id) => statuses[id] === 'completed').length;
+      const ids = countedIds(u.items, view);
+      const done = ids.filter((id) => statuses[id] === 'completed').length;
       const r = C - STROKE / 2 - i * (STROKE + GAP);
-      return { ...u, done, total: u.ids.length, pct: pct(done, u.ids.length), r, len: 2 * Math.PI * r };
+      return { ...u, done, total: ids.length, pct: pct(done, ids.length), r, len: 2 * Math.PI * r };
     }),
   );
   const done = $derived(rows.reduce((n, r) => n + r.done, 0));
@@ -45,7 +49,7 @@
           stroke={tone(r.pct)}
           stroke-width={STROKE}
           stroke-linecap="round"
-          stroke-dasharray="{(r.len * r.done) / r.total} {r.len}"
+          stroke-dasharray="{r.total ? (r.len * r.done) / r.total : 0} {r.len}"
           transform="rotate(-90 {C} {C})"
           class="transition-[stroke-dasharray] duration-500"
         />
@@ -56,12 +60,12 @@
   </svg>
 
   <div class="w-full min-w-0 flex-1">
-    <p class="text-muted-foreground text-xs font-medium tracking-wider uppercase">Your progress · outer ring is Unit 1</p>
+    <p class="text-muted-foreground text-xs font-medium tracking-wider uppercase">Your progress · outer ring is Unit 1{view.showPredicted ? ' · predicted included' : ''}</p>
     <ul class="mt-2 flex flex-col gap-1.5 text-sm">
       {#each rows as r}
         <li class="flex items-center gap-2">
           <span class="size-2.5 shrink-0 rounded-full" style="background: {r.done ? tone(r.pct) : 'var(--muted)'}"></span>
-          <a class="hover:text-primary-accent min-w-0 flex-1 truncate" href="#unit-{r.id}"><span class="text-muted-foreground">Unit {r.id}</span> {r.title}</a>
+          <a class="hover:text-primary-accent min-w-0 flex-1 truncate" href="#unit-{r.id}"><span class="text-muted-foreground">{label(r.id)}</span> {r.title}</a>
           <span class="font-mono text-xs tabular-nums">{r.done}/{r.total}</span>
           <span class="w-10 text-right font-mono text-xs tabular-nums">{r.pct}%</span>
         </li>

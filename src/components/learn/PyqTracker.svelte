@@ -3,15 +3,18 @@
   // per unit and overall. Reads the same store the question cards write to.
   import { onMount } from 'svelte';
   import Icon from '../Icon.svelte';
-  import { loadPyqStatus, pyqStatus, pyqView } from '../../lib/pyq-status';
+  import { countedIds, DEFAULT_VIEW, loadPyqStatus, loadPyqView, pyqStatus, pyqView, type Counted } from '../../lib/pyq-status';
   import { goTo, nextIncomplete } from '../../lib/pyq-nav';
 
-  let { units }: { units: { id: number | string; title: string; ids: string[] }[] } = $props();
+  let { units }: { units: { id: number | string; title: string; items: Counted[] }[] } = $props();
 
   const OPEN_KEY = 'super-aos-pyq-tracker-open';
   let open = $state(true);
   let mounted = $state(false);
   const statuses = $derived(mounted ? $pyqStatus : {});
+  const view = $derived(mounted ? $pyqView : DEFAULT_VIEW);
+  const label = (id: number | string) => (typeof id === 'number' ? `Unit ${id}` : 'Other');
+  const short = (id: number | string) => (typeof id === 'number' ? `U${id}` : 'Other');
 
   /** Id of the unit section at the top of the screen, or null above the first unit. */
   let current = $state<string | null>(null);
@@ -39,6 +42,7 @@
 
   onMount(() => {
     loadPyqStatus();
+    loadPyqView();
     mounted = true;
     let frame = 0;
     const onScroll = () => {
@@ -94,12 +98,13 @@
     units.map((u) => {
       let done = 0;
       let revisit = 0;
-      for (const id of u.ids) {
+      const ids = countedIds(u.items, view);
+      for (const id of ids) {
         const s = statuses[id];
         if (s === 'completed') done++;
         else if (s === 'revisit') revisit++;
       }
-      const total = u.ids.length;
+      const total = ids.length;
       return { ...u, done, revisit, total, left: total - done, pct: pct(done, total) };
     }),
   );
@@ -119,7 +124,7 @@
     onclick={() => setStowed(false)}
   >
     <Icon name="chartPie" class="text-primary-accent size-4" />
-    <span class="font-mono text-xs tabular-nums">{here ? `U${here.id} ${here.pct}%` : `${overall}%`}</span>
+    <span class="font-mono text-xs tabular-nums">{here ? `${short(here.id)} ${here.pct}%` : `${overall}%`}</span>
     <Icon name="chevronDown" class="size-4 rotate-180" />
   </button>
 {/if}
@@ -141,7 +146,7 @@
         <Icon name="chartPie" class="text-primary-accent size-4.5 shrink-0" />
         <span class="min-w-0 flex-1">
           {#if here}
-            <span class="block truncate font-semibold"><span class="text-muted-foreground font-normal">Unit {here.id}</span> {here.title}</span>
+            <span class="block truncate font-semibold"><span class="text-muted-foreground font-normal">{label(here.id)}</span> {here.title}</span>
             <span class="text-muted-foreground block font-mono text-xs tabular-nums">All {done}/{total} · {overall}%</span>
           {:else}
             <span class="font-semibold">Progress</span>
@@ -189,11 +194,11 @@
           {#each rows as r}
             <li class="-mx-2 rounded-md px-2 py-1 {String(r.id) === current ? 'bg-primary/8 ring-primary-accent/40 ring-1' : ''}">
               <a class="hover:text-primary-accent flex items-baseline gap-2" href={`#unit-${r.id}`}>
-                <span class="min-w-0 flex-1 truncate"><span class="text-muted-foreground">U{r.id}</span> {r.title}</span>
+                <span class="min-w-0 flex-1 truncate"><span class="text-muted-foreground">{short(r.id)}</span> {r.title}</span>
                 <span class="font-mono text-xs tabular-nums">{r.done}/{r.total}</span>
                 <span class="w-10 text-right font-mono text-xs font-semibold tabular-nums">{r.pct}%</span>
               </a>
-              <div class="bg-muted mt-1 h-1.5 overflow-hidden rounded-full" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={r.pct} aria-label="Unit {r.id} progress">
+              <div class="bg-muted mt-1 h-1.5 overflow-hidden rounded-full" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={r.pct} aria-label="{label(r.id)} progress">
                 <div class="bg-success h-full rounded-full transition-[width]" style="width: {r.pct}%"></div>
               </div>
               <p class="text-muted-foreground mt-0.5 text-xs">
